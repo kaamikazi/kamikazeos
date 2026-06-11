@@ -1,0 +1,16 @@
+
+=== KamikazeOS v0.3.0 serial log ===
+code=BOOT-000;severity=info;component=kernel;message=Kernel booted successfully;hint=no action needed
+code=KBD-000;severity=info;component=keyboard;message=PS/2 keyboard attached (polling mode);hint=no action needed
+code=GA-BOOT-000;severity=info;component=GhostAttach;message=GhostAttach boot scan started;hint=no action needed
+code=GA-DRV-001;severity=info;component=GhostAttach;message=VGA Text Display attached to exact verified driver;hint=no action needed
+code=GA-DRV-001;severity=info;component=GhostAttach;message=PS/2 Keyboard attached to exact verified driver;hint=no action needed
+code=GA-DRV-001;severity=info;component=GhostAttach;message=COM1 Serial Port attached to exact verified driver;hint=no action needed
+code=GA-SEC-001;severity=warning;component=GhostAttach;message=Storage Controller fallback driver blocked - not verified;hint=only load signed verified drivers
+code=GA-DRV-101;severity=warning;component=GhostAttach;message=Storage Controller missing verified driver;hint=keep device disabled until verified driver exists
+code=GA-DRV-101;severity=warning;component=GhostAttach;message=Network Adapter missing verified driver;hint=keep device disabled until verified driver exists
+code=GA-DRV-002;severity=info;component=GhostAttach;message=Audio Device attached via verified fallback driver;hint=reduced functionality until exact driver exists
+code=GA-DRV-201;severity=error;component=GhostAttach;message=Self-Test Device driver failed to attach - device isolated;hint=device quarantined until a working driver exists
+code=GA-BOOT-001;severity=info;component=GhostAttach;message=GhostAttach boot scan complete;hint=run devices for details
+code=AI-000;severity=info;component=AI Recovery Core;message=AI analyzer not attached yet;hint=export logs with logs-ai
+code=KRN-003;severity=info;component=kernel;message=Boot complete, starting shell;hint=no action needed

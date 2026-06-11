@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KamikazeOS Recovery Center</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header>
+  <div>
+    <h1>KamikazeOS <span class="accent">Recovery Center</span></h1>
+    <p id="meta" class="meta">loading…</p>
+  </div>
+  <div id="health-hero" class="health-hero">
+    <div id="health-score" class="score">–</div>
+    <div class="score-label">health</div>
+  </div>
+</header>
+
+<!-- THE RULE OF THIS DASHBOARD, stated where nobody can miss it. -->
+<div id="safety-banner" class="safety-banner">
+  Recovery Center is read-only. It does not apply repairs.
+  Type commands manually inside KamikazeOS.
+</div>
+
+<main>
+  <section class="panel" id="panel-trend">
+    <h2>Health trend</h2>
+    <div id="trend" class="trend"></div>
+  </section>
+
+  <section class="panel" id="panel-insights">
+    <h2>AI Recovery Core insights</h2>
+    <ul id="insights"></ul>
+  </section>
+
+  <section class="panel" id="panel-recommend">
+    <h2>Recommended actions <span class="hint">(you type these — nothing here clicks itself)</span></h2>
+    <div id="recommendations"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Module versions</h2>
+    <table id="modules"></table>
+  </section>
+
+  <section class="panel">
+    <h2>Package policy</h2>
+    <ul id="pkg-policy" class="policy-list"></ul>
+  </section>
+
+  <section class="panel" id="panel-packages">
+    <h2>Recovery packages <span class="hint">(fixed registry — updates are simulated metadata in v0.9)</span></h2>
+    <table id="packages"></table>
+  </section>
+
+  <section class="panel">
+    <h2>Package history <span class="hint">(durable journal)</span></h2>
+    <div id="pkg-history"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Devices <span class="hint">(GhostAttach)</span></h2>
+    <table id="devices"></table>
+  </section>
+
+  <section class="panel">
+    <h2>Drivers</h2>
+    <table id="drivers"></table>
+  </section>
+
+  <section class="panel">
+    <h2>Recovery actions <span class="hint">(fixed catalog)</span></h2>
+    <table id="actions"></table>
+  </section>
+
+  <section class="panel">
+    <h2>Recovery timeline</h2>
+    <div id="timeline"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Boot snapshots</h2>
+    <table id="snapshots"></table>
+  </section>
+
+  <section class="panel">
+    <h2>Warnings &amp; errors this boot</h2>
+    <div id="issues"></div>
+  </section>
+</main>
+
+<footer>
+  Generated from <code>build/serial.log</code> by
+  <code>ai-recovery/export_dashboard_json.py</code>.
+  Refresh the data with <code>make dashboard-json</code>.
+</footer>
+
+<!-- Data: the .js form exists so file:// pages work without a server.
+     app.js falls back to fetching the .json if this file is absent. -->
+<script src="data/recovery-data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
