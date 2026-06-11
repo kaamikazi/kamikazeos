@@ -46,11 +46,13 @@ h1 { font-size: 22px; font-weight: 600; }
 }
 
 main { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-#panel-packages { grid-column: 1 / -1; }
+#panel-packages, #panel-manifests, #panel-slots { grid-column: 1 / -1; }
 .policy-list { padding-left: 18px; color: var(--dim); }
 .policy-list li { margin-bottom: 4px; }
 .status-verified { color: var(--good); }
 .status-available, .status-rolled_back { color: var(--dim); }
+.status-yes, .status-1 { color: var(--good); }
+.status-no, .status-0 { color: var(--bad); }
 .panel {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -102,6 +104,7 @@ th { color: var(--dim); font-weight: 500; }
   gap: 12px;
 }
 .rec .why { color: var(--dim); font-size: 12px; }
+.why { color: var(--dim); font-size: 12px; margin-top: 4px; }
 .cmd {
   background: #000;
   color: var(--good);
@@ -129,6 +132,14 @@ button.copy:hover { color: var(--text); border-color: var(--dim); }
 .issue .code { color: var(--warn); }
 .issue.critical .code { color: var(--bad); }
 .issue .cause { color: var(--dim); font-size: 12px; padding-left: 14px; }
+
+.pending {
+  color: var(--dim);
+  margin-bottom: 8px;
+}
+.pending.warn {
+  color: var(--warn);
+}
 
 ul#insights { padding-left: 18px; }
 ul#insights li { margin-bottom: 6px; }

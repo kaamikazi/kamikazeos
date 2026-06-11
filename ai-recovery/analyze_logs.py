@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-KamikazeOS AI Recovery Core — host-side log analyzer (v0.4, offline/rule-based)
+KamikazeOS AI Recovery Core — host-side log analyzer (v1.0, offline/rule-based)
 
 This is the first working incarnation of the "maintenance brain". It runs on
 the HOST, outside the kernel, and its powers are deliberately limited:
@@ -8,7 +8,7 @@ the HOST, outside the kernel, and its powers are deliberately limited:
     READ logs  ->  EXPLAIN problems  ->  RANK risk  ->  SUGGEST next actions
 
 It never patches binaries, installs drivers, downloads code, or modifies the
-OS. Every suggestion is for a HUMAN to approve and perform. v0.4 is
+OS. Every suggestion is for a HUMAN to approve and perform. v1.0 is
 rule-based (no AI API yet) so the pipeline can be built and trusted first;
 see analyze_with_ai_later() at the bottom for where a real model plugs in.
 
@@ -26,7 +26,7 @@ from pathlib import Path
 
 # --------------------------------------------------------------------------
 # The rule base: stable error codes -> likely cause + safe manual next action.
-# This table IS the v0.4 "intelligence". A stable code from the kernel gives
+# This table IS the offline "intelligence". A stable code from the kernel gives
 # us ground truth; free-text guessing is exactly what we avoid.
 # --------------------------------------------------------------------------
 RULES = {
@@ -77,6 +77,86 @@ RULES = {
         "cause":  "A recovery action passed approval but its apply step "
                   "failed. State was left unchanged.",
         "action": "Report this as a RecoveryEngine bug; include the log.",
+    },
+    "PKG-SUG-001": {
+        "cause":  "A verified manifest matches the currently active module "
+                  "version, so the package is available for the human-driven "
+                  "approve/apply/verify flow.",
+        "action": "Review package details inside KamikazeOS, then run "
+                  "approve-pkg/apply-pkg/verify-pkg only if you accept the risk.",
+    },
+    "PKG-BLOCK-001": {
+        "cause":  "A recovery package failed the deterministic verification "
+                  "chain: unsigned, invalid, unknown trust anchor, high-risk, "
+                  "irreversible, checksum mismatch, or blocked payload type.",
+        "action": "Do not override the block. Use only a future verified, "
+                  "reversible manifest that passes the trust-anchor policy.",
+    },
+    "PKG-ACT-001": {
+        "cause":  "A human approved a package that passed the manifest and "
+                  "policy checks.",
+        "action": "Continue with apply-pkg, then verify-pkg. Approval alone "
+                  "does not change module state.",
+    },
+    "PKG-ACT-002": {
+        "cause":  "The package switched metadata to the inactive A/B module "
+                  "slot and marked it pending verification.",
+        "action": "Run verify-pkg before trusting the new slot. Use rollback-pkg "
+                  "if verification fails or confidence drops.",
+    },
+    "PKG-ACT-003": {
+        "cause":  "Post-apply verification passed: expected slot, expected "
+                  "version, no new criticals, and acceptable health delta.",
+        "action": "No immediate action required. rollback-pkg remains the "
+                  "manual escape hatch while rollback metadata exists.",
+    },
+    "PKG-ACT-004": {
+        "cause":  "Post-apply verification failed after a package apply.",
+        "action": "Run rollback-pkg for the failed package to return to the "
+                  "known-good slot.",
+    },
+    "PKG-PENDING-VERIFY": {
+        "cause":  "A package was applied before a reboot or crash and its new "
+                  "slot has not been verified yet.",
+        "action": "Run verify-pkg for the applied package, or rollback-pkg to "
+                  "return to the known-good slot.",
+    },
+    "PKG-RB-001": {
+        "cause":  "A package rollback switched active module metadata back to "
+                  "the recorded known-good slot.",
+        "action": "Confirm health on the next boot and investigate why the new "
+                  "slot was not kept.",
+    },
+    "MAN-000": {
+        "cause":  "Package manifests were loaded from disk sectors and checked "
+                  "against the simulated trust-anchor policy.",
+        "action": "No action needed unless a specific package is blocked.",
+    },
+    "MAN-001": {
+        "cause":  "No valid disk manifests were present, so KamikazeOS fell "
+                  "back to the built-in seed manifest set.",
+        "action": "Run seed-manifests confirm inside KamikazeOS if you want the "
+                  "seed manifests persisted to disk.",
+    },
+    "MAN-002": {
+        "cause":  "The built-in seed manifest set was written to the manifest "
+                  "sectors.",
+        "action": "No action needed. Future boots should report disk-sourced "
+                  "manifests.",
+    },
+    "PST-000": {
+        "cause":  "Persistent package lifecycle state was restored from disk.",
+        "action": "No action needed. Package status now survives QEMU restarts.",
+    },
+    "PST-100": {
+        "cause":  "A human reset package lifecycle state and A/B slot metadata.",
+        "action": "Review packages and slots after reboot; journal history was "
+                  "preserved.",
+    },
+    "SLOT-000": {
+        "cause":  "Module A/B slot metadata was restored from disk and now "
+                  "defines the running module versions.",
+        "action": "No action needed unless a slot is pending verification.",
     },
     "BOOT-001": {
         "cause":  "The kernel was started by something that is not a "
@@ -233,7 +313,7 @@ def print_issue(e):
         print(f"    cause   : {rule['cause']}")
         print(f"    action  : {rule['action']}")
     else:
-        print( "    cause   : unknown code - not in the v0.4 rule base.")
+        print( "    cause   : unknown code - not in the offline rule base.")
         print( "    action  : investigate manually; consider adding a rule for it.")
     print()
 
@@ -250,7 +330,7 @@ def main():
     lines, after_lines, found = extract_last_boot_report(text)
 
     print("=" * 72)
-    print(" KamikazeOS AI RECOVERY CORE - recovery report (v0.4, rule-based)")
+    print(" KamikazeOS AI RECOVERY CORE - recovery report (v1.0, rule-based)")
     print("=" * 72)
 
     if not found:
@@ -621,7 +701,7 @@ def main():
 
 
 # --------------------------------------------------------------------------
-# FUTURE AI INTEGRATION POINT (deliberately not implemented in v0.4)
+# FUTURE AI INTEGRATION POINT (deliberately not implemented in v1.0)
 # --------------------------------------------------------------------------
 def analyze_with_ai_later(log_text: str):
     """
@@ -640,7 +720,7 @@ def analyze_with_ai_later(log_text: str):
         as this rule-based analyzer - the policy engine, not the model,
         decides what may ever be applied automatically.
 
-    Keeping this stub un-implemented in v0.4 is intentional: the transport,
+    Keeping this stub un-implemented in v1.0 is intentional: the transport,
     format, and approval workflow get built and trusted first.
     """
     raise NotImplementedError("AI analysis arrives in a later phase - see docstring")

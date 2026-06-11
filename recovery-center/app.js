@@ -81,7 +81,7 @@ function render(data) {
   if (!data.insights?.length)
     insights.appendChild(el("li", "hint", "no notable patterns detected"));
 
-  // Module versions + packages (v0.9)
+  // Module versions + packages (v1.0)
   renderTable("modules", data.modules || [], [
     { key: "module", label: "Module" },
     { key: "version", label: "Version" },
@@ -102,6 +102,57 @@ function render(data) {
     { key: "from", label: "From" }, { key: "to", label: "To" },
     { key: "risk", label: "Risk" }, { key: "signature", label: "Signature" },
     { key: "status", label: "Status", statusClass: true },
+  ]);
+
+  const trust = document.getElementById("trust");
+  if (trust) {
+    trust.innerHTML = "";
+    if (data.trust && Object.keys(data.trust).length) {
+      trust.appendChild(el("div", null, `anchor: ${data.trust.anchor_id || "?"}`));
+      trust.appendChild(el("div", "why", `fingerprint: ${data.trust.fingerprint || "?"}`));
+      trust.appendChild(el("div", "why",
+        `signature verification: ${data.trust.signature_verification || "simulated"}`));
+      if (data.trust.note) trust.appendChild(el("div", "why", data.trust.note));
+    } else {
+      trust.appendChild(el("div", "hint", "no trust anchor section in this report"));
+    }
+  }
+
+  renderTable("manifests", data.manifests || [], [
+    { key: "id", label: "ID" },
+    { key: "payload", label: "Payload" },
+    { key: "trust_anchor", label: "Trust Anchor" },
+    { key: "verifies", label: "Verifies", statusClass: true },
+    { key: "reason", label: "Reason" },
+  ]);
+
+  renderTable("package-states", data.package_states || [], [
+    { key: "id", label: "ID" },
+    { key: "approved", label: "Approved" },
+    { key: "applied", label: "Applied" },
+    { key: "verified", label: "Verified" },
+    { key: "failed", label: "Failed" },
+    { key: "rolled_back", label: "Rolled Back" },
+    { key: "from", label: "From" },
+    { key: "to", label: "To" },
+  ]);
+
+  const pending = document.getElementById("pending-verification");
+  if (pending) {
+    pending.textContent = data.pending_verification
+      ? "Applied update pending verification: run verify-pkg or rollback-pkg inside KamikazeOS."
+      : "No applied update is pending verification.";
+    pending.className = data.pending_verification ? "pending warn" : "pending";
+  }
+  renderTable("module-slots", data.module_slots || [], [
+    { key: "module", label: "Module" },
+    { key: "active", label: "Active" },
+    { key: "slot_a", label: "Slot A" },
+    { key: "slot_a_verified", label: "A OK" },
+    { key: "slot_b", label: "Slot B" },
+    { key: "slot_b_verified", label: "B OK" },
+    { key: "rollback", label: "Rollback" },
+    { key: "pending_verify", label: "Pending" },
   ]);
 
   const ph = document.getElementById("pkg-history");

@@ -1,17 +1,17 @@
 {
-  "version": "0.9.0",
+  "version": "1.0.0",
   "backend": "disk+CMOS",
   "store": {
     "backend": "disk+CMOS",
     "disk_available": "1",
     "state_valid": "1",
-    "journal_count": "11",
-    "durable_boot_count": "1",
+    "journal_count": "13",
+    "durable_boot_count": "2",
     "cmos_fallback_used": "0"
   },
   "memory": {
     "persistence_mode": "cmos_nvram_survives_reboot_not_qemu_restart",
-    "boot_count": "1",
+    "boot_count": "2",
     "safe_mode_next_boot": "0",
     "safe_mode_active": "0",
     "network_quarantined": "0",
@@ -21,14 +21,14 @@
     "last_action_id": "none"
   },
   "health": {
-    "score": "17",
+    "score": "22",
     "panic_penalty": "0",
     "missing_penalty": "20",
     "isolated_penalty": "8",
-    "warning_penalty": "30",
+    "warning_penalty": "25",
     "critical_penalty": "25",
-    "prev_score": "none",
-    "health_delta": "none"
+    "prev_score": "22",
+    "health_delta": "0"
   },
   "snapshots": [
     {
@@ -219,15 +219,6 @@
     {
       "boot": "1",
       "event": "SUGGESTED",
-      "action": "ACT-001",
-      "result": "ok",
-      "risk": "low",
-      "reversible": "yes",
-      "code": "REC001"
-    },
-    {
-      "boot": "1",
-      "event": "SUGGESTED",
       "action": "ACT-004",
       "result": "ok",
       "risk": "medium",
@@ -314,6 +305,24 @@
       "risk": "low",
       "reversible": "yes",
       "code": "PKGRBK"
+    },
+    {
+      "boot": "2",
+      "event": "SUGGESTED",
+      "action": "ACT-001",
+      "result": "ok",
+      "risk": "low",
+      "reversible": "yes",
+      "code": "REC001"
+    },
+    {
+      "boot": "2",
+      "event": "SUGGESTED",
+      "action": "ACT-004",
+      "result": "ok",
+      "risk": "medium",
+      "reversible": "yes",
+      "code": "REC001"
     }
   ],
   "events": [
@@ -357,14 +366,7 @@
       "severity": "warning",
       "component": "RecoveryPackage",
       "message": "Blocked package PKG-003 install_unknown_network_driver",
-      "hint": "unsigned packages are blocked"
-    },
-    {
-      "code": "PKG-BLOCK-001",
-      "severity": "warning",
-      "component": "RecoveryPackage",
-      "message": "Blocked package PKG-003 install_unknown_network_driver",
-      "hint": "unsigned packages are blocked"
+      "hint": "unsigned - no signature at all"
     }
   ],
   "modules": [
@@ -376,9 +378,9 @@
     },
     {
       "module": "GhostAttach",
-      "version": "0.4",
+      "version": "0.3",
       "base": "0.3",
-      "updated": "1"
+      "updated": "0"
     },
     {
       "module": "RecoveryEngine",
@@ -413,7 +415,10 @@
   ],
   "packages": [
     {
-      "package_state": "runtime_only_journal_is_durable"
+      "package_state": "persistent_on_disk"
+    },
+    {
+      "manifest_source": "builtin_seed"
     },
     {
       "id": "PKG-001",
@@ -425,7 +430,7 @@
       "reversible": "yes",
       "signature": "signed_placeholder",
       "checksum": "ok",
-      "status": "verified"
+      "status": "suggested"
     },
     {
       "id": "PKG-002",
@@ -437,7 +442,7 @@
       "reversible": "yes",
       "signature": "signed_placeholder",
       "checksum": "ok",
-      "status": "rolled_back"
+      "status": "suggested"
     },
     {
       "id": "PKG-003",
@@ -464,6 +469,86 @@
       "status": "suggested"
     }
   ],
+  "trust": {
+    "anchor_id": "KMZ-ROOT-1",
+    "fingerprint": "SIM:4B5A:1000:C0DE:FACE:2026",
+    "signature_verification": "simulated",
+    "note": "real crypto planned - unknown anchors are blocked today"
+  },
+  "manifests": [
+    {
+      "id": "PKG-001",
+      "payload": "module_slot_switch_simulated",
+      "trust_anchor": "KMZ-ROOT-1",
+      "verifies": "yes",
+      "reason": "passes verification - requires human approval"
+    },
+    {
+      "id": "PKG-002",
+      "payload": "module_slot_switch_simulated",
+      "trust_anchor": "KMZ-ROOT-1",
+      "verifies": "yes",
+      "reason": "passes verification - requires human approval"
+    },
+    {
+      "id": "PKG-003",
+      "payload": "blocked_driver_install",
+      "trust_anchor": "unknown",
+      "verifies": "no",
+      "reason": "unsigned - no signature at all"
+    },
+    {
+      "id": "PKG-004",
+      "payload": "module_slot_switch_simulated",
+      "trust_anchor": "KMZ-ROOT-1",
+      "verifies": "yes",
+      "reason": "passes verification - requires human approval"
+    }
+  ],
+  "package_states": [],
+  "module_slots": [
+    {
+      "module": "GhostAttach",
+      "active": "A",
+      "slot_a": "0.3",
+      "slot_a_verified": "1",
+      "slot_b": "-",
+      "slot_b_verified": "0",
+      "rollback": "none",
+      "pending_verify": "0"
+    },
+    {
+      "module": "RecoveryEngine",
+      "active": "A",
+      "slot_a": "0.5",
+      "slot_a_verified": "1",
+      "slot_b": "-",
+      "slot_b_verified": "0",
+      "rollback": "none",
+      "pending_verify": "0"
+    },
+    {
+      "module": "AI Recovery Core Rules",
+      "active": "A",
+      "slot_a": "0.4",
+      "slot_a_verified": "1",
+      "slot_b": "-",
+      "slot_b_verified": "0",
+      "rollback": "none",
+      "pending_verify": "0"
+    },
+    {
+      "module": "Recovery Center Schema",
+      "active": "A",
+      "slot_a": "0.8",
+      "slot_a_verified": "1",
+      "slot_b": "-",
+      "slot_b_verified": "0",
+      "rollback": "none",
+      "pending_verify": "0"
+    }
+  ],
+  "pending_verification": false,
   "package_policy": [
     "rule=unsigned_blocked",
     "rule=invalid_signature_blocked",
@@ -527,6 +612,30 @@
   ],
   "package_recommendations": [
     {
+      "id": "PKG-001",
+      "name": "ghostattach_policy_update",
+      "risk": "low",
+      "reversible": "yes",
+      "reason": "update available 0.3 -> 0.4",
+      "commands": [
+        "approve-pkg PKG-001",
+        "apply-pkg PKG-001",
+        "verify-pkg PKG-001"
+      ]
+    },
+    {
+      "id": "PKG-002",
+      "name": "recovery_analyzer_rules_update",
+      "risk": "low",
+      "reversible": "yes",
+      "reason": "update available 0.4 -> 0.5",
+      "commands": [
+        "approve-pkg PKG-002",
+        "apply-pkg PKG-002",
+        "verify-pkg PKG-002"
+      ]
+    },
+    {
       "id": "PKG-004",
       "name": "safe_mode_policy_update",
       "risk": "medium",
@@ -571,6 +680,62 @@
     "REC-ACT-004": {
       "cause": "A recovery action passed approval but its apply step failed. State was left unchanged.",
       "action": "Report this as a RecoveryEngine bug; include the log."
+    },
+    "PKG-SUG-001": {
+      "cause": "A verified manifest matches the currently active module version, so the package is available for the human-driven approve/apply/verify flow.",
+      "action": "Review package details inside KamikazeOS, then run approve-pkg/apply-pkg/verify-pkg only if you accept the risk."
+    },
+    "PKG-BLOCK-001": {
+      "cause": "A recovery package failed the deterministic verification chain: unsigned, invalid, unknown trust anchor, high-risk, irreversible, checksum mismatch, or blocked payload type.",
+      "action": "Do not override the block. Use only a future verified, reversible manifest that passes the trust-anchor policy."
+    },
+    "PKG-ACT-001": {
+      "cause": "A human approved a package that passed the manifest and policy checks.",
+      "action": "Continue with apply-pkg, then verify-pkg. Approval alone does not change module state."
+    },
+    "PKG-ACT-002": {
+      "cause": "The package switched metadata to the inactive A/B module slot and marked it pending verification.",
+      "action": "Run verify-pkg before trusting the new slot. Use rollback-pkg if verification fails or confidence drops."
+    },
+    "PKG-ACT-003": {
+      "cause": "Post-apply verification passed: expected slot, expected version, no new criticals, and acceptable health delta.",
+      "action": "No immediate action required. rollback-pkg remains the manual escape hatch while rollback metadata exists."
+    },
+    "PKG-ACT-004": {
+      "cause": "Post-apply verification failed after a package apply.",
+      "action": "Run rollback-pkg for the failed package to return to the known-good slot."
+    },
+    "PKG-PENDING-VERIFY": {
+      "cause": "A package was applied before a reboot or crash and its new slot has not been verified yet.",
+      "action": "Run verify-pkg for the applied package, or rollback-pkg to return to the known-good slot."
+    },
+    "PKG-RB-001": {
+      "cause": "A package rollback switched active module metadata back to the recorded known-good slot.",
+      "action": "Confirm health on the next boot and investigate why the new slot was not kept."
+    },
+    "MAN-000": {
+      "cause": "Package manifests were loaded from disk sectors and checked against the simulated trust-anchor policy.",
+      "action": "No action needed unless a specific package is blocked."
+    },
+    "MAN-001": {
+      "cause": "No valid disk manifests were present, so KamikazeOS fell back to the built-in seed manifest set.",
+      "action": "Run seed-manifests confirm inside KamikazeOS if you want the seed manifests persisted to disk."
+    },
+    "MAN-002": {
+      "cause": "The built-in seed manifest set was written to the manifest sectors.",
+      "action": "No action needed. Future boots should report disk-sourced manifests."
+    },
+    "PST-000": {
+      "cause": "Persistent package lifecycle state was restored from disk.",
+      "action": "No action needed. Package status now survives QEMU restarts."
+    },
+    "PST-100": {
+      "cause": "A human reset package lifecycle state and A/B slot metadata.",
+      "action": "Review packages and slots after reboot; journal history was preserved."
+    },
+    "SLOT-000": {
+      "cause": "Module A/B slot metadata was restored from disk and now defines the running module versions.",
+      "action": "No action needed unless a slot is pending verification."
     },
     "BOOT-001": {
       "cause": "The kernel was started by something that is not a Multiboot-compliant loader; boot information is untrusted.",

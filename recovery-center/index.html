@@ -50,9 +50,30 @@
     <ul id="pkg-policy" class="policy-list"></ul>
   </section>
 
+  <section class="panel" id="panel-trust">
+    <h2>Trust anchor <span class="hint">(signature verification is simulated)</span></h2>
+    <div id="trust"></div>
+  </section>
+
   <section class="panel" id="panel-packages">
-    <h2>Recovery packages <span class="hint">(fixed registry — updates are simulated metadata in v0.9)</span></h2>
+    <h2>Recovery packages <span class="hint">(fixed registry - A/B slot metadata only in v1.0)</span></h2>
     <table id="packages"></table>
+  </section>
+
+  <section class="panel" id="panel-manifests">
+    <h2>Package manifests <span class="hint">(disk or built-in seed)</span></h2>
+    <table id="manifests"></table>
+  </section>
+
+  <section class="panel" id="panel-states">
+    <h2>Persistent package state</h2>
+    <table id="package-states"></table>
+  </section>
+
+  <section class="panel" id="panel-slots">
+    <h2>Module A/B slots <span class="hint">(metadata-level rollback)</span></h2>
+    <div id="pending-verification" class="pending"></div>
+    <table id="module-slots"></table>
   </section>
 
   <section class="panel">
