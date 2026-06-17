@@ -1,0 +1,66 @@
+# KamikazeOS Version History
+
+## v1.3.0 "Public Release"
+
+Documentation, demo, and release polish. No new dangerous functionality was
+added. v1.2 remains the latest technical feature milestone.
+
+## v1.2.0 "Trust Forge"
+
+Added offline signing tools:
+
+- `generate_keypair.py`
+- `sign_manifest.py`
+- `verify_signature.py`
+
+Host-side Ed25519 signing and verification are real. Kernel-side Ed25519
+verification remains simulated, while checksum, trust-anchor identity,
+signature metadata, and policy gates are enforced by the kernel.
+
+## v1.1.0 "Offline Package Manifest Tooling"
+
+Added host tools to create, validate, import, and export package manifests
+into/from `build/recovery.img`. Imported manifests appear in the shell,
+serial reports, analyzer, and Recovery Center.
+
+## v1.0.0
+
+Added disk-backed manifests, persistent package state, A/B module slot
+metadata, trust-anchor simulation, pending verification tracking, analyzer
+support, and Recovery Center support.
+
+## v0.9.0 "Controlled Burn"
+
+Added package lifecycle commands and policy gates:
+
+- `approve-pkg`
+- `apply-pkg`
+- `verify-pkg`
+- `rollback-pkg`
+
+Application was simulated as module version metadata only.
+
+## v0.8.0 "Vital Signs"
+
+Added boot snapshots, health scoring, and recovery timeline reporting.
+
+## v0.7.0 "Black Box"
+
+Added ATA PIO disk-backed RecoveryStore and durable journal.
+
+## v0.6.0 "Long Memory"
+
+Added RecoveryMemory using CMOS/NVRAM with disk fallback added later.
+
+## v0.5.0 "Closed Loop"
+
+Added RecoveryEngine fixed action catalog, policy gates, approvals, and
+rollbacks.
+
+## v0.4.0 "Open Channel"
+
+Added serial boot reports and the offline analyzer.
+
+## v0.3.0 "Ghost in the Machine"
+
+Added GhostAttach device/driver policy, structured logs, and shell commands.

@@ -314,7 +314,7 @@ int manifest_verify(const struct pkg_manifest *m, const char **reason)
         return 0;
     }
     if (!m->reversible) {
-        *reason = "irreversible packages are blocked in v1.2";
+        *reason = "irreversible packages are blocked by policy";
         return 0;
     }
     *reason = "passes verification - requires human approval";

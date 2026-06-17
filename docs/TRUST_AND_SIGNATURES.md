@@ -1,12 +1,13 @@
 # KamikazeOS Trust And Signatures
 
-Status: v1.2 "Trust Forge".
+Status: v1.3 public release. The technical trust milestone is v1.2
+"Trust Forge".
 
 KamikazeOS v1.2 adds real host-side offline signing for package manifests.
 The kernel still does not implement Ed25519 math; it enforces signature
 metadata, checksums, trust-anchor identity, and package policy gates.
 
-## Real In v1.2
+## Real
 
 - Host-side Ed25519 keypair generation.
 - Host-side deterministic signed payload.
@@ -15,7 +16,7 @@ metadata, checksums, trust-anchor identity, and package policy gates.
 - Disk manifest import/export.
 - Kernel-side independent checksum/trust/policy rejection.
 
-## Simulated In v1.2
+## Simulated
 
 - In-kernel Ed25519 verification.
 - Binary patching.
@@ -82,3 +83,12 @@ Because full Ed25519 is not implemented in the kernel, report fields say
 `signature_mode=simulated_kernel_check_host_ed25519`. The host tools are still
 responsible for real signature verification before import, and the kernel is
 still responsible for rejecting unsafe manifests at boot.
+
+## Public Demo Wording
+
+Use this exact distinction when presenting the project:
+
+- Real: offline Ed25519 signing and verification by host tools.
+- Real: kernel-side checksum, trust-anchor, signature metadata, and policy
+  enforcement.
+- Simulated: in-kernel Ed25519 cryptographic verification.

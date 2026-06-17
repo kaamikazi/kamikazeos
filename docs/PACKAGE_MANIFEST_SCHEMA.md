@@ -1,12 +1,13 @@
 # KamikazeOS Package Manifest Schema
 
-Status: v1.2 offline tooling.
+Status: v1.3 public release. The manifest tooling was introduced in v1.1 and
+signed in v1.2.
 
 KamikazeOS package manifests are small JSON documents on the host and fixed
 512-byte sectors on `build/recovery.img`. Host tools can create, validate,
 import, and export them, but the kernel still validates every manifest at boot.
 
-## Real in v1.2
+## Real
 
 - Offline manifest tooling.
 - Deterministic manifest checksums.
@@ -15,7 +16,7 @@ import, and export them, but the kernel still validates every manifest at boot.
 - Kernel-side manifest validation.
 - Package policy rejection.
 
-## Simulated in v1.2
+## Simulated
 
 - Cryptographic signature verification.
 - In-kernel Ed25519 verification.
@@ -75,7 +76,7 @@ Field limits mirror the kernel sector format:
 | `target_module` | `Kernel`, `GhostAttach`, `RecoveryEngine`, `RecoveryMemory`, `RecoveryStore`, `AI Recovery Core Rules`, `Recovery Center Schema` |
 | `from_version`, `to_version` | ASCII, max 7 bytes each |
 | `risk` | `low`, `medium`, `high` |
-| `signature_status` | `trusted` for imported v1.2 manifests; built-in seeds may use `signed_placeholder` |
+| `signature_status` | `trusted` for imported manifests; built-in seeds may use `signed_placeholder` |
 | `trust_anchor_id` | `1` for `KMZ-ROOT-1` |
 | `payload_type` | `metadata_only`, `module_slot_switch_simulated`, `blocked_driver_install`, `unknown` |
 
@@ -93,7 +94,7 @@ A manifest is blocked if any of these are true:
 
 Host tools perform real Ed25519 verification before import. The kernel stores
 and reports compact signature metadata, but in-kernel Ed25519 verification is
-still simulated in v1.2.
+still simulated in v1.3.
 
 ## Tools
 

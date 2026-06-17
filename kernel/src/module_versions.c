@@ -4,7 +4,7 @@
 
 static struct module_version modules[MODULE_COUNT] = {
     /* name                       version  base   updated */
-    { "Kernel",                   "1.2",   "1.2", 0 },
+    { "Kernel",                   "1.3",   "1.3", 0 },
     { "GhostAttach",              "0.3",   "0.3", 0 },
     { "RecoveryEngine",           "0.5",   "0.5", 0 },
     { "RecoveryMemory",           "0.6",   "0.6", 0 },
@@ -15,9 +15,8 @@ static struct module_version modules[MODULE_COUNT] = {
 
 void module_versions_init(void)
 {
-    /* v0.9: versions reset to compiled-in values each boot, because
-       package state is runtime-only (clearly labeled everywhere). The
-       durable journal still proves what was applied historically. */
+    /* Versions reset to compiled-in base values, then package state and
+       A/B slot metadata restore any verified simulated updates. */
     for (int i = 0; i < MODULE_COUNT; i++) {
         modules[i].version = modules[i].base_version;
         modules[i].updated = 0;

@@ -81,7 +81,7 @@ function render(data) {
   if (!data.insights?.length)
     insights.appendChild(el("li", "hint", "no notable patterns detected"));
 
-  // Module versions + packages (v1.2)
+  // Module versions + packages
   renderTable("modules", data.modules || [], [
     { key: "module", label: "Module" },
     { key: "version", label: "Version" },

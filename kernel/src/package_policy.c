@@ -35,7 +35,7 @@ const char *package_policy_reason(enum signature_status sig,
     if (sig == SIG_UNSIGNED)  return "unsigned packages are blocked";
     if (sig == SIG_INVALID)   return "invalid signature - blocked";
     if (risk == RISK_HIGH)    return "high-risk packages are blocked";
-    if (!reversible)          return "irreversible packages are blocked in v1.2";
+    if (!reversible)          return "irreversible packages are blocked by policy";
     if (!checksum_ok)         return "checksum verification failed - blocked";
     return "requires human approval";
 }

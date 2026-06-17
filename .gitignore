@@ -1,4 +1,5 @@
 build/
+build/recovery.img
 *.iso
 *.o
 *.bin

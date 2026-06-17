@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared KamikazeOS v1.2 offline manifest tooling.
+"""Shared KamikazeOS offline manifest tooling.
 
 This module mirrors kernel/src/package_manifest.c. Keep the constants in sync
 with the kernel: host tools prepare sectors, but the kernel remains the source

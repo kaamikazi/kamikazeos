@@ -163,11 +163,11 @@ static void cmd_about(void)
     cpu_vendor(vendor);
 
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
-    vga_print("KamikazeOS v1.2.0 \"Trust Forge\"\n");
+    vga_print("KamikazeOS v1.3.0 \"Public Release\"\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     vga_print("An experimental AI-native, self-healing operating system.\n");
-    vga_print("v1.2: real host-side Ed25519 manifest signing, simulated\n");
-    vga_print("kernel-side signature checks, and A/B slot metadata.\n\n");
+    vga_print("v1.3: public demo/docs release. v1.2 Trust Forge remains\n");
+    vga_print("the latest technical update milestone.\n\n");
     vga_print("  Architecture : x86 (i686), 32-bit protected mode\n");
     vga_print("  CPU vendor   : ");
     vga_print(vendor);
@@ -944,7 +944,7 @@ static void cmd_versions(void)
         vga_print("\n");
     }
     vga_set_color(VGA_DARK_GREY, VGA_BLACK);
-    vga_print("\nv1.2: versions reflect the ACTIVE A/B slot and persist across\n");
+    vga_print("\nVersions reflect the ACTIVE A/B slot and persist across\n");
     vga_print("restarts (see `slots`). Still metadata-level - no binary loading.\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
 }
@@ -1139,7 +1139,7 @@ static void cmd_manifests(void)
 static void cmd_slots(void)
 {
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
-    vga_print("Module A/B Slots (metadata-level in v1.2 - no binary loading):\n");
+    vga_print("Module A/B Slots (metadata-level - no binary loading):\n");
     vga_set_color(VGA_DARK_GREY, VGA_BLACK);
     print_col("Module", 24);
     print_col("Active", 8);
