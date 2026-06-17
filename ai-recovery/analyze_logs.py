@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-KamikazeOS AI Recovery Core — host-side log analyzer (v1.0, offline/rule-based)
+KamikazeOS AI Recovery Core — host-side log analyzer (v1.1, offline/rule-based)
 
 This is the first working incarnation of the "maintenance brain". It runs on
 the HOST, outside the kernel, and its powers are deliberately limited:
@@ -8,7 +8,7 @@ the HOST, outside the kernel, and its powers are deliberately limited:
     READ logs  ->  EXPLAIN problems  ->  RANK risk  ->  SUGGEST next actions
 
 It never patches binaries, installs drivers, downloads code, or modifies the
-OS. Every suggestion is for a HUMAN to approve and perform. v1.0 is
+OS. Every suggestion is for a HUMAN to approve and perform. v1.1 is
 rule-based (no AI API yet) so the pipeline can be built and trusted first;
 see analyze_with_ai_later() at the bottom for where a real model plugs in.
 
@@ -330,7 +330,7 @@ def main():
     lines, after_lines, found = extract_last_boot_report(text)
 
     print("=" * 72)
-    print(" KamikazeOS AI RECOVERY CORE - recovery report (v1.0, rule-based)")
+    print(" KamikazeOS AI RECOVERY CORE - recovery report (v1.1, rule-based)")
     print("=" * 72)
 
     if not found:
@@ -572,12 +572,12 @@ def main():
             print("\nNote: safe-mode-next-boot flag is SET (simulated in v0.5).")
         print()
 
-    # ----- Trust + slots + pending verification (v1.0) ------------------
+    # ----- Trust + slots + pending verification -------------------------
     if trust:
         print(f"Trust anchor: {trust.get('anchor_id', '?')}  "
               f"fingerprint {trust.get('fingerprint', '?')}")
         print(f"  Signature verification mode: "
-              f"{trust.get('signature_verification', '?')} in v1.0 "
+              f"{trust.get('signature_verification', '?')} in v1.1 "
               "- real crypto planned. Unknown anchors are blocked.")
         print()
 
@@ -595,7 +595,7 @@ def main():
         print()
 
     if pending.get("pending") == "1":
-        # The single most important v1.0 recommendation: an applied update
+        # The single most important package recommendation: an applied update
         # was never verified (possibly across a reboot or crash).
         applied_unverified = [p for p in pkgs if p.get("status") == "applied"]
         print("!! An applied update is PENDING VERIFICATION.")
@@ -623,6 +623,7 @@ def main():
             "GhostAttach": "GhostAttach",
             "AI Recovery Core": "AI Recovery Core Rules",
             "RecoveryEngine": "RecoveryEngine",
+            "Recovery Center": "Recovery Center Schema",
         }
         updates, blocked_pkgs, failed_pkgs = [], [], []
         for p in pkgs:
@@ -632,7 +633,8 @@ def main():
                 blocked_pkgs.append(p)
             elif p.get("status") == "failed":
                 failed_pkgs.append(p)
-            elif p.get("status") in ("available", "suggested"):
+            elif p.get("policy_result", "allowed") == "allowed" and \
+                    p.get("status") in ("available", "suggested"):
                 running = mod_ver.get(target_to_module.get(p.get("target"), ""))
                 if running == p.get("from"):
                     updates.append(p)
@@ -640,9 +642,10 @@ def main():
         if updates:
             print("Available updates (run the full flow for each):")
             for p in updates:
+                src = p.get("source", "builtin_seed")
                 print(f"\n  * {p.get('id')} {p.get('name')}  "
                       f"({p.get('from')} -> {p.get('to')}, risk {p.get('risk')}, "
-                      f"signature {p.get('signature')})")
+                      f"signature {p.get('signature')}, source {src})")
                 print(f"    approve-pkg {p.get('id')}")
                 print(f"    apply-pkg {p.get('id')}")
                 print(f"    verify-pkg {p.get('id')}")
@@ -665,10 +668,28 @@ def main():
                     why.append("high risk")
                 if p.get("reversible") == "no":
                     why.append("irreversible")
+                if p.get("checksum_valid") == "no":
+                    why.append("checksum mismatch")
+                if p.get("trust_valid") == "no":
+                    why.append("trust invalid")
+                if p.get("block_reason") and p.get("block_reason") != "none":
+                    why.append(p.get("block_reason"))
                 print(f"  * {p.get('id')} {p.get('name')} - {', '.join(why)}.")
                 print("    No approval can override this; a future verified, "
                       "signed, reversible")
                 print("    package is the only path.")
+            print()
+
+        imported = [p for p in pkgs if p.get("source") == "disk_imported"]
+        if imported:
+            print("Imported disk manifests:")
+            for p in imported:
+                print(f"  * {p.get('id')} source={p.get('source')} "
+                      f"checksum={p.get('checksum_valid', '?')} "
+                      f"trust={p.get('trust_valid', '?')} "
+                      f"policy={p.get('policy_result', '?')}")
+                if p.get("policy_result") == "blocked":
+                    print(f"    blocked: {p.get('block_reason', '?')}")
             print()
 
         verified = [p for p in pkgs if p.get("status") == "verified"]
@@ -694,14 +715,14 @@ def main():
     print("Suggestions come only from the verified manifest registry.")
     print("AI Recovery Core cannot apply packages.")
     print("Human approval inside KamikazeOS is required.")
-    print("Signature verification mode: simulated in v1.0.")
+    print("Signature verification mode: simulated in v1.1.")
     print("-" * 72)
 
     return 1 if buckets["critical"] else 0
 
 
 # --------------------------------------------------------------------------
-# FUTURE AI INTEGRATION POINT (deliberately not implemented in v1.0)
+# FUTURE AI INTEGRATION POINT (deliberately not implemented in v1.1)
 # --------------------------------------------------------------------------
 def analyze_with_ai_later(log_text: str):
     """
@@ -720,7 +741,7 @@ def analyze_with_ai_later(log_text: str):
         as this rule-based analyzer - the policy engine, not the model,
         decides what may ever be applied automatically.
 
-    Keeping this stub un-implemented in v1.0 is intentional: the transport,
+    Keeping this stub un-implemented in v1.1 is intentional: the transport,
     format, and approval workflow get built and trusted first.
     """
     raise NotImplementedError("AI analysis arrives in a later phase - see docstring")

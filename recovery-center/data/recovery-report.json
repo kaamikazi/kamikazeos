@@ -1,17 +1,17 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "backend": "disk+CMOS",
   "store": {
     "backend": "disk+CMOS",
     "disk_available": "1",
     "state_valid": "1",
-    "journal_count": "13",
-    "durable_boot_count": "2",
+    "journal_count": "25",
+    "durable_boot_count": "5",
     "cmos_fallback_used": "0"
   },
   "memory": {
     "persistence_mode": "cmos_nvram_survives_reboot_not_qemu_restart",
-    "boot_count": "2",
+    "boot_count": "5",
     "safe_mode_next_boot": "0",
     "safe_mode_active": "0",
     "network_quarantined": "0",
@@ -21,13 +21,13 @@
     "last_action_id": "none"
   },
   "health": {
-    "score": "22",
+    "score": "27",
     "panic_penalty": "0",
     "missing_penalty": "20",
     "isolated_penalty": "8",
-    "warning_penalty": "25",
+    "warning_penalty": "20",
     "critical_penalty": "25",
-    "prev_score": "22",
+    "prev_score": "27",
     "health_delta": "0"
   },
   "snapshots": [
@@ -43,6 +43,45 @@
       "warnings": "5",
       "criticals": "1",
       "applied": "1"
+    },
+    {
+      "boot": "2",
+      "health": "22",
+      "safe_mode": "0",
+      "panic": "0",
+      "attached": "3",
+      "fallback": "1",
+      "missing": "2",
+      "isolated": "1",
+      "warnings": "5",
+      "criticals": "1",
+      "applied": "1"
+    },
+    {
+      "boot": "3",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "attached": "3",
+      "fallback": "1",
+      "missing": "2",
+      "isolated": "1",
+      "warnings": "4",
+      "criticals": "1",
+      "applied": "1"
+    },
+    {
+      "boot": "4",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "attached": "3",
+      "fallback": "1",
+      "missing": "2",
+      "isolated": "1",
+      "warnings": "4",
+      "criticals": "1",
+      "applied": "1"
     }
   ],
   "timeline": [
@@ -51,7 +90,28 @@
       "health": "22",
       "safe_mode": "0",
       "panic": "0",
-      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004,PKG-BLOCKED ACT-003,PKG-APPROVED ACT-001,PKG-APPLIED ACT-001,PKG-VERIFIED ACT-001,PKG-APPROVED ACT-002,PKG-APPLIED ACT-002,PKG-VERIFIED ACT-002,PKG-ROLLED_BACK ACT-002"
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004,PKG-BLOCKED PKG-003,PKG-APPROVED PKG-001,PKG-APPLIED PKG-001,PKG-VERIFIED PKG-001,PKG-APPROVED PKG-002,PKG-APPLIED PKG-002,PKG-VERIFIED PKG-002,PKG-ROLLED_BACK PKG-002"
+    },
+    {
+      "boot": "2",
+      "health": "22",
+      "safe_mode": "0",
+      "panic": "0",
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
+    },
+    {
+      "boot": "3",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
+    },
+    {
+      "boot": "4",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004,PKG-APPROVED PKG-101,PKG-APPLIED PKG-101,PKG-VERIFIED PKG-101"
     }
   ],
   "devices": [
@@ -217,16 +277,7 @@
   ],
   "journal": [
     {
-      "boot": "1",
-      "event": "SUGGESTED",
-      "action": "ACT-004",
-      "result": "ok",
-      "risk": "medium",
-      "reversible": "yes",
-      "code": "REC001"
-    },
-    {
-      "boot": "1",
+      "boot": "2",
       "event": "CLEAN_BOOT",
       "action": "none",
       "result": "ok",
@@ -235,79 +286,7 @@
       "code": "CLEANB"
     },
     {
-      "boot": "1",
-      "event": "PKG-BLOCKED",
-      "action": "PKG-003",
-      "result": "refused",
-      "risk": "high",
-      "reversible": "no",
-      "code": "PKGBLK"
-    },
-    {
-      "boot": "1",
-      "event": "PKG-APPROVED",
-      "action": "PKG-001",
-      "result": "ok",
-      "risk": "low",
-      "reversible": "yes",
-      "code": "PKGAPR"
-    },
-    {
-      "boot": "1",
-      "event": "PKG-APPLIED",
-      "action": "PKG-001",
-      "result": "ok",
-      "risk": "low",
-      "reversible": "yes",
-      "code": "PKGAPL"
-    },
-    {
-      "boot": "1",
-      "event": "PKG-VERIFIED",
-      "action": "PKG-001",
-      "result": "ok",
-      "risk": "low",
-      "reversible": "yes",
-      "code": "PKGVER"
-    },
-    {
-      "boot": "1",
-      "event": "PKG-APPROVED",
-      "action": "PKG-002",
-      "result": "ok",
-      "risk": "low",
-      "reversible": "yes",
-      "code": "PKGAPR"
-    },
-    {
-      "boot": "1",
-      "event": "PKG-APPLIED",
-      "action": "PKG-002",
-      "result": "ok",
-      "risk": "low",
-      "reversible": "yes",
-      "code": "PKGAPL"
-    },
-    {
-      "boot": "1",
-      "event": "PKG-VERIFIED",
-      "action": "PKG-002",
-      "result": "ok",
-      "risk": "low",
-      "reversible": "yes",
-      "code": "PKGVER"
-    },
-    {
-      "boot": "1",
-      "event": "PKG-ROLLED_BACK",
-      "action": "PKG-002",
-      "result": "ok",
-      "risk": "low",
-      "reversible": "yes",
-      "code": "PKGRBK"
-    },
-    {
-      "boot": "2",
+      "boot": "3",
       "event": "SUGGESTED",
       "action": "ACT-001",
       "result": "ok",
@@ -316,7 +295,88 @@
       "code": "REC001"
     },
     {
-      "boot": "2",
+      "boot": "3",
+      "event": "SUGGESTED",
+      "action": "ACT-004",
+      "result": "ok",
+      "risk": "medium",
+      "reversible": "yes",
+      "code": "REC001"
+    },
+    {
+      "boot": "3",
+      "event": "CLEAN_BOOT",
+      "action": "none",
+      "result": "ok",
+      "risk": "low",
+      "reversible": "yes",
+      "code": "CLEANB"
+    },
+    {
+      "boot": "4",
+      "event": "SUGGESTED",
+      "action": "ACT-001",
+      "result": "ok",
+      "risk": "low",
+      "reversible": "yes",
+      "code": "REC001"
+    },
+    {
+      "boot": "4",
+      "event": "SUGGESTED",
+      "action": "ACT-004",
+      "result": "ok",
+      "risk": "medium",
+      "reversible": "yes",
+      "code": "REC001"
+    },
+    {
+      "boot": "4",
+      "event": "CLEAN_BOOT",
+      "action": "none",
+      "result": "ok",
+      "risk": "low",
+      "reversible": "yes",
+      "code": "CLEANB"
+    },
+    {
+      "boot": "4",
+      "event": "PKG-APPROVED",
+      "action": "PKG-101",
+      "result": "ok",
+      "risk": "low",
+      "reversible": "yes",
+      "code": "PKGAPR"
+    },
+    {
+      "boot": "4",
+      "event": "PKG-APPLIED",
+      "action": "PKG-101",
+      "result": "ok",
+      "risk": "low",
+      "reversible": "yes",
+      "code": "PKGAPL"
+    },
+    {
+      "boot": "4",
+      "event": "PKG-VERIFIED",
+      "action": "PKG-101",
+      "result": "ok",
+      "risk": "low",
+      "reversible": "yes",
+      "code": "PKGVER"
+    },
+    {
+      "boot": "5",
+      "event": "SUGGESTED",
+      "action": "ACT-001",
+      "result": "ok",
+      "risk": "low",
+      "reversible": "yes",
+      "code": "REC001"
+    },
+    {
+      "boot": "5",
       "event": "SUGGESTED",
       "action": "ACT-004",
       "result": "ok",
@@ -360,27 +420,20 @@
       "component": "RecoveryPolicy",
       "message": "Blocked high-risk action ACT-999 install_unknown_driver",
       "hint": "unknown driver installation is not allowed"
-    },
-    {
-      "code": "PKG-BLOCK-001",
-      "severity": "warning",
-      "component": "RecoveryPackage",
-      "message": "Blocked package PKG-003 install_unknown_network_driver",
-      "hint": "unsigned - no signature at all"
     }
   ],
   "modules": [
     {
       "module": "Kernel",
-      "version": "0.9",
-      "base": "0.9",
+      "version": "1.1",
+      "base": "1.1",
       "updated": "0"
     },
     {
       "module": "GhostAttach",
-      "version": "0.3",
+      "version": "0.4",
       "base": "0.3",
-      "updated": "0"
+      "updated": "1"
     },
     {
       "module": "RecoveryEngine",
@@ -418,11 +471,11 @@
       "package_state": "persistent_on_disk"
     },
     {
-      "manifest_source": "builtin_seed"
+      "manifest_source": "disk"
     },
     {
-      "id": "PKG-001",
-      "name": "ghostattach_policy_update",
+      "id": "PKG-101",
+      "name": "ghostattach_policy_import",
       "target": "GhostAttach",
       "from": "0.3",
       "to": "0.4",
@@ -430,43 +483,12 @@
       "reversible": "yes",
       "signature": "signed_placeholder",
       "checksum": "ok",
-      "status": "suggested"
-    },
-    {
-      "id": "PKG-002",
-      "name": "recovery_analyzer_rules_update",
-      "target": "AI Recovery Core",
-      "from": "0.4",
-      "to": "0.5",
-      "risk": "low",
-      "reversible": "yes",
-      "signature": "signed_placeholder",
-      "checksum": "ok",
-      "status": "suggested"
-    },
-    {
-      "id": "PKG-003",
-      "name": "install_unknown_network_driver",
-      "target": "GhostAttach/network",
-      "from": "0.3",
-      "to": "?",
-      "risk": "high",
-      "reversible": "no",
-      "signature": "unsigned",
-      "checksum": "ok",
-      "status": "blocked"
-    },
-    {
-      "id": "PKG-004",
-      "name": "safe_mode_policy_update",
-      "target": "RecoveryEngine",
-      "from": "0.5",
-      "to": "0.6",
-      "risk": "medium",
-      "reversible": "yes",
-      "signature": "signed_placeholder",
-      "checksum": "ok",
-      "status": "suggested"
+      "source": "disk_imported",
+      "checksum_valid": "yes",
+      "trust_valid": "yes",
+      "policy_result": "allowed",
+      "block_reason": "none",
+      "status": "verified"
     }
   ],
   "trust": {
@@ -477,44 +499,39 @@
   },
   "manifests": [
     {
-      "id": "PKG-001",
+      "id": "PKG-101",
       "payload": "module_slot_switch_simulated",
       "trust_anchor": "KMZ-ROOT-1",
+      "source": "disk_imported",
+      "checksum_valid": "yes",
+      "trust_valid": "yes",
       "verifies": "yes",
-      "reason": "passes verification - requires human approval"
-    },
-    {
-      "id": "PKG-002",
-      "payload": "module_slot_switch_simulated",
-      "trust_anchor": "KMZ-ROOT-1",
-      "verifies": "yes",
-      "reason": "passes verification - requires human approval"
-    },
-    {
-      "id": "PKG-003",
-      "payload": "blocked_driver_install",
-      "trust_anchor": "unknown",
-      "verifies": "no",
-      "reason": "unsigned - no signature at all"
-    },
-    {
-      "id": "PKG-004",
-      "payload": "module_slot_switch_simulated",
-      "trust_anchor": "KMZ-ROOT-1",
-      "verifies": "yes",
-      "reason": "passes verification - requires human approval"
+      "policy_result": "allowed",
+      "reason": "passes verification - requires human approval",
+      "block_reason": "none"
     }
   ],
-  "package_states": [],
+  "package_states": [
+    {
+      "id": "PKG-101",
+      "approved": "1",
+      "applied": "1",
+      "verified": "1",
+      "failed": "0",
+      "rolled_back": "0",
+      "from": "0.3",
+      "to": "0.4"
+    }
+  ],
   "module_slots": [
     {
       "module": "GhostAttach",
-      "active": "A",
+      "active": "B",
       "slot_a": "0.3",
       "slot_a_verified": "1",
-      "slot_b": "-",
-      "slot_b_verified": "0",
-      "rollback": "none",
+      "slot_b": "0.4",
+      "slot_b_verified": "1",
+      "rollback": "A",
       "pending_verify": "0"
     },
     {
@@ -608,46 +625,27 @@
       "event": "PKG-ROLLED_BACK",
       "package": "PKG-002",
       "result": "ok"
-    }
-  ],
-  "package_recommendations": [
-    {
-      "id": "PKG-001",
-      "name": "ghostattach_policy_update",
-      "risk": "low",
-      "reversible": "yes",
-      "reason": "update available 0.3 -> 0.4",
-      "commands": [
-        "approve-pkg PKG-001",
-        "apply-pkg PKG-001",
-        "verify-pkg PKG-001"
-      ]
     },
     {
-      "id": "PKG-002",
-      "name": "recovery_analyzer_rules_update",
-      "risk": "low",
-      "reversible": "yes",
-      "reason": "update available 0.4 -> 0.5",
-      "commands": [
-        "approve-pkg PKG-002",
-        "apply-pkg PKG-002",
-        "verify-pkg PKG-002"
-      ]
+      "boot": "4",
+      "event": "PKG-APPROVED",
+      "package": "PKG-101",
+      "result": "ok"
     },
     {
-      "id": "PKG-004",
-      "name": "safe_mode_policy_update",
-      "risk": "medium",
-      "reversible": "yes",
-      "reason": "update available 0.5 -> 0.6",
-      "commands": [
-        "approve-pkg PKG-004",
-        "apply-pkg PKG-004",
-        "verify-pkg PKG-004"
-      ]
+      "boot": "4",
+      "event": "PKG-APPLIED",
+      "package": "PKG-101",
+      "result": "ok"
+    },
+    {
+      "boot": "4",
+      "event": "PKG-VERIFIED",
+      "package": "PKG-101",
+      "result": "ok"
     }
   ],
+  "package_recommendations": [],
   "rules": {
     "GA-SEC-001": {
       "cause": "GhostAttach found a fallback driver for this device, but the driver is not signed/verified. Policy rule 3 blocked it.",
@@ -760,6 +758,8 @@
       "command": "approve ACT-004"
     }
   ],
-  "insights": [],
+  "insights": [
+    "Missing drivers appear in every recorded boot - a permanent gap, not a transient failure."
+  ],
   "safety_notice": "Recovery Center is read-only. It does not apply repairs. Type commands manually inside KamikazeOS."
 }

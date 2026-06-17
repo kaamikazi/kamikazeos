@@ -30,7 +30,7 @@
 #include "module_versions.h"   /* enum module_id  */
 #include "package_policy.h"    /* enum signature_status */
 
-/* The built-in trust anchor (v1.0: simulated identity, real enforcement). */
+/* The built-in trust anchor (v1.1: simulated identity, real enforcement). */
 #define TRUST_ANCHOR_ID          1
 #define TRUST_ANCHOR_NAME        "KMZ-ROOT-1"
 #define TRUST_ANCHOR_FINGERPRINT "SIM:4B5A:1000:C0DE:FACE:2026"
@@ -78,6 +78,7 @@ uint32_t                  manifest_count(void);
 struct pkg_manifest      *manifest_get(uint32_t index);
 struct pkg_manifest      *manifest_find(const char *package_id);
 int  manifest_source_is_disk(void);     /* 1 = loaded from disk sectors */
+const char *manifest_source_name(void);  /* disk_imported or built_in_seed */
 
 /* Write the BUILT-IN SEED manifests to the disk sectors (seed-manifests
    confirm). Only the safe fixed set is ever written; returns count. */
@@ -86,6 +87,10 @@ int  manifest_seed_to_disk(void);
 /* Full verification chain. Returns 1 = passes; on failure *reason names
    the first failed rule (for logs, shell, and the analyzer). */
 int  manifest_verify(const struct pkg_manifest *m, const char **reason);
+int  manifest_checksum_valid(const struct pkg_manifest *m);
+int  manifest_trust_valid(const struct pkg_manifest *m);
+const char *manifest_policy_result(const struct pkg_manifest *m);
+const char *manifest_block_reason(const struct pkg_manifest *m);
 
 const char *payload_type_name(enum payload_type t);
 

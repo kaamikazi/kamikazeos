@@ -163,11 +163,11 @@ static void cmd_about(void)
     cpu_vendor(vendor);
 
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
-    vga_print("KamikazeOS v1.0.0 \"Ship of Theseus\"\n");
+    vga_print("KamikazeOS v1.1.0 \"Offline Forge\"\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     vga_print("An experimental AI-native, self-healing operating system.\n");
-    vga_print("v1.0: disk-backed manifests, persistent package state, A/B module\n");
-    vga_print("slots with rollback-to-known-good, and a trust anchor.\n\n");
+    vga_print("v1.1: offline manifest import/export tooling, kernel-side\n");
+    vga_print("validation, persistent package state, and A/B slot metadata.\n\n");
     vga_print("  Architecture : x86 (i686), 32-bit protected mode\n");
     vga_print("  CPU vendor   : ");
     vga_print(vendor);
@@ -954,14 +954,15 @@ static void cmd_packages(void)
 {
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
     vga_print("Recovery Packages (manifests: ");
-    vga_print(manifest_source_is_disk() ? "loaded from DISK" : "built-in seed");
+    vga_print(manifest_source_name());
     vga_print("):\n");
     vga_set_color(VGA_DARK_GREY, VGA_BLACK);
     print_col("ID", 9);
     print_col("Target", 16);
     print_col("Ver", 11);
     print_col("Risk", 8);
-    print_col("Signature", 20);
+    print_col("Source", 14);
+    print_col("Policy", 9);
     vga_print("Status\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
 
@@ -977,7 +978,8 @@ static void cmd_packages(void)
             kstrcpy(ver + l + 1, m->to_version, sizeof(ver) - l - 1); }
         print_col(ver, 11);
         print_col(risk_level_name(m->risk_level), 8);
-        print_col(signature_status_name(m->signature_status), 20);
+        print_col(manifest_source_name(), 14);
+        print_col(manifest_policy_result(m), 9);
 
         vga_set_color(st == PKGST_VERIFIED  ? VGA_LIGHT_GREEN :
                       st == PKGST_APPLIED   ? VGA_LIGHT_CYAN  :
@@ -1014,23 +1016,33 @@ static void cmd_package(const char *arg)
     vga_print("  versions    : "); vga_print(m->from_version);
     vga_print(" -> ");             vga_print(m->to_version);       vga_print("\n");
     vga_print("  payload     : "); vga_print(payload_type_name(m->payload_type)); vga_print("\n");
+    vga_print("  source      : "); vga_print(manifest_source_name());             vga_print("\n");
     vga_print("  risk        : "); vga_print(risk_level_name(m->risk_level));     vga_print("\n");
     vga_print("  reversible  : "); vga_print(m->reversible ? "yes" : "no");       vga_print("\n");
     vga_print("  signature   : "); vga_print(signature_status_name(m->signature_status));
-    vga_print(" (verification simulated in v1.0)\n");
+    vga_print(" (verification simulated in v1.1)\n");
     vga_print("  trust anchor: ");
     if (m->trust_anchor_id == TRUST_ANCHOR_ID)
         vga_print(TRUST_ANCHOR_NAME "\n");
     else
         vga_print("UNKNOWN - not vouched for\n");
     vga_print("  checksum    : "); vga_print(m->checksum_ok ? "verified" : "MISMATCH"); vga_print("\n");
+    vga_print("  checksum ok : "); vga_print(manifest_checksum_valid(m) ? "yes" : "no"); vga_print("\n");
+    vga_print("  trust ok    : "); vga_print(manifest_trust_valid(m) ? "yes" : "no");    vga_print("\n");
 
     const char *reason;
     int ok = manifest_verify(m, &reason);
+    vga_print("  policy      : ");
+    vga_set_color(ok ? VGA_LIGHT_GREEN : VGA_LIGHT_RED, VGA_BLACK);
+    vga_print(manifest_policy_result(m));
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print("\n");
     vga_print("  verification: ");
     vga_set_color(ok ? VGA_LIGHT_GREEN : VGA_LIGHT_RED, VGA_BLACK);
     vga_print(reason);
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print("\n  block reason: ");
+    vga_print(manifest_block_reason(m));
     vga_print("\n  status      : ");
     vga_print(pkg_status_name(recovery_package_status(m)));
     vga_print("\n");
@@ -1066,7 +1078,7 @@ static void cmd_trust(void)
     vga_print("  fingerprint  : " TRUST_ANCHOR_FINGERPRINT "\n");
     vga_print("  verification : ");
     vga_set_color(VGA_YELLOW, VGA_BLACK);
-    vga_print("SIMULATED in v1.0 - real crypto planned\n");
+    vga_print("SIMULATED in v1.1 - real crypto planned\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     vga_print("\n  Policy: a manifest is trusted only if its trust_anchor_id\n");
     vga_print("  matches this anchor AND its signature status is acceptable.\n");
@@ -1086,24 +1098,33 @@ static void cmd_manifests(void)
               : "built-in seed (not yet on disk - see seed-manifests)\n");
     vga_set_color(VGA_DARK_GREY, VGA_BLACK);
     print_col("ID", 9);
-    print_col("Name", 30);
-    print_col("Payload", 30);
-    vga_print("Trust\n");
+    print_col("Name", 24);
+    print_col("Source", 14);
+    print_col("Chk", 5);
+    print_col("Trust", 7);
+    vga_print("Policy\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
 
     for (uint32_t i = 0; i < manifest_count(); i++) {
         const struct pkg_manifest *m = manifest_get(i);
         print_col(m->package_id, 9);
-        print_col(m->name, 30);
-        print_col(payload_type_name(m->payload_type), 30);
-        if (m->trust_anchor_id == TRUST_ANCHOR_ID) {
-            vga_print(TRUST_ANCHOR_NAME);
-        } else {
-            vga_set_color(VGA_LIGHT_RED, VGA_BLACK);
-            vga_print("UNKNOWN");
+        print_col(m->name, 24);
+        print_col(manifest_source_name(), 14);
+        print_col(manifest_checksum_valid(m) ? "yes" : "no", 5);
+        print_col(manifest_trust_valid(m) ? "yes" : "no", 7);
+        const char *policy = manifest_policy_result(m);
+        vga_set_color(kstrcmp(policy, "allowed") == 0 ? VGA_LIGHT_GREEN : VGA_LIGHT_RED,
+                      VGA_BLACK);
+        vga_print(policy);
+        vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+        vga_print("\n");
+        if (kstrcmp(policy, "blocked") == 0) {
+            vga_set_color(VGA_DARK_GREY, VGA_BLACK);
+            vga_print("      block: ");
+            vga_print(manifest_block_reason(m));
+            vga_print("\n");
             vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
         }
-        vga_print("\n");
     }
     vga_print("\nPersist the seed set to disk:  seed-manifests confirm\n");
 }
@@ -1112,7 +1133,7 @@ static void cmd_manifests(void)
 static void cmd_slots(void)
 {
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
-    vga_print("Module A/B Slots (metadata-level in v1.0 - no binary loading):\n");
+    vga_print("Module A/B Slots (metadata-level in v1.1 - no binary loading):\n");
     vga_set_color(VGA_DARK_GREY, VGA_BLACK);
     print_col("Module", 24);
     print_col("Active", 8);

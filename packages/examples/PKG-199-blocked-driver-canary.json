@@ -1,0 +1,17 @@
+{
+  "package_id": "PKG-199",
+  "name": "blocked_driver_canary",
+  "description": "Attempt forbidden driver import",
+  "target_component": "GhostAttach/network",
+  "target_module": "GhostAttach",
+  "from_version": "0.3",
+  "to_version": "?",
+  "risk": "high",
+  "reversible": false,
+  "requires_approval": true,
+  "signature_status": "unsigned",
+  "trust_anchor_id": 0,
+  "manifest_version": 1,
+  "payload_type": "blocked_driver_install",
+  "checksum": 203
+}

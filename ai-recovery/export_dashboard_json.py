@@ -101,12 +101,14 @@ def main():
     mod_ver = {m.get("module"): m.get("version") for m in modules}
     target_to_module = {"GhostAttach": "GhostAttach",
                         "AI Recovery Core": "AI Recovery Core Rules",
-                        "RecoveryEngine": "RecoveryEngine"}
+                        "RecoveryEngine": "RecoveryEngine",
+                        "Recovery Center": "Recovery Center Schema"}
     for p in pkgs:
         pid = p.get("id")
         if not pid:
             continue
-        if p.get("status") in ("available", "suggested") and \
+        if p.get("policy_result", "allowed") == "allowed" and \
+           p.get("status") in ("available", "suggested") and \
            mod_ver.get(target_to_module.get(p.get("target"), "")) == p.get("from"):
             pkg_recs.append({
                 "id": pid, "name": p.get("name", ""),

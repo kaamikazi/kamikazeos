@@ -1,0 +1,17 @@
+{
+  "package_id": "PKG-101",
+  "name": "ghostattach_policy_import",
+  "description": "Import GhostAttach policy 0.3 to 0.4",
+  "target_component": "GhostAttach",
+  "target_module": "GhostAttach",
+  "from_version": "0.3",
+  "to_version": "0.4",
+  "risk": "low",
+  "reversible": true,
+  "requires_approval": true,
+  "signature_status": "signed_placeholder",
+  "trust_anchor_id": 1,
+  "manifest_version": 1,
+  "payload_type": "module_slot_switch_simulated",
+  "checksum": 179
+}

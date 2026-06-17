@@ -1,0 +1,17 @@
+{
+  "package_id": "PKG-102",
+  "name": "recovery_center_schema",
+  "description": "Import Recovery Center schema 0.8 to 1.1",
+  "target_component": "Recovery Center",
+  "target_module": "Recovery Center Schema",
+  "from_version": "0.8",
+  "to_version": "1.1",
+  "risk": "low",
+  "reversible": true,
+  "requires_approval": true,
+  "signature_status": "signed_placeholder",
+  "trust_anchor_id": 1,
+  "manifest_version": 1,
+  "payload_type": "module_slot_switch_simulated",
+  "checksum": 40
+}

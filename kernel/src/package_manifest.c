@@ -252,6 +252,11 @@ struct pkg_manifest *manifest_find(const char *package_id)
 
 int manifest_source_is_disk(void) { return from_disk; }
 
+const char *manifest_source_name(void)
+{
+    return from_disk ? "disk_imported" : "built_in_seed";
+}
+
 /* ------------------------------------------------------------------ */
 /* The verification chain — every rule, in order, first failure wins.   */
 /* ------------------------------------------------------------------ */
@@ -296,4 +301,30 @@ int manifest_verify(const struct pkg_manifest *m, const char **reason)
     }
     *reason = "passes verification - requires human approval";
     return 1;
+}
+
+int manifest_checksum_valid(const struct pkg_manifest *m)
+{
+    return m->checksum_ok ? 1 : 0;
+}
+
+int manifest_trust_valid(const struct pkg_manifest *m)
+{
+    if (m->signature_status == SIG_UNSIGNED || m->signature_status == SIG_INVALID)
+        return 0;
+    return m->trust_anchor_id == TRUST_ANCHOR_ID;
+}
+
+const char *manifest_policy_result(const struct pkg_manifest *m)
+{
+    const char *reason;
+    return manifest_verify(m, &reason) ? "allowed" : "blocked";
+}
+
+const char *manifest_block_reason(const struct pkg_manifest *m)
+{
+    const char *reason;
+    if (manifest_verify(m, &reason))
+        return "none";
+    return reason;
 }

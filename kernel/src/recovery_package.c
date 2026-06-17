@@ -52,8 +52,15 @@ static void set_status(const struct pkg_manifest *m, enum pkg_status st)
 
 static uint8_t pkg_byte(const struct pkg_manifest *m)
 {
-    /* "PKG-00N" -> N; the canary maps to 3 which is fine for display. */
-    return (uint8_t)(m->package_id[6] - '0');
+    uint32_t n = 0;
+    const char *p = m->package_id;
+    while (*p && (*p < '0' || *p > '9'))
+        p++;
+    while (*p >= '0' && *p <= '9') {
+        n = n * 10u + (uint32_t)(*p - '0');
+        p++;
+    }
+    return (n > 255u) ? 255u : (uint8_t)n;
 }
 
 static void log_pkg(enum err_severity sev, const char *code,

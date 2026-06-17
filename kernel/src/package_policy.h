@@ -1,19 +1,17 @@
 /*
- * package_policy.h — the deterministic gate for recovery packages.
+ * package_policy.h - the deterministic gate for recovery packages.
  *
  * Like recovery_policy.h, this file's entire value is being SHORT and
- * auditable. The package rules (v0.9):
+ * auditable. The package rules:
  *   1. unsigned signature .......... BLOCKED
  *   2. invalid signature ........... BLOCKED
  *   3. high-risk ................... BLOCKED
- *   4. irreversible ................ BLOCKED (in v0.9, all changes must
- *                                    be undoable until A/B slots exist)
+ *   4. irreversible ................ BLOCKED
  *   5. checksum mismatch ........... BLOCKED
  *   6. medium risk ................. human approval required
- *   7. low risk .................... human approval required (v0.9)
- *   8. ID not in the fixed registry  cannot even be expressed — there is
- *                                    no API that takes anything but a
- *                                    registry entry
+ *   7. low risk .................... human approval required
+ *   8. imported manifests .......... allowed only after independent kernel
+ *                                    validation
  */
 #ifndef KMZ_PACKAGE_POLICY_H
 #define KMZ_PACKAGE_POLICY_H
@@ -22,10 +20,9 @@
 
 enum signature_status {
     SIG_UNSIGNED = 0,
-    SIG_PLACEHOLDER,    /* "signed_placeholder": real crypto is Phase 10;
-                           this status is honest about being a stand-in  */
+    SIG_PLACEHOLDER,    /* simulated signature status; not real crypto */
     SIG_INVALID,
-    SIG_TRUSTED,        /* reserved for Phase 10's real verification     */
+    SIG_TRUSTED,        /* reserved for real verification */
 };
 
 enum pkg_verdict {

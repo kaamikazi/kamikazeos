@@ -21,7 +21,7 @@
 #include "serial.h"
 #include "string.h"
 
-#define KMZ_VERSION "1.0.0"
+#define KMZ_VERSION "1.1.0"
 
 /* serial_print for numbers: render via kitoa, then send. */
 static void serial_print_dec(uint32_t value)
@@ -29,6 +29,16 @@ static void serial_print_dec(uint32_t value)
     char buf[12];
     kitoa(value, buf, 10);
     serial_print(buf);
+}
+
+static void serial_print_pkg_ref(uint8_t id)
+{
+    serial_print("PKG-");
+    if (id < 100)
+        serial_print("0");
+    if (id < 10)
+        serial_print("0");
+    serial_print_dec(id);
 }
 
 static void emit_kv(const char *key, const char *value)
@@ -168,14 +178,14 @@ void report_send(void)
             serial_print(";action=");
             /* The id byte means ACT-xxx for action events but PKG-xxx
                for package events — label it by event type. */
-            const char *prefix =
-                (e.event_type >= JE_PKG_SUGGESTED) ? "PKG-00" : "ACT-00";
             if (e.action_id == 0) {
                 serial_print("none");
             } else if (e.action_id == 255) {
                 serial_print("ACT-999");
+            } else if (e.event_type >= JE_PKG_SUGGESTED) {
+                serial_print_pkg_ref(e.action_id);
             } else {
-                serial_print(prefix);
+                serial_print("ACT-00");
                 serial_print_dec(e.action_id);
             }
             serial_print(";result="); serial_print(e.result ? "ok" : "refused");
@@ -255,13 +265,18 @@ void report_send(void)
             if (emitted++)
                 serial_print(",");
             serial_print(journal_event_name((enum journal_event)e.event_type));
-            switch (e.action_id) {
-            case 1:   serial_print(" ACT-001"); break;
-            case 2:   serial_print(" ACT-002"); break;
-            case 3:   serial_print(" ACT-003"); break;
-            case 4:   serial_print(" ACT-004"); break;
-            case 255: serial_print(" ACT-999"); break;
-            default:                            break;
+            if (e.event_type >= JE_PKG_SUGGESTED) {
+                serial_print(" ");
+                serial_print_pkg_ref(e.action_id);
+            } else {
+                switch (e.action_id) {
+                case 1:   serial_print(" ACT-001"); break;
+                case 2:   serial_print(" ACT-002"); break;
+                case 3:   serial_print(" ACT-003"); break;
+                case 4:   serial_print(" ACT-004"); break;
+                case 255: serial_print(" ACT-999"); break;
+                default:                            break;
+                }
             }
         }
         if (!emitted)
@@ -302,6 +317,15 @@ void report_send(void)
         serial_print(";reversible=");serial_print(p->reversible ? "yes" : "no");
         serial_print(";signature=");serial_print(signature_status_name(p->signature_status));
         serial_print(";checksum=");serial_print(p->checksum_ok ? "ok" : "mismatch");
+        serial_print(";source=");  serial_print(manifest_source_name());
+        serial_print(";checksum_valid=");
+        serial_print(manifest_checksum_valid(p) ? "yes" : "no");
+        serial_print(";trust_valid=");
+        serial_print(manifest_trust_valid(p) ? "yes" : "no");
+        serial_print(";policy_result=");
+        serial_print(manifest_policy_result(p));
+        serial_print(";block_reason=");
+        serial_print(manifest_block_reason(p));
         serial_print(";status=");
         serial_print(pkg_status_name(recovery_package_status(p)));
         serial_print("\n");
@@ -317,8 +341,17 @@ void report_send(void)
         serial_print(";trust_anchor=");
         serial_print(p->trust_anchor_id == TRUST_ANCHOR_ID ? TRUST_ANCHOR_NAME
                                                            : "unknown");
+        serial_print(";source=");      serial_print(manifest_source_name());
+        serial_print(";checksum_valid=");
+        serial_print(manifest_checksum_valid(p) ? "yes" : "no");
+        serial_print(";trust_valid=");
+        serial_print(manifest_trust_valid(p) ? "yes" : "no");
         serial_print(";verifies=");   serial_print(ok ? "yes" : "no");
+        serial_print(";policy_result=");
+        serial_print(manifest_policy_result(p));
         serial_print(";reason=");     serial_print(reason);
+        serial_print(";block_reason=");
+        serial_print(manifest_block_reason(p));
         serial_print("\n");
     }
 
@@ -382,8 +415,8 @@ void report_send(void)
             serial_print("boot=");   serial_print_dec(je.boot_number);
             serial_print(";event=");
             serial_print(journal_event_name((enum journal_event)je.event_type));
-            serial_print(";package=PKG-00");
-            serial_print_dec(je.action_id);
+            serial_print(";package=");
+            serial_print_pkg_ref(je.action_id);
             serial_print(";result="); serial_print(je.result ? "ok" : "refused");
             serial_print("\n");
             emitted++;

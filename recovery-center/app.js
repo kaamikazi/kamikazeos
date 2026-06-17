@@ -81,7 +81,7 @@ function render(data) {
   if (!data.insights?.length)
     insights.appendChild(el("li", "hint", "no notable patterns detected"));
 
-  // Module versions + packages (v1.0)
+  // Module versions + packages (v1.1)
   renderTable("modules", data.modules || [], [
     { key: "module", label: "Module" },
     { key: "version", label: "Version" },
@@ -100,8 +100,12 @@ function render(data) {
     { key: "id", label: "ID" }, { key: "name", label: "Package" },
     { key: "target", label: "Target" },
     { key: "from", label: "From" }, { key: "to", label: "To" },
-    { key: "risk", label: "Risk" }, { key: "signature", label: "Signature" },
+    { key: "risk", label: "Risk" }, { key: "source", label: "Source" },
+    { key: "checksum_valid", label: "Checksum", statusClass: true },
+    { key: "trust_valid", label: "Trust", statusClass: true },
+    { key: "policy_result", label: "Policy", statusClass: true },
     { key: "status", label: "Status", statusClass: true },
+    { key: "block_reason", label: "Block Reason" },
   ]);
 
   const trust = document.getElementById("trust");
@@ -121,9 +125,14 @@ function render(data) {
   renderTable("manifests", data.manifests || [], [
     { key: "id", label: "ID" },
     { key: "payload", label: "Payload" },
+    { key: "source", label: "Source" },
+    { key: "checksum_valid", label: "Checksum", statusClass: true },
     { key: "trust_anchor", label: "Trust Anchor" },
+    { key: "trust_valid", label: "Trust", statusClass: true },
     { key: "verifies", label: "Verifies", statusClass: true },
+    { key: "policy_result", label: "Policy", statusClass: true },
     { key: "reason", label: "Reason" },
+    { key: "block_reason", label: "Block Reason" },
   ]);
 
   renderTable("package-states", data.package_states || [], [

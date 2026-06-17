@@ -35,7 +35,7 @@ CFLAGS  := --target=i686-pc-none-elf -m32 \
 SRCS    := $(wildcard $(KERNEL)/src/*.c)
 OBJS    := $(BUILD)/boot.o $(patsubst $(KERNEL)/src/%.c,$(BUILD)/%.o,$(SRCS))
 
-.PHONY: all run run-serial clean reset-store analyze dashboard-json dashboard-open
+.PHONY: all run run-serial clean reset-store analyze dashboard-json dashboard-open import-example-package export-manifests
 
 # The durable recovery disk: a 1 MiB raw image QEMU attaches as the primary
 # IDE disk. The kernel keeps its RecoveryStore here (state + journal), so
@@ -96,3 +96,11 @@ dashboard-json:
 dashboard-open:
 	@echo "open this file in your browser:"
 	@echo "  recovery-center/index.html"
+
+# v1.1 offline manifest tooling. These host tools write only the package
+# manifest sector range (LBA 32-39); the kernel still validates imports.
+import-example-package: $(STORE)
+	python tools/package-builder/import_manifest.py packages/examples/PKG-101-ghostattach-policy.json $(STORE) --slot 0
+
+export-manifests:
+	python tools/package-builder/export_manifests.py $(STORE) --out build/exported-manifests.json

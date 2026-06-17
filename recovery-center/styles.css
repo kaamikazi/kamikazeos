@@ -53,6 +53,7 @@ main { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .status-available, .status-rolled_back { color: var(--dim); }
 .status-yes, .status-1 { color: var(--good); }
 .status-no, .status-0 { color: var(--bad); }
+.status-allowed { color: var(--good); }
 .panel {
   background: var(--panel);
   border: 1px solid var(--line);
