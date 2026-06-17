@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared KamikazeOS v1.1 offline manifest tooling.
+"""Shared KamikazeOS v1.2 offline manifest tooling.
 
 This module mirrors kernel/src/package_manifest.c. Keep the constants in sync
 with the kernel: host tools prepare sectors, but the kernel remains the source
@@ -8,6 +8,7 @@ of truth and validates every imported manifest again at boot.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -44,6 +45,13 @@ O_MVER = O_ANCHOR + 1
 O_PAYLOAD = O_MVER + 1
 O_MODULE = O_PAYLOAD + 1
 O_CHECKSUM = O_MODULE + 1
+O_SIG_PRESENT = O_CHECKSUM + 1
+O_SIG_ALG = O_SIG_PRESENT + 1
+O_SIG_KEY_HASH = O_SIG_ALG + 1
+O_SIG_PAYLOAD_HASH = O_SIG_KEY_HASH + 17
+
+SIG_ALGORITHMS = {"none": 0, "ed25519": 1}
+SIG_ALGORITHM_NAMES = {v: k for k, v in SIG_ALGORITHMS.items()}
 
 TRUST_ANCHOR_ID = 1
 TRUST_ANCHOR_NAME = "KMZ-ROOT-1"
@@ -94,6 +102,7 @@ class Manifest:
     manifest_version: int
     payload_type: str
     checksum: int | None = None
+    signature: dict[str, Any] | None = None
 
     @classmethod
     def from_json(cls, data: dict[str, Any]) -> "Manifest":
@@ -113,6 +122,7 @@ class Manifest:
             manifest_version=int(data.get("manifest_version", 1)),
             payload_type=str(data["payload_type"]),
             checksum=(None if data.get("checksum") is None else int(data["checksum"])),
+            signature=data.get("signature"),
         )
 
     def to_json(self, include_checksum: bool = True) -> dict[str, Any]:
@@ -134,6 +144,8 @@ class Manifest:
         }
         if include_checksum:
             out["checksum"] = self.expected_checksum()
+        if self.signature:
+            out["signature"] = self.signature
         return out
 
     def target_module_id(self) -> int:
@@ -163,6 +175,19 @@ class Manifest:
         total = (total + PAYLOADS[self.payload_type]) & 0xFF
         total = (total + self.target_module_id()) & 0xFF
         return total
+
+    def signed_payload(self) -> bytes:
+        """Canonical payload signed by host tools.
+
+        Excludes checksum and signature fields so signatures stay stable while
+        the deterministic checksum is recomputed.
+        """
+        data = self.to_json(include_checksum=False)
+        data.pop("signature", None)
+        return json.dumps(data, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+    def payload_sha256(self) -> str:
+        return hashlib.sha256(self.signed_payload()).hexdigest()
 
 
 def put_str(sec: bytearray, offset: int, value: str, cap: int) -> None:
@@ -221,8 +246,11 @@ def validate_manifest(m: Manifest) -> tuple[bool, list[str], list[str]]:
             f"checksum mismatch: manifest has {m.checksum}, expected {m.expected_checksum()}"
         )
 
-    if m.signature_status in ("unsigned", "invalid"):
-        errors.append("unsafe: unsigned or invalid signature status")
+    sig_ok, sig_reason = verify_manifest_signature(m)
+    if m.signature_status in ("unsigned", "invalid", "signed_placeholder"):
+        errors.append("unsafe: imported manifests must have trusted Ed25519 signatures")
+    if not sig_ok:
+        errors.append(f"signature invalid: {sig_reason}")
     if m.trust_anchor_id != TRUST_ANCHOR_ID:
         errors.append(f"unsafe: trust_anchor_id must be {TRUST_ANCHOR_ID}")
     if m.risk == "high":
@@ -231,10 +259,39 @@ def validate_manifest(m: Manifest) -> tuple[bool, list[str], list[str]]:
         errors.append("unsafe: irreversible packages are blocked")
     if m.payload_type in ("blocked_driver_install", "unknown"):
         errors.append(f"unsafe: payload type {m.payload_type} is blocked")
-    if m.signature_status == "signed_placeholder":
-        warnings.append("signature verification is simulated, not cryptographic")
+    warnings.append("host signature verification is real Ed25519")
+    warnings.append("kernel-side signature verification is simulated in v1.2")
 
     return not errors, errors, warnings
+
+
+def verify_manifest_signature(m: Manifest, public_key_pem: bytes | None = None) -> tuple[bool, str]:
+    sig = m.signature or {}
+    if sig.get("algorithm") != "ed25519":
+        return False, "missing ed25519 signature"
+    try:
+        signature = bytes.fromhex(str(sig["signature"]))
+        expected_payload_hash = m.payload_sha256()
+        if sig.get("payload_sha256") != expected_payload_hash:
+            return False, "payload hash mismatch"
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+        if public_key_pem:
+            pub = serialization.load_pem_public_key(public_key_pem)
+        else:
+            pub = Ed25519PublicKey.from_public_bytes(bytes.fromhex(str(sig["public_key"])))
+        pub.verify(signature, m.signed_payload())
+        actual_key_hash = hashlib.sha256(
+            pub.public_bytes(
+                encoding=serialization.Encoding.Raw,
+                format=serialization.PublicFormat.Raw,
+            )
+        ).hexdigest()
+        if sig.get("public_key_sha256") != actual_key_hash:
+            return False, "public key fingerprint mismatch"
+        return True, "ok"
+    except Exception as exc:
+        return False, str(exc) or "verification failed"
 
 
 def manifest_to_sector(m: Manifest) -> bytes:
@@ -256,6 +313,18 @@ def manifest_to_sector(m: Manifest) -> bytes:
     sec[O_PAYLOAD] = PAYLOADS[m.payload_type]
     sec[O_MODULE] = m.target_module_id()
     sec[O_CHECKSUM] = m.expected_checksum()
+    sig = m.signature or {}
+    sig_ok, _reason = verify_manifest_signature(m)
+    sec[O_SIG_PRESENT] = 1 if sig else 0
+    sec[O_SIG_ALG] = SIG_ALGORITHMS.get(sig.get("algorithm", "none"), 0)
+    key_hash = str(sig.get("public_key_sha256", ""))[:16].encode("ascii")
+    payload_hash = str(sig.get("payload_sha256", ""))[:16].encode("ascii")
+    sec[O_SIG_KEY_HASH : O_SIG_KEY_HASH + 17] = b"\0" * 17
+    sec[O_SIG_PAYLOAD_HASH : O_SIG_PAYLOAD_HASH + 17] = b"\0" * 17
+    sec[O_SIG_KEY_HASH : O_SIG_KEY_HASH + len(key_hash)] = key_hash
+    sec[O_SIG_PAYLOAD_HASH : O_SIG_PAYLOAD_HASH + len(payload_hash)] = payload_hash
+    if sig_ok:
+        sec[O_SIG_PRESENT] = 2
     return bytes(sec)
 
 
@@ -265,9 +334,19 @@ def sector_to_manifest(sec: bytes) -> Manifest | None:
     if sec[O_MAGIC : O_MAGIC + 4] != MF_MAGIC or sec[O_FMTVER] != MF_FMT_VERSION:
         return None
     risk = RISK_NAMES.get(sec[O_RISK], "high")
-    signature = SIGNATURE_NAMES.get(sec[O_SIG], "invalid")
+    signature_status = SIGNATURE_NAMES.get(sec[O_SIG], "invalid")
     payload = PAYLOAD_NAMES.get(sec[O_PAYLOAD], "unknown")
     module = MODULE_NAMES.get(sec[O_MODULE], "Kernel")
+    sig_present = sec[O_SIG_PRESENT]
+    sig_alg = SIG_ALGORITHM_NAMES.get(sec[O_SIG_ALG], "none")
+    signature = None
+    if sig_present:
+        signature = {
+            "algorithm": sig_alg,
+            "kernel_sector_marker": "host_verified" if sig_present == 2 else "present_unverified",
+            "public_key_sha256_prefix": get_str(sec, O_SIG_KEY_HASH, 17),
+            "payload_sha256_prefix": get_str(sec, O_SIG_PAYLOAD_HASH, 17),
+        }
     return Manifest(
         package_id=get_str(sec, O_ID, PM_ID_MAX),
         name=get_str(sec, O_NAME, PM_NAME_MAX),
@@ -279,11 +358,12 @@ def sector_to_manifest(sec: bytes) -> Manifest | None:
         risk=risk,
         reversible=bool(sec[O_REV]),
         requires_approval=bool(sec[O_REQ]),
-        signature_status=signature,
+        signature_status=signature_status,
         trust_anchor_id=sec[O_ANCHOR],
         manifest_version=sec[O_MVER],
         payload_type=payload,
         checksum=sec[O_CHECKSUM],
+        signature=signature,
     )
 
 

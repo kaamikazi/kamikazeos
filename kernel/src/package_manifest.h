@@ -66,8 +66,12 @@ struct pkg_manifest {
     uint8_t            manifest_version;
     enum payload_type  payload_type;
 
-    /* computed at load time */
+    /* computed / decoded at load time */
     uint8_t            checksum_ok;
+    uint8_t            signature_present;   /* 2 = host-verified sector marker */
+    uint8_t            signature_algorithm; /* 1 = ed25519 */
+    char               signer_key_hash[17]; /* first 16 hex chars + NUL */
+    char               signed_payload_hash[17];
 };
 
 /* Load manifests: disk sectors first; if none are valid, fall back to
@@ -89,6 +93,8 @@ int  manifest_seed_to_disk(void);
 int  manifest_verify(const struct pkg_manifest *m, const char **reason);
 int  manifest_checksum_valid(const struct pkg_manifest *m);
 int  manifest_trust_valid(const struct pkg_manifest *m);
+int  manifest_signature_valid(const struct pkg_manifest *m);
+const char *manifest_signature_mode(const struct pkg_manifest *m);
 const char *manifest_policy_result(const struct pkg_manifest *m);
 const char *manifest_block_reason(const struct pkg_manifest *m);
 

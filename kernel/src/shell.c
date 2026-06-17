@@ -163,11 +163,11 @@ static void cmd_about(void)
     cpu_vendor(vendor);
 
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
-    vga_print("KamikazeOS v1.1.0 \"Offline Forge\"\n");
+    vga_print("KamikazeOS v1.2.0 \"Trust Forge\"\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     vga_print("An experimental AI-native, self-healing operating system.\n");
-    vga_print("v1.1: offline manifest import/export tooling, kernel-side\n");
-    vga_print("validation, persistent package state, and A/B slot metadata.\n\n");
+    vga_print("v1.2: real host-side Ed25519 manifest signing, simulated\n");
+    vga_print("kernel-side signature checks, and A/B slot metadata.\n\n");
     vga_print("  Architecture : x86 (i686), 32-bit protected mode\n");
     vga_print("  CPU vendor   : ");
     vga_print(vendor);
@@ -944,7 +944,7 @@ static void cmd_versions(void)
         vga_print("\n");
     }
     vga_set_color(VGA_DARK_GREY, VGA_BLACK);
-    vga_print("\nv1.0: versions reflect the ACTIVE A/B slot and persist across\n");
+    vga_print("\nv1.2: versions reflect the ACTIVE A/B slot and persist across\n");
     vga_print("restarts (see `slots`). Still metadata-level - no binary loading.\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
 }
@@ -1020,7 +1020,7 @@ static void cmd_package(const char *arg)
     vga_print("  risk        : "); vga_print(risk_level_name(m->risk_level));     vga_print("\n");
     vga_print("  reversible  : "); vga_print(m->reversible ? "yes" : "no");       vga_print("\n");
     vga_print("  signature   : "); vga_print(signature_status_name(m->signature_status));
-    vga_print(" (verification simulated in v1.1)\n");
+    vga_print(" (kernel verification simulated in v1.2)\n");
     vga_print("  trust anchor: ");
     if (m->trust_anchor_id == TRUST_ANCHOR_ID)
         vga_print(TRUST_ANCHOR_NAME "\n");
@@ -1029,6 +1029,10 @@ static void cmd_package(const char *arg)
     vga_print("  checksum    : "); vga_print(m->checksum_ok ? "verified" : "MISMATCH"); vga_print("\n");
     vga_print("  checksum ok : "); vga_print(manifest_checksum_valid(m) ? "yes" : "no"); vga_print("\n");
     vga_print("  trust ok    : "); vga_print(manifest_trust_valid(m) ? "yes" : "no");    vga_print("\n");
+    vga_print("  signature ok: "); vga_print(manifest_signature_valid(m) ? "yes" : "no"); vga_print("\n");
+    vga_print("  sig mode    : "); vga_print(manifest_signature_mode(m)); vga_print("\n");
+    vga_print("  signer key  : "); vga_print(m->signer_key_hash[0] ? m->signer_key_hash : "none"); vga_print("\n");
+    vga_print("  payload hash: "); vga_print(m->signed_payload_hash[0] ? m->signed_payload_hash : "none"); vga_print("\n");
 
     const char *reason;
     int ok = manifest_verify(m, &reason);
@@ -1078,7 +1082,7 @@ static void cmd_trust(void)
     vga_print("  fingerprint  : " TRUST_ANCHOR_FINGERPRINT "\n");
     vga_print("  verification : ");
     vga_set_color(VGA_YELLOW, VGA_BLACK);
-    vga_print("SIMULATED in v1.1 - real crypto planned\n");
+    vga_print("HOST Ed25519 real, kernel Ed25519 simulated in v1.2\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     vga_print("\n  Policy: a manifest is trusted only if its trust_anchor_id\n");
     vga_print("  matches this anchor AND its signature status is acceptable.\n");
@@ -1102,6 +1106,7 @@ static void cmd_manifests(void)
     print_col("Source", 14);
     print_col("Chk", 5);
     print_col("Trust", 7);
+    print_col("Sig", 5);
     vga_print("Policy\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
 
@@ -1112,6 +1117,7 @@ static void cmd_manifests(void)
         print_col(manifest_source_name(), 14);
         print_col(manifest_checksum_valid(m) ? "yes" : "no", 5);
         print_col(manifest_trust_valid(m) ? "yes" : "no", 7);
+        print_col(manifest_signature_valid(m) ? "yes" : "no", 5);
         const char *policy = manifest_policy_result(m);
         vga_set_color(kstrcmp(policy, "allowed") == 0 ? VGA_LIGHT_GREEN : VGA_LIGHT_RED,
                       VGA_BLACK);
@@ -1133,7 +1139,7 @@ static void cmd_manifests(void)
 static void cmd_slots(void)
 {
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
-    vga_print("Module A/B Slots (metadata-level in v1.1 - no binary loading):\n");
+    vga_print("Module A/B Slots (metadata-level in v1.2 - no binary loading):\n");
     vga_set_color(VGA_DARK_GREY, VGA_BLACK);
     print_col("Module", 24);
     print_col("Active", 8);

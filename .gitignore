@@ -4,3 +4,7 @@ build/
 *.bin
 __pycache__/
 *.pyc
+*.pem
+*-private.*
+*.key
+id_ed25519*

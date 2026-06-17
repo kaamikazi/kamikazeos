@@ -9,9 +9,17 @@
   "risk": "low",
   "reversible": true,
   "requires_approval": true,
-  "signature_status": "signed_placeholder",
+  "signature_status": "trusted",
   "trust_anchor_id": 1,
   "manifest_version": 1,
   "payload_type": "module_slot_switch_simulated",
-  "checksum": 179
+  "checksum": 181,
+  "signature": {
+    "algorithm": "ed25519",
+    "key_id": "KMZ-ROOT-1",
+    "public_key": "c63d707e065e539021ee79c9165ae28bbc98ddc4a49845dd1ff9850cc873a2f8",
+    "public_key_sha256": "90aff55a4edb8ed5ded40271dfdd4c404862a68c91925c77db650b0bf776ee84",
+    "payload_sha256": "817dfecd04201b285280b13c04420a210fcf4936870259bff4668b2f49c7f475",
+    "signature": "26d9efcb528d2567042b5511955c37369d47c1552051a23f057d81973ceb58290d7e0dbffcab8a78b92ffcfce091822593a6d95ddb0e63f250d1c57fc85fa803"
+  }
 }

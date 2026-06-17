@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-KamikazeOS AI Recovery Core — host-side log analyzer (v1.1, offline/rule-based)
+KamikazeOS AI Recovery Core — host-side log analyzer (v1.2, offline/rule-based)
 
 This is the first working incarnation of the "maintenance brain". It runs on
 the HOST, outside the kernel, and its powers are deliberately limited:
@@ -8,7 +8,7 @@ the HOST, outside the kernel, and its powers are deliberately limited:
     READ logs  ->  EXPLAIN problems  ->  RANK risk  ->  SUGGEST next actions
 
 It never patches binaries, installs drivers, downloads code, or modifies the
-OS. Every suggestion is for a HUMAN to approve and perform. v1.1 is
+OS. Every suggestion is for a HUMAN to approve and perform. v1.2 is
 rule-based (no AI API yet) so the pipeline can be built and trusted first;
 see analyze_with_ai_later() at the bottom for where a real model plugs in.
 
@@ -330,7 +330,7 @@ def main():
     lines, after_lines, found = extract_last_boot_report(text)
 
     print("=" * 72)
-    print(" KamikazeOS AI RECOVERY CORE - recovery report (v1.1, rule-based)")
+    print(" KamikazeOS AI RECOVERY CORE - recovery report (v1.2, rule-based)")
     print("=" * 72)
 
     if not found:
@@ -577,8 +577,9 @@ def main():
         print(f"Trust anchor: {trust.get('anchor_id', '?')}  "
               f"fingerprint {trust.get('fingerprint', '?')}")
         print(f"  Signature verification mode: "
-              f"{trust.get('signature_verification', '?')} in v1.1 "
-              "- real crypto planned. Unknown anchors are blocked.")
+              f"{trust.get('signature_verification', '?')} in v1.2 "
+              "- host signing is real; kernel Ed25519 is simulated. "
+              "Unknown anchors are blocked.")
         print()
 
     if mod_slots:
@@ -634,6 +635,7 @@ def main():
             elif p.get("status") == "failed":
                 failed_pkgs.append(p)
             elif p.get("policy_result", "allowed") == "allowed" and \
+                    p.get("signature_valid", "yes") == "yes" and \
                     p.get("status") in ("available", "suggested"):
                 running = mod_ver.get(target_to_module.get(p.get("target"), ""))
                 if running == p.get("from"):
@@ -687,6 +689,7 @@ def main():
                 print(f"  * {p.get('id')} source={p.get('source')} "
                       f"checksum={p.get('checksum_valid', '?')} "
                       f"trust={p.get('trust_valid', '?')} "
+                      f"signature={p.get('signature_valid', '?')} "
                       f"policy={p.get('policy_result', '?')}")
                 if p.get("policy_result") == "blocked":
                     print(f"    blocked: {p.get('block_reason', '?')}")
@@ -715,14 +718,14 @@ def main():
     print("Suggestions come only from the verified manifest registry.")
     print("AI Recovery Core cannot apply packages.")
     print("Human approval inside KamikazeOS is required.")
-    print("Signature verification mode: simulated in v1.1.")
+    print("Signature verification mode: host Ed25519 real, kernel Ed25519 simulated in v1.2.")
     print("-" * 72)
 
     return 1 if buckets["critical"] else 0
 
 
 # --------------------------------------------------------------------------
-# FUTURE AI INTEGRATION POINT (deliberately not implemented in v1.1)
+# FUTURE AI INTEGRATION POINT (deliberately not implemented in v1.2)
 # --------------------------------------------------------------------------
 def analyze_with_ai_later(log_text: str):
     """
@@ -741,7 +744,7 @@ def analyze_with_ai_later(log_text: str):
         as this rule-based analyzer - the policy engine, not the model,
         decides what may ever be applied automatically.
 
-    Keeping this stub un-implemented in v1.1 is intentional: the transport,
+    Keeping this stub un-implemented in v1.2 is intentional: the transport,
     format, and approval workflow get built and trusted first.
     """
     raise NotImplementedError("AI analysis arrives in a later phase - see docstring")

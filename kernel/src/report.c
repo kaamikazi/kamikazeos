@@ -21,7 +21,7 @@
 #include "serial.h"
 #include "string.h"
 
-#define KMZ_VERSION "1.1.0"
+#define KMZ_VERSION "1.2.0"
 
 /* serial_print for numbers: render via kitoa, then send. */
 static void serial_print_dec(uint32_t value)
@@ -298,8 +298,8 @@ void report_send(void)
     serial_print("[TRUST_ANCHOR]\n");
     serial_print("anchor_id=" TRUST_ANCHOR_NAME "\n");
     serial_print("fingerprint=" TRUST_ANCHOR_FINGERPRINT "\n");
-    serial_print("signature_verification=simulated\n");
-    serial_print("note=real crypto planned - unknown anchors are blocked today\n");
+    serial_print("signature_verification=host_ed25519_real_kernel_simulated\n");
+    serial_print("note=host tools verify Ed25519 - kernel enforces metadata and policy gates\n");
 
     serial_print("[RECOVERY_PACKAGES]\n");
     serial_print("package_state=persistent_on_disk\n");
@@ -322,6 +322,14 @@ void report_send(void)
         serial_print(manifest_checksum_valid(p) ? "yes" : "no");
         serial_print(";trust_valid=");
         serial_print(manifest_trust_valid(p) ? "yes" : "no");
+        serial_print(";signature_valid=");
+        serial_print(manifest_signature_valid(p) ? "yes" : "no");
+        serial_print(";signature_mode=");
+        serial_print(manifest_signature_mode(p));
+        serial_print(";signer_key=");
+        serial_print(p->signer_key_hash[0] ? p->signer_key_hash : "none");
+        serial_print(";signed_payload=");
+        serial_print(p->signed_payload_hash[0] ? p->signed_payload_hash : "none");
         serial_print(";policy_result=");
         serial_print(manifest_policy_result(p));
         serial_print(";block_reason=");
@@ -346,6 +354,14 @@ void report_send(void)
         serial_print(manifest_checksum_valid(p) ? "yes" : "no");
         serial_print(";trust_valid=");
         serial_print(manifest_trust_valid(p) ? "yes" : "no");
+        serial_print(";signature_valid=");
+        serial_print(manifest_signature_valid(p) ? "yes" : "no");
+        serial_print(";signature_mode=");
+        serial_print(manifest_signature_mode(p));
+        serial_print(";signer_key=");
+        serial_print(p->signer_key_hash[0] ? p->signer_key_hash : "none");
+        serial_print(";signed_payload=");
+        serial_print(p->signed_payload_hash[0] ? p->signed_payload_hash : "none");
         serial_print(";verifies=");   serial_print(ok ? "yes" : "no");
         serial_print(";policy_result=");
         serial_print(manifest_policy_result(p));

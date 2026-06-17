@@ -29,7 +29,12 @@
 #define O_PAYLOAD  (O_MVER + 1)
 #define O_MODULE   (O_PAYLOAD + 1)
 #define O_CHECKSUM (O_MODULE + 1)
-#define O_END      (O_CHECKSUM + 1)
+#define O_SIG_PRESENT (O_CHECKSUM + 1)
+#define O_SIG_ALG     (O_SIG_PRESENT + 1)
+#define O_SIG_KEY_HASH     (O_SIG_ALG + 1)
+#define O_SIG_PAYLOAD_HASH (O_SIG_KEY_HASH + 17)
+#define SIG_ALG_ED25519 1
+#define O_END      (O_SIG_PAYLOAD_HASH + 17)
 
 static struct pkg_manifest manifests[MANIFEST_MAX];
 static uint32_t count;
@@ -57,23 +62,23 @@ static const struct pkg_manifest seeds[SEED_COUNT] = {
       "Update GhostAttach attach-policy 0.3 to 0.4",
       "GhostAttach", MOD_GHOSTATTACH, "0.3", "0.4",
       RISK_LOW, 1, 1, 0, SIG_PLACEHOLDER, TRUST_ANCHOR_ID, 1,
-      PAYLOAD_SLOT_SWITCH_SIM, 0 },
+      PAYLOAD_SLOT_SWITCH_SIM, 0, 0, 0, "", "" },
     { "PKG-002", "recovery_analyzer_rules_update",
       "Update analyzer rule revision 0.4 to 0.5",
       "AI Recovery Core", MOD_AI_RULES, "0.4", "0.5",
       RISK_LOW, 1, 1, 0, SIG_PLACEHOLDER, TRUST_ANCHOR_ID, 1,
-      PAYLOAD_SLOT_SWITCH_SIM, 0 },
+      PAYLOAD_SLOT_SWITCH_SIM, 0, 0, 0, "", "" },
     { /* the canary: wrong on every axis, must always be blocked */
       "PKG-003", "install_unknown_network_driver",
       "Install unverified net driver (FORBIDDEN)",
       "GhostAttach/network", MOD_GHOSTATTACH, "0.3", "?",
       RISK_HIGH, 0, 1, 0, SIG_UNSIGNED, 0 /* unknown anchor too! */, 1,
-      PAYLOAD_BLOCKED_DRIVER_INSTALL, 0 },
+      PAYLOAD_BLOCKED_DRIVER_INSTALL, 0, 0, 0, "", "" },
     { "PKG-004", "safe_mode_policy_update",
       "Update safe-mode policy 0.5 to 0.6",
       "RecoveryEngine", MOD_RECOVERY_ENGINE, "0.5", "0.6",
       RISK_MEDIUM, 1, 1, 0, SIG_PLACEHOLDER, TRUST_ANCHOR_ID, 1,
-      PAYLOAD_SLOT_SWITCH_SIM, 0 },
+      PAYLOAD_SLOT_SWITCH_SIM, 0, 0, 0, "", "" },
 };
 
 /* Checksum over every field that defines the manifest's meaning. */
@@ -166,6 +171,11 @@ static int read_manifest_sector(uint32_t slot, struct pkg_manifest *m)
     m->payload_type      = (enum payload_type)sec[O_PAYLOAD];
     m->target_module     = (enum module_id)sec[O_MODULE];
     m->checksum          = sec[O_CHECKSUM];
+    m->signature_present = sec[O_SIG_PRESENT];
+    m->signature_algorithm = sec[O_SIG_ALG];
+    get_str(sec, O_SIG_KEY_HASH, m->signer_key_hash, sizeof(m->signer_key_hash));
+    get_str(sec, O_SIG_PAYLOAD_HASH, m->signed_payload_hash,
+            sizeof(m->signed_payload_hash));
 
     /* The stored checksum must match a recomputation over the fields.
        checksum_ok feeds the verification chain (a mismatch = blocked). */
@@ -275,6 +285,14 @@ int manifest_verify(const struct pkg_manifest *m, const char **reason)
         *reason = "signature invalid";
         return 0;
     }
+    if (from_disk && m->signature_status != SIG_TRUSTED) {
+        *reason = "imported manifests require trusted Ed25519 signature metadata";
+        return 0;
+    }
+    if (from_disk && !manifest_signature_valid(m)) {
+        *reason = "signature metadata missing or not host-verified";
+        return 0;
+    }
     if (m->trust_anchor_id != TRUST_ANCHOR_ID) {
         *reason = "unknown trust anchor - not vouched for by KMZ-ROOT-1";
         return 0;
@@ -296,7 +314,7 @@ int manifest_verify(const struct pkg_manifest *m, const char **reason)
         return 0;
     }
     if (!m->reversible) {
-        *reason = "irreversible packages are blocked in v1.0";
+        *reason = "irreversible packages are blocked in v1.2";
         return 0;
     }
     *reason = "passes verification - requires human approval";
@@ -313,6 +331,27 @@ int manifest_trust_valid(const struct pkg_manifest *m)
     if (m->signature_status == SIG_UNSIGNED || m->signature_status == SIG_INVALID)
         return 0;
     return m->trust_anchor_id == TRUST_ANCHOR_ID;
+}
+
+int manifest_signature_valid(const struct pkg_manifest *m)
+{
+    if (!from_disk)
+        return m->signature_status == SIG_PLACEHOLDER ||
+               m->signature_status == SIG_TRUSTED;
+    return m->signature_status == SIG_TRUSTED &&
+           m->signature_present == 2 &&
+           m->signature_algorithm == SIG_ALG_ED25519;
+}
+
+const char *manifest_signature_mode(const struct pkg_manifest *m)
+{
+    if (!from_disk && m->signature_status == SIG_PLACEHOLDER)
+        return "built_in_placeholder";
+    if (manifest_signature_valid(m))
+        return "simulated_kernel_check_host_ed25519";
+    if (m->signature_present)
+        return "present_but_untrusted";
+    return "missing";
 }
 
 const char *manifest_policy_result(const struct pkg_manifest *m)

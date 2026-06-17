@@ -81,7 +81,7 @@ function render(data) {
   if (!data.insights?.length)
     insights.appendChild(el("li", "hint", "no notable patterns detected"));
 
-  // Module versions + packages (v1.1)
+  // Module versions + packages (v1.2)
   renderTable("modules", data.modules || [], [
     { key: "module", label: "Module" },
     { key: "version", label: "Version" },
@@ -103,6 +103,8 @@ function render(data) {
     { key: "risk", label: "Risk" }, { key: "source", label: "Source" },
     { key: "checksum_valid", label: "Checksum", statusClass: true },
     { key: "trust_valid", label: "Trust", statusClass: true },
+    { key: "signature_valid", label: "Signature", statusClass: true },
+    { key: "signature_mode", label: "Sig Mode" },
     { key: "policy_result", label: "Policy", statusClass: true },
     { key: "status", label: "Status", statusClass: true },
     { key: "block_reason", label: "Block Reason" },
@@ -129,6 +131,8 @@ function render(data) {
     { key: "checksum_valid", label: "Checksum", statusClass: true },
     { key: "trust_anchor", label: "Trust Anchor" },
     { key: "trust_valid", label: "Trust", statusClass: true },
+    { key: "signature_valid", label: "Signature", statusClass: true },
+    { key: "signer_key", label: "Signer" },
     { key: "verifies", label: "Verifies", statusClass: true },
     { key: "policy_result", label: "Policy", statusClass: true },
     { key: "reason", label: "Reason" },

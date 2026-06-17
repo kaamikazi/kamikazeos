@@ -7,7 +7,28 @@ import argparse
 import json
 from pathlib import Path
 
-from manifest_lib import LBA_MANIFESTS, MANIFEST_MAX, read_manifest_slots, validate_manifest
+from manifest_lib import LBA_MANIFESTS, MANIFEST_MAX, read_manifest_slots
+
+
+def sector_status(manifest):
+    errors = []
+    warnings = ["sector stores compact signature metadata, not the full Ed25519 signature"]
+    if manifest.checksum != manifest.expected_checksum():
+        errors.append("checksum mismatch")
+    if manifest.signature_status != "trusted":
+        errors.append("signature_status is not trusted")
+    sig = manifest.signature or {}
+    if sig.get("kernel_sector_marker") != "host_verified":
+        errors.append("missing host-verified signature sector marker")
+    if manifest.trust_anchor_id != 1:
+        errors.append("unknown trust anchor")
+    if manifest.risk == "high":
+        errors.append("high-risk package")
+    if not manifest.reversible:
+        errors.append("irreversible package")
+    if manifest.payload_type in ("blocked_driver_install", "unknown"):
+        errors.append(f"blocked payload type {manifest.payload_type}")
+    return not errors, errors, warnings
 
 
 def main() -> int:
@@ -24,7 +45,7 @@ def main() -> int:
     for slot, manifest in enumerate(read_manifest_slots(args.image)):
         if manifest is None:
             continue
-        ok, errors, warnings = validate_manifest(manifest)
+        ok, errors, warnings = sector_status(manifest)
         rows.append(
             {
                 "slot": slot,
