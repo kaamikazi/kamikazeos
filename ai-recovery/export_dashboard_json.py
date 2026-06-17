@@ -161,7 +161,14 @@ def main():
         "recommendations": build_recommendations(memory, actions, suggestions),
         "insights": build_insights(snapshots, timeline, journal),
         "safety_notice": ("Recovery Center is read-only. It does not apply "
-                          "repairs. Type commands manually inside KamikazeOS."),
+                          "repairs, write recovery.img, call OS APIs, download "
+                          "packages, or change OS state. Buttons only copy "
+                          "shell commands for a human to run inside KamikazeOS."),
+        "dashboard_contract": {
+            "mode": "read_only",
+            "source": "exported_serial_report_json",
+            "allowed_interaction": "copy_shell_command_text",
+        },
     }
 
     out_path.parent.mkdir(parents=True, exist_ok=True)

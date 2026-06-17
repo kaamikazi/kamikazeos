@@ -1,16 +1,17 @@
 /*
- * KamikazeOS Recovery Center — rendering only.
+ * KamikazeOS Recovery Center Pro - read-only renderer.
  *
- * SAFETY CONTRACT OF THIS FILE: it reads a JSON snapshot and draws HTML.
- * There are no network calls to the OS, no writes, no way to apply an
- * action. The only "interactive" thing here is a button that copies a
- * shell command string to the clipboard — the human still has to type
- * or paste it inside KamikazeOS themselves.
+ * Safety contract: this file consumes exported JSON and updates the DOM.
+ * The only interaction copies text to the clipboard. It never writes
+ * recovery.img, calls OS APIs, applies repairs, downloads packages, or changes
+ * KamikazeOS state.
  */
 "use strict";
 
-function scoreClass(score) {
-  return score >= 70 ? "good" : score >= 40 ? "warn" : "bad";
+const SAFE_COMMAND = /^(approve|rollback) ACT-[0-9]{3}$|^(approve-pkg|apply-pkg|verify-pkg|rollback-pkg) PKG-[0-9]{3}$/;
+
+function $(id) {
+  return document.getElementById(id);
 }
 
 function el(tag, cls, text) {
@@ -20,281 +21,383 @@ function el(tag, cls, text) {
   return n;
 }
 
+function scoreClass(score) {
+  return score >= 70 ? "good" : score >= 40 ? "warn" : "bad";
+}
+
+function classify(value) {
+  const v = String(value ?? "").toLowerCase();
+  if (["yes", "1", "ok", "allowed", "verified", "attached", "loaded", "trusted"].includes(v)) return "good";
+  if (["fallback", "suggested", "available", "medium", "pending", "applied"].includes(v)) return "warn";
+  if (["no", "0", "blocked", "failed", "invalid", "unsigned", "isolated", "missing_driver", "high", "error", "panic"].includes(v)) return "bad";
+  if (["low", "disk_imported", "builtin_seed"].includes(v)) return "info";
+  return "neutral";
+}
+
+function badge(text, extra) {
+  return el("span", `badge ${extra || classify(text)}`, text || "unknown");
+}
+
+function pill(text) {
+  return el("span", `status-pill ${classify(text)}`, text || "-");
+}
+
+function metric(label, value) {
+  const row = el("div", "metric");
+  row.appendChild(el("span", null, label));
+  row.appendChild(el("span", null, value ?? "-"));
+  return row;
+}
+
+function empty(target, text) {
+  target.innerHTML = "";
+  target.appendChild(el("div", "empty-note", text));
+}
+
+function setBadge(id, text, cls) {
+  const node = $(id);
+  node.textContent = text;
+  node.className = `badge ${cls || classify(text)}`;
+}
+
 function renderTable(id, rows, columns) {
-  const table = document.getElementById(id);
+  const table = $(id);
   table.innerHTML = "";
   const head = el("tr");
   columns.forEach(c => head.appendChild(el("th", null, c.label)));
   table.appendChild(head);
-  rows.forEach(r => {
+
+  if (!rows || rows.length === 0) {
+    const tr = el("tr");
+    const td = el("td", "empty-row", "No data in exported report");
+    td.colSpan = columns.length;
+    tr.appendChild(td);
+    table.appendChild(tr);
+    return;
+  }
+
+  rows.forEach(row => {
     const tr = el("tr");
     columns.forEach(c => {
-      const value = r[c.key] ?? "";
-      const td = el("td", c.statusClass ? `status-${value}` : null, value);
+      const td = el("td", c.wrap ? "wrap" : null);
+      const value = row[c.key] ?? "";
+      if (c.badge) td.appendChild(pill(value));
+      else td.textContent = value || "-";
       tr.appendChild(td);
     });
     table.appendChild(tr);
   });
 }
 
-function render(data) {
-  // Header + health hero
-  document.getElementById("meta").textContent =
-    `KamikazeOS v${data.version} · backend: ${data.backend} · ` +
-    `boot ${data.memory?.boot_count ?? "?"} · ` +
-    `journal entries: ${data.store?.journal_count ?? "?"}`;
-
+function renderHealth(data) {
   const score = parseInt(data.health?.score ?? "0", 10);
-  const scoreEl = document.getElementById("health-score");
-  scoreEl.textContent = `${score}`;
+  const scoreEl = $("health-score");
+  scoreEl.textContent = Number.isFinite(score) ? String(score) : "--";
   scoreEl.className = `score ${scoreClass(score)}`;
+  setBadge("health-status", `${scoreClass(score)} health`, scoreClass(score));
 
-  // The safety notice always comes from the data file, so the kernel-side
-  // contract and the UI text can never drift apart silently.
-  if (data.safety_notice)
-    document.getElementById("safety-banner").textContent = data.safety_notice;
+  const box = $("health-breakdown");
+  box.innerHTML = "";
+  box.appendChild(metric("Missing driver penalty", data.health?.missing_penalty));
+  box.appendChild(metric("Isolated device penalty", data.health?.isolated_penalty));
+  box.appendChild(metric("Warning penalty", data.health?.warning_penalty));
+  box.appendChild(metric("Critical penalty", data.health?.critical_penalty));
+  box.appendChild(metric("Previous score", data.health?.prev_score));
+  box.appendChild(metric("Delta", data.health?.health_delta));
+}
 
-  // Health trend bars (one per snapshot)
-  const trend = document.getElementById("trend");
+function renderBackend(data) {
+  const store = data.store || {};
+  setBadge("backend-status", data.backend || "unknown", store.disk_available === "1" ? "good" : "warn");
+  const box = $("backend-card");
+  box.innerHTML = "";
+  box.appendChild(metric("Backend", data.backend));
+  box.appendChild(metric("Disk available", store.disk_available === "1" ? "yes" : "no"));
+  box.appendChild(metric("State valid", store.state_valid === "1" ? "yes" : "no"));
+  box.appendChild(metric("Journal entries", store.journal_count));
+  box.appendChild(metric("Durable boot count", store.durable_boot_count));
+  box.appendChild(metric("CMOS fallback used", store.cmos_fallback_used === "1" ? "yes" : "no"));
+}
+
+function renderBootWarnings(data) {
+  const memory = data.memory || {};
+  const alerts = $("boot-warnings");
+  alerts.innerHTML = "";
+  const active = memory.safe_mode_active === "1";
+  const scheduled = memory.safe_mode_next_boot === "1";
+  const panic = memory.last_boot_panic === "1";
+  const rollback = memory.rollback_available === "1";
+  setBadge("boot-status", panic ? "panic evidence" : active ? "safe mode" : "normal boot", panic ? "bad" : active ? "warn" : "good");
+
+  const items = [];
+  items.push({ cls: active ? "warn" : "good", text: active ? "Safe mode is active this boot." : "Safe mode is not active." });
+  if (scheduled) items.push({ cls: "warn", text: "Safe mode is scheduled for the next boot." });
+  if (panic) items.push({ cls: "bad", text: "Previous boot panic evidence is present." });
+  if (rollback) items.push({ cls: "warn", text: "Rollback metadata is available." });
+  if (items.length === 1 && !scheduled && !panic && !rollback) items.push({ cls: "good", text: "No panic, rollback, or safe-mode warnings in this report." });
+  items.forEach(i => alerts.appendChild(el("div", `alert ${i.cls}`, i.text)));
+}
+
+function renderTrust(data) {
+  const trust = data.trust || {};
+  const box = $("trust-panel");
+  box.innerHTML = "";
+  box.appendChild(metric("Anchor", trust.anchor_id || "?"));
+  box.appendChild(metric("Fingerprint", trust.fingerprint || "?"));
+  box.appendChild(metric("Signature mode", trust.signature_verification || "simulated_kernel_check_host_ed25519"));
+  box.appendChild(metric("Note", trust.note || "Host Ed25519 real; kernel Ed25519 simulated."));
+  setBadge("trust-status", "read-only trust view", "info");
+}
+
+function renderTrend(snapshots) {
+  const trend = $("trend");
   trend.innerHTML = "";
-  (data.snapshots || []).forEach(s => {
-    const h = parseInt(s.health ?? "0", 10);
-    const wrap = el("div", "bar-wrap");
-    const bar = el("span", `bar ${scoreClass(h)}`);
-    bar.style.height = `${Math.max(6, h)}px`;
-    bar.title = `boot ${s.boot}: ${h}/100`;
-    wrap.appendChild(bar);
-    wrap.appendChild(el("div", "bar-label", `boot ${s.boot} · ${h}`));
-    const tags = [];
-    if (s.safe_mode === "1") tags.push("safe");
-    if (s.panic === "1") tags.push("panic");
-    if (tags.length) wrap.appendChild(el("div", "bar-tags", tags.join(" · ")));
-    trend.appendChild(wrap);
-  });
-  if (!data.snapshots?.length)
-    trend.appendChild(el("div", "hint", "no snapshots yet — finish one boot with the disk attached"));
-
-  // Insights
-  const insights = document.getElementById("insights");
-  insights.innerHTML = "";
-  (data.insights || []).forEach(i => insights.appendChild(el("li", null, i)));
-  if (!data.insights?.length)
-    insights.appendChild(el("li", "hint", "no notable patterns detected"));
-
-  // Module versions + packages
-  renderTable("modules", data.modules || [], [
-    { key: "module", label: "Module" },
-    { key: "version", label: "Version" },
-    { key: "base", label: "Base" },
-    { key: "updated", label: "Updated" },
-  ]);
-
-  const pol = document.getElementById("pkg-policy");
-  pol.innerHTML = "";
-  (data.package_policy || []).forEach(rule => {
-    const text = rule.replace(/^rule=/, "").replace(/_/g, " ");
-    pol.appendChild(el("li", null, text));
-  });
-
-  renderTable("packages", data.packages || [], [
-    { key: "id", label: "ID" }, { key: "name", label: "Package" },
-    { key: "target", label: "Target" },
-    { key: "from", label: "From" }, { key: "to", label: "To" },
-    { key: "risk", label: "Risk" }, { key: "source", label: "Source" },
-    { key: "checksum_valid", label: "Checksum", statusClass: true },
-    { key: "trust_valid", label: "Trust", statusClass: true },
-    { key: "signature_valid", label: "Signature", statusClass: true },
-    { key: "signature_mode", label: "Sig Mode" },
-    { key: "policy_result", label: "Policy", statusClass: true },
-    { key: "status", label: "Status", statusClass: true },
-    { key: "block_reason", label: "Block Reason" },
-  ]);
-
-  const trust = document.getElementById("trust");
-  if (trust) {
-    trust.innerHTML = "";
-    if (data.trust && Object.keys(data.trust).length) {
-      trust.appendChild(el("div", null, `anchor: ${data.trust.anchor_id || "?"}`));
-      trust.appendChild(el("div", "why", `fingerprint: ${data.trust.fingerprint || "?"}`));
-      trust.appendChild(el("div", "why",
-        `signature verification: ${data.trust.signature_verification || "simulated"}`));
-      if (data.trust.note) trust.appendChild(el("div", "why", data.trust.note));
-    } else {
-      trust.appendChild(el("div", "hint", "no trust anchor section in this report"));
-    }
+  if (!snapshots || snapshots.length === 0) {
+    trend.appendChild(el("div", "empty-note", "No snapshots yet. Boot KamikazeOS with the recovery disk attached."));
+    return;
   }
-
-  renderTable("manifests", data.manifests || [], [
-    { key: "id", label: "ID" },
-    { key: "payload", label: "Payload" },
-    { key: "source", label: "Source" },
-    { key: "checksum_valid", label: "Checksum", statusClass: true },
-    { key: "trust_anchor", label: "Trust Anchor" },
-    { key: "trust_valid", label: "Trust", statusClass: true },
-    { key: "signature_valid", label: "Signature", statusClass: true },
-    { key: "signer_key", label: "Signer" },
-    { key: "verifies", label: "Verifies", statusClass: true },
-    { key: "policy_result", label: "Policy", statusClass: true },
-    { key: "reason", label: "Reason" },
-    { key: "block_reason", label: "Block Reason" },
-  ]);
-
-  renderTable("package-states", data.package_states || [], [
-    { key: "id", label: "ID" },
-    { key: "approved", label: "Approved" },
-    { key: "applied", label: "Applied" },
-    { key: "verified", label: "Verified" },
-    { key: "failed", label: "Failed" },
-    { key: "rolled_back", label: "Rolled Back" },
-    { key: "from", label: "From" },
-    { key: "to", label: "To" },
-  ]);
-
-  const pending = document.getElementById("pending-verification");
-  if (pending) {
-    pending.textContent = data.pending_verification
-      ? "Applied update pending verification: run verify-pkg or rollback-pkg inside KamikazeOS."
-      : "No applied update is pending verification.";
-    pending.className = data.pending_verification ? "pending warn" : "pending";
-  }
-  renderTable("module-slots", data.module_slots || [], [
-    { key: "module", label: "Module" },
-    { key: "active", label: "Active" },
-    { key: "slot_a", label: "Slot A" },
-    { key: "slot_a_verified", label: "A OK" },
-    { key: "slot_b", label: "Slot B" },
-    { key: "slot_b_verified", label: "B OK" },
-    { key: "rollback", label: "Rollback" },
-    { key: "pending_verify", label: "Pending" },
-  ]);
-
-  const ph = document.getElementById("pkg-history");
-  ph.innerHTML = "";
-  (data.package_history || []).forEach(h => {
-    ph.appendChild(el("div", "tl-events",
-      `boot ${h.boot} — ${h.event} ${h.package} [${h.result}]`));
+  snapshots.forEach(s => {
+    const score = parseInt(s.health || "0", 10);
+    const point = el("div", "trend-point");
+    const bar = el("div", `bar ${scoreClass(score)}`);
+    bar.style.height = `${Math.max(8, Math.min(100, score))}%`;
+    point.appendChild(bar);
+    const labels = [`boot ${s.boot}`, `${score}/100`];
+    if (s.safe_mode === "1") labels.push("safe");
+    if (s.panic === "1") labels.push("panic");
+    point.appendChild(el("div", "bar-label", labels.join(" | ")));
+    trend.appendChild(point);
   });
-  if (!data.package_history?.length)
-    ph.appendChild(el("div", "hint", "no package events recorded yet"));
+}
 
-  // Recommendations — display + copy only. NO apply path exists.
-  const recs = document.getElementById("recommendations");
+function safeCopyCommand(cmd, btn) {
+  if (!SAFE_COMMAND.test(cmd)) {
+    btn.textContent = "blocked";
+    return;
+  }
+  navigator.clipboard?.writeText(cmd);
+  btn.textContent = "copied";
+  setTimeout(() => { btn.textContent = cmd; }, 1800);
+}
+
+function renderRecommendations(data) {
+  const recs = $("recommendations");
   recs.innerHTML = "";
-  // Package recommendations join the action recommendations; each
-  // command gets its own copy chip. Still zero apply paths.
-  (data.package_recommendations || []).forEach(r => {
+  const rows = [];
+  (data.package_recommendations || []).forEach(r => rows.push({
+    id: r.id,
+    name: r.name,
+    reason: r.reason,
+    risk: r.risk,
+    reversible: r.reversible,
+    commands: r.commands || [],
+  }));
+  (data.recommendations || []).forEach(r => rows.push({
+    id: r.id,
+    name: r.name,
+    reason: r.reason,
+    risk: r.risk,
+    reversible: r.reversible,
+    commands: [r.command],
+  }));
+
+  if (rows.length === 0) {
+    empty(recs, "No recommended commands in this exported report.");
+    return;
+  }
+
+  rows.forEach(r => {
     const row = el("div", "rec");
     const left = el("div");
-    left.appendChild(el("div", null,
-      `${r.id} ${r.name} — risk: ${r.risk}, reversible: ${r.reversible}`));
-    left.appendChild(el("div", "why", `why: ${r.reason}`));
+    left.appendChild(el("div", "rec-title", `${r.id} ${r.name || ""}`.trim()));
+    left.appendChild(el("div", "why", `risk: ${r.risk || "?"} | reversible: ${r.reversible || "?"}`));
+    left.appendChild(el("div", "why", r.reason || "reported by analyzer"));
     row.appendChild(left);
-    const right = el("div");
-    (r.commands || []).forEach(cmd => {
-      const chip = el("span", "cmd", cmd);
-      chip.style.display = "block";
-      chip.style.marginBottom = "4px";
-      chip.style.cursor = "pointer";
-      chip.title = "click to copy — then type it inside KamikazeOS";
-      chip.addEventListener("click", () => navigator.clipboard?.writeText(cmd));
-      right.appendChild(chip);
+
+    const stack = el("div", "cmd-stack");
+    r.commands.filter(Boolean).forEach(cmd => {
+      const btn = el("button", "cmd", cmd);
+      btn.title = "Copy command text. Nothing is executed.";
+      btn.addEventListener("click", () => safeCopyCommand(cmd, btn));
+      stack.appendChild(btn);
     });
-    row.appendChild(right);
+    row.appendChild(stack);
     recs.appendChild(row);
   });
-  (data.recommendations || []).forEach(r => {
-    const row = el("div", "rec");
-    const left = el("div");
-    left.appendChild(el("div", null, `${r.id} ${r.name} — risk: ${r.risk}, reversible: ${r.reversible}`));
-    left.appendChild(el("div", "why", `why: ${r.reason}`));
-    row.appendChild(left);
-    const right = el("div");
-    right.appendChild(el("span", "cmd", r.command));
-    const btn = el("button", "copy", "copy");
-    btn.addEventListener("click", () => {
-      navigator.clipboard?.writeText(r.command);
-      btn.textContent = "copied — type it in KamikazeOS";
-      setTimeout(() => (btn.textContent = "copy"), 2500);
+}
+
+function renderTimelines(data) {
+  const journal = $("journal");
+  journal.innerHTML = "";
+  if (!data.journal?.length) {
+    empty(journal, "No durable journal entries in this report.");
+  } else {
+    data.journal.forEach(j => {
+      const item = el("div", "timeline-item");
+      item.appendChild(el("div", "timeline-title", `boot ${j.boot || "?"} | ${j.event || "event"}`));
+      item.appendChild(el("div", "timeline-detail", `${j.action || j.package || ""} ${j.result ? "[" + j.result + "]" : ""}`.trim()));
+      journal.appendChild(item);
     });
-    right.appendChild(document.createTextNode(" "));
-    right.appendChild(btn);
-    row.appendChild(right);
-    recs.appendChild(row);
-  });
-  if (!data.recommendations?.length && !data.package_recommendations?.length)
-    recs.appendChild(el("div", "hint", "nothing recommended right now"));
+  }
 
-  // Tables
-  renderTable("devices", data.devices || [], [
-    { key: "id", label: "ID" }, { key: "name", label: "Device" },
-    { key: "type", label: "Type" }, { key: "bus", label: "Bus" },
-    { key: "driver", label: "Driver" },
-    { key: "status", label: "Status", statusClass: true },
-  ]);
-  renderTable("drivers", data.drivers || [], [
-    { key: "id", label: "ID" }, { key: "name", label: "Driver" },
-    { key: "supports", label: "Supports" }, { key: "version", label: "Ver" },
-    { key: "verified", label: "Verified" }, { key: "risk", label: "Risk" },
-    { key: "status", label: "Status", statusClass: true },
-  ]);
-  renderTable("actions", data.actions || [], [
-    { key: "id", label: "ID" }, { key: "name", label: "Action" },
-    { key: "risk", label: "Risk" }, { key: "reversible", label: "Rev" },
-    { key: "status", label: "Status", statusClass: true },
-  ]);
-  renderTable("snapshots", data.snapshots || [], [
-    { key: "boot", label: "Boot" }, { key: "health", label: "Health" },
-    { key: "attached", label: "Att" }, { key: "fallback", label: "Fall" },
-    { key: "missing", label: "Miss" }, { key: "isolated", label: "Isol" },
-    { key: "warnings", label: "Warn" }, { key: "criticals", label: "Crit" },
-    { key: "applied", label: "Actions" },
-  ]);
-
-  // Timeline
-  const tl = document.getElementById("timeline");
-  tl.innerHTML = "";
-  (data.timeline || []).forEach(t => {
-    const boot = el("div", "tl-boot");
-    let head = `boot ${t.boot} — health ${t.health}/100`;
-    if (t.safe_mode === "1") head += "  [SAFE MODE]";
-    if (t.panic === "1") head += "  [AFTER PANIC]";
-    boot.appendChild(el("div", "tl-head", head));
-    (t.events || "").split(",").forEach(ev => {
-      if (ev && ev !== "none")
-        boot.appendChild(el("div", "tl-events", ev));
+  const snaps = $("snapshot-timeline");
+  snaps.innerHTML = "";
+  if (!data.snapshots?.length) {
+    empty(snaps, "No boot snapshots in this report.");
+  } else {
+    data.snapshots.forEach(s => {
+      const item = el("div", "timeline-item");
+      item.appendChild(el("div", "timeline-title", `boot ${s.boot} | health ${s.health}/100`));
+      item.appendChild(el("div", "timeline-detail",
+        `attached ${s.attached}, fallback ${s.fallback}, missing ${s.missing}, isolated ${s.isolated}, warnings ${s.warnings}, criticals ${s.criticals}`));
+      snaps.appendChild(item);
     });
-    tl.appendChild(boot);
-  });
+  }
+}
 
-  // Warnings & errors with the rule base's explanations
-  const issues = document.getElementById("issues");
+function renderIssues(data) {
+  const issues = $("issues");
   issues.innerHTML = "";
-  (data.events || []).forEach(e => {
+  if (!data.events?.length) {
+    empty(issues, "No warnings or errors in this exported report.");
+    return;
+  }
+  data.events.forEach(e => {
     const critical = e.severity === "error" || e.severity === "panic";
     const div = el("div", `issue${critical ? " critical" : ""}`);
     const head = el("div");
-    head.appendChild(el("span", "code", `${e.code} `));
+    head.appendChild(el("span", "code", `${e.code || "EVENT"} `));
     head.appendChild(document.createTextNode(e.message || ""));
     div.appendChild(head);
     const rule = (data.rules || {})[e.code];
-    div.appendChild(el("div", "cause",
-      rule ? `${rule.cause} → ${rule.action}` : `hint: ${e.hint || "-"}`));
+    div.appendChild(el("div", "cause", rule ? `${rule.cause} Action: ${rule.action}` : `hint: ${e.hint || "-"}`));
     issues.appendChild(div);
   });
-  if (!data.events?.length)
-    issues.appendChild(el("div", "hint", "no warnings or errors — system healthy"));
 }
 
-// Data source: prefer the .js companion (works from file://); fall back
-// to fetching the JSON (works when served over http).
+function render(data) {
+  if (!data || typeof data !== "object") {
+    showMissingData();
+    return;
+  }
+
+  $("dashboard").classList.remove("hidden");
+  $("empty-state").classList.add("hidden");
+
+  $("report-version").textContent = `report v${data.version || "?"}`;
+  $("meta").textContent =
+    `backend ${data.backend || "?"} | boot ${data.memory?.boot_count || "?"} | journal ${data.store?.journal_count || "0"} entries`;
+  setBadge("system-badge", "read-only JSON view", "info");
+  if (data.safety_notice) $("safety-banner").textContent = data.safety_notice;
+
+  renderHealth(data);
+  renderBackend(data);
+  renderBootWarnings(data);
+  renderTrust(data);
+  renderTrend(data.snapshots || []);
+  renderRecommendations(data);
+  renderTimelines(data);
+  renderIssues(data);
+
+  const attached = (data.devices || []).filter(d => d.status === "attached").length;
+  const total = (data.devices || []).length;
+  $("device-summary").textContent = `${attached}/${total} attached`;
+
+  renderTable("devices", data.devices || [], [
+    { key: "id", label: "ID" },
+    { key: "name", label: "Device", wrap: true },
+    { key: "type", label: "Type" },
+    { key: "bus", label: "Bus" },
+    { key: "driver", label: "Driver", wrap: true },
+    { key: "status", label: "Status", badge: true },
+  ]);
+  renderTable("drivers", data.drivers || [], [
+    { key: "id", label: "ID" },
+    { key: "name", label: "Driver", wrap: true },
+    { key: "supports", label: "Supports" },
+    { key: "version", label: "Version" },
+    { key: "verified", label: "Verified", badge: true },
+    { key: "risk", label: "Risk", badge: true },
+    { key: "status", label: "Status", badge: true },
+  ]);
+  renderTable("actions", data.actions || [], [
+    { key: "id", label: "ID" },
+    { key: "name", label: "Action", wrap: true },
+    { key: "risk", label: "Risk", badge: true },
+    { key: "reversible", label: "Reversible", badge: true },
+    { key: "status", label: "Status", badge: true },
+  ]);
+  renderTable("manifests", data.manifests || [], [
+    { key: "id", label: "ID" },
+    { key: "payload", label: "Payload", wrap: true },
+    { key: "source", label: "Source", badge: true },
+    { key: "checksum_valid", label: "Checksum", badge: true },
+    { key: "trust_valid", label: "Trust", badge: true },
+    { key: "signature_valid", label: "Signature", badge: true },
+    { key: "policy_result", label: "Policy", badge: true },
+    { key: "block_reason", label: "Block Reason", wrap: true },
+  ]);
+  renderTable("package-states", data.package_states || [], [
+    { key: "id", label: "ID" },
+    { key: "approved", label: "Approved", badge: true },
+    { key: "applied", label: "Applied", badge: true },
+    { key: "verified", label: "Verified", badge: true },
+    { key: "failed", label: "Failed", badge: true },
+    { key: "rolled_back", label: "Rolled Back", badge: true },
+    { key: "from", label: "From" },
+    { key: "to", label: "To" },
+  ]);
+  setBadge("pending-verification",
+    data.pending_verification ? "verification pending" : "no pending verification",
+    data.pending_verification ? "warn" : "good");
+  renderTable("module-slots", data.module_slots || [], [
+    { key: "module", label: "Module", wrap: true },
+    { key: "active", label: "Active", badge: true },
+    { key: "slot_a", label: "Slot A" },
+    { key: "slot_a_verified", label: "A OK", badge: true },
+    { key: "slot_b", label: "Slot B" },
+    { key: "slot_b_verified", label: "B OK", badge: true },
+    { key: "rollback", label: "Rollback" },
+    { key: "pending_verify", label: "Pending", badge: true },
+  ]);
+  renderTable("packages", data.packages || [], [
+    { key: "id", label: "ID" },
+    { key: "name", label: "Package", wrap: true },
+    { key: "target", label: "Target", wrap: true },
+    { key: "from", label: "From" },
+    { key: "to", label: "To" },
+    { key: "risk", label: "Risk", badge: true },
+    { key: "source", label: "Source", badge: true },
+    { key: "signature_valid", label: "Signature", badge: true },
+    { key: "policy_result", label: "Policy", badge: true },
+    { key: "status", label: "Status", badge: true },
+    { key: "block_reason", label: "Block Reason", wrap: true },
+  ]);
+
+  const insights = $("insights");
+  insights.innerHTML = "";
+  if (!data.insights?.length) {
+    insights.appendChild(el("li", null, "No notable analyzer insights in this report."));
+  } else {
+    data.insights.forEach(i => insights.appendChild(el("li", null, i)));
+  }
+}
+
+function showMissingData() {
+  $("dashboard").classList.add("hidden");
+  $("empty-state").classList.remove("hidden");
+  $("meta").textContent = "Run make dashboard-json after booting KamikazeOS.";
+  setBadge("system-badge", "no data", "warn");
+}
+
 if (window.RECOVERY_DATA) {
   render(window.RECOVERY_DATA);
 } else {
   fetch("data/recovery-report.json")
-    .then(r => r.json())
+    .then(r => {
+      if (!r.ok) throw new Error("missing data");
+      return r.json();
+    })
     .then(render)
-    .catch(() => {
-      document.getElementById("meta").textContent =
-        "no data found — run: make dashboard-json (after booting the OS)";
-    });
+    .catch(showMissingData);
 }

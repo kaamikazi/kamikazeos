@@ -23,3 +23,30 @@ Suggested v1.3 public release screenshots:
 - Recovery Center trust/signature panel.
 
 Do not imply browser visual QA was performed unless it actually was.
+
+## v1.4 Recovery Center Pro
+
+Suggested v1.4 dashboard screenshots:
+
+- Top system status header with read-only badge.
+- Read-only safety banner.
+- Health score card.
+- Health trend chart.
+- Backend/storage card.
+- Safe mode / previous panic warning card.
+- Trust and signature panel.
+- Analyzer insights and recommended command chips.
+- GhostAttach device table.
+- Driver registry table.
+- Recovery action table.
+- Recovery journal timeline.
+- Boot snapshots timeline.
+- Package manifest table.
+- Package state table.
+- Module A/B slots table.
+- Recovery packages table.
+- Blank dashboard empty state.
+
+For the blank state, temporarily move or rename
+`recovery-center/data/recovery-data.js` and open the dashboard over a local
+HTTP server with no JSON file available, then restore the data file.

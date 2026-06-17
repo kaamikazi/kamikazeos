@@ -3,123 +3,187 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>KamikazeOS Recovery Center</title>
+<title>KamikazeOS Recovery Center Pro</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<header>
-  <div>
-    <h1>KamikazeOS <span class="accent">Recovery Center</span></h1>
-    <p id="meta" class="meta">loading…</p>
-  </div>
-  <div id="health-hero" class="health-hero">
-    <div id="health-score" class="score">–</div>
-    <div class="score-label">health</div>
-  </div>
-</header>
+<div class="shell">
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">Recovery Center Pro</p>
+      <h1>KamikazeOS</h1>
+      <p id="meta" class="meta">Waiting for exported dashboard data</p>
+    </div>
+    <div class="top-actions">
+      <span id="system-badge" class="badge neutral">read-only</span>
+      <span id="report-version" class="version-chip">report v?</span>
+    </div>
+  </header>
 
-<!-- THE RULE OF THIS DASHBOARD, stated where nobody can miss it. -->
-<div id="safety-banner" class="safety-banner">
-  Recovery Center is read-only. It does not apply repairs.
-  Type commands manually inside KamikazeOS.
+  <section id="safety-banner" class="safety-banner">
+    Recovery Center is read-only. It reads exported JSON and only copies shell
+    commands for a human to run inside KamikazeOS.
+  </section>
+
+  <section id="empty-state" class="empty-state hidden">
+    <h2>No Dashboard Data</h2>
+    <p>Run make dashboard-json after booting KamikazeOS.</p>
+  </section>
+
+  <main id="dashboard" class="dashboard">
+    <section class="status-grid">
+      <article class="card score-card">
+        <div class="card-head">
+          <h2>Health Score</h2>
+          <span id="health-status" class="badge neutral">unknown</span>
+        </div>
+        <div id="health-score" class="score">--</div>
+        <div id="health-breakdown" class="metric-list"></div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h2>Storage Backend</h2>
+          <span id="backend-status" class="badge neutral">unknown</span>
+        </div>
+        <div id="backend-card" class="metric-list"></div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h2>Boot Safety</h2>
+          <span id="boot-status" class="badge neutral">normal</span>
+        </div>
+        <div id="boot-warnings" class="alert-list"></div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h2>Trust And Signatures</h2>
+          <span id="trust-status" class="badge neutral">simulated kernel crypto</span>
+        </div>
+        <div id="trust-panel" class="metric-list"></div>
+      </article>
+    </section>
+
+    <section class="card wide">
+      <div class="card-head">
+        <h2>Health Trend</h2>
+        <span class="hint">boot snapshots</span>
+      </div>
+      <div id="trend" class="trend-chart"></div>
+    </section>
+
+    <section class="content-grid">
+      <article class="card">
+        <div class="card-head">
+          <h2>Analyzer Insights</h2>
+          <span class="hint">offline only</span>
+        </div>
+        <ul id="insights" class="insight-list"></ul>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h2>Recommended Commands</h2>
+          <span class="hint">copy only</span>
+        </div>
+        <div id="recommendations" class="command-list"></div>
+      </article>
+    </section>
+
+    <section class="card wide">
+      <div class="card-head">
+        <h2>GhostAttach Devices</h2>
+        <span id="device-summary" class="hint"></span>
+      </div>
+      <div class="table-wrap"><table id="devices"></table></div>
+    </section>
+
+    <section class="card wide">
+      <div class="card-head">
+        <h2>Driver Registry</h2>
+        <span class="hint">verified fallback policy</span>
+      </div>
+      <div class="table-wrap"><table id="drivers"></table></div>
+    </section>
+
+    <section class="card wide">
+      <div class="card-head">
+        <h2>Recovery Actions</h2>
+        <span class="hint">fixed catalog</span>
+      </div>
+      <div class="table-wrap"><table id="actions"></table></div>
+    </section>
+
+    <section class="content-grid">
+      <article class="card">
+        <div class="card-head">
+          <h2>Recovery Journal</h2>
+          <span class="hint">durable history</span>
+        </div>
+        <div id="journal" class="timeline"></div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h2>Boot Snapshots</h2>
+          <span class="hint">health by boot</span>
+        </div>
+        <div id="snapshot-timeline" class="timeline"></div>
+      </article>
+    </section>
+
+    <section class="card wide">
+      <div class="card-head">
+        <h2>Package Manifests</h2>
+        <span class="hint">disk or built-in seed</span>
+      </div>
+      <div class="table-wrap"><table id="manifests"></table></div>
+    </section>
+
+    <section class="content-grid">
+      <article class="card">
+        <div class="card-head">
+          <h2>Package State</h2>
+          <span class="hint">persistent lifecycle</span>
+        </div>
+        <div class="table-wrap"><table id="package-states"></table></div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h2>Module A/B Slots</h2>
+          <span id="pending-verification" class="badge neutral">pending unknown</span>
+        </div>
+        <div class="table-wrap"><table id="module-slots"></table></div>
+      </article>
+    </section>
+
+    <section class="card wide">
+      <div class="card-head">
+        <h2>Recovery Packages</h2>
+        <span class="hint">policy-gated, metadata-only apply</span>
+      </div>
+      <div class="table-wrap"><table id="packages"></table></div>
+    </section>
+
+    <section class="card wide">
+      <div class="card-head">
+        <h2>Warnings And Errors</h2>
+        <span class="hint">with analyzer explanations</span>
+      </div>
+      <div id="issues" class="issues"></div>
+    </section>
+  </main>
+
+  <footer>
+    Generated from <code>build/serial.log</code> by
+    <code>ai-recovery/export_dashboard_json.py</code>. Refresh with
+    <code>make dashboard-json</code>.
+  </footer>
 </div>
 
-<main>
-  <section class="panel" id="panel-trend">
-    <h2>Health trend</h2>
-    <div id="trend" class="trend"></div>
-  </section>
-
-  <section class="panel" id="panel-insights">
-    <h2>AI Recovery Core insights</h2>
-    <ul id="insights"></ul>
-  </section>
-
-  <section class="panel" id="panel-recommend">
-    <h2>Recommended actions <span class="hint">(you type these — nothing here clicks itself)</span></h2>
-    <div id="recommendations"></div>
-  </section>
-
-  <section class="panel">
-    <h2>Module versions</h2>
-    <table id="modules"></table>
-  </section>
-
-  <section class="panel">
-    <h2>Package policy</h2>
-    <ul id="pkg-policy" class="policy-list"></ul>
-  </section>
-
-  <section class="panel" id="panel-trust">
-    <h2>Trust anchor <span class="hint">(signature verification is simulated)</span></h2>
-    <div id="trust"></div>
-  </section>
-
-  <section class="panel" id="panel-packages">
-    <h2>Recovery packages <span class="hint">(fixed registry - A/B slot metadata only)</span></h2>
-    <table id="packages"></table>
-  </section>
-
-  <section class="panel" id="panel-manifests">
-    <h2>Package manifests <span class="hint">(disk or built-in seed)</span></h2>
-    <table id="manifests"></table>
-  </section>
-
-  <section class="panel" id="panel-states">
-    <h2>Persistent package state</h2>
-    <table id="package-states"></table>
-  </section>
-
-  <section class="panel" id="panel-slots">
-    <h2>Module A/B slots <span class="hint">(metadata-level rollback)</span></h2>
-    <div id="pending-verification" class="pending"></div>
-    <table id="module-slots"></table>
-  </section>
-
-  <section class="panel">
-    <h2>Package history <span class="hint">(durable journal)</span></h2>
-    <div id="pkg-history"></div>
-  </section>
-
-  <section class="panel">
-    <h2>Devices <span class="hint">(GhostAttach)</span></h2>
-    <table id="devices"></table>
-  </section>
-
-  <section class="panel">
-    <h2>Drivers</h2>
-    <table id="drivers"></table>
-  </section>
-
-  <section class="panel">
-    <h2>Recovery actions <span class="hint">(fixed catalog)</span></h2>
-    <table id="actions"></table>
-  </section>
-
-  <section class="panel">
-    <h2>Recovery timeline</h2>
-    <div id="timeline"></div>
-  </section>
-
-  <section class="panel">
-    <h2>Boot snapshots</h2>
-    <table id="snapshots"></table>
-  </section>
-
-  <section class="panel">
-    <h2>Warnings &amp; errors this boot</h2>
-    <div id="issues"></div>
-  </section>
-</main>
-
-<footer>
-  Generated from <code>build/serial.log</code> by
-  <code>ai-recovery/export_dashboard_json.py</code>.
-  Refresh the data with <code>make dashboard-json</code>.
-</footer>
-
-<!-- Data: the .js form exists so file:// pages work without a server.
-     app.js falls back to fetching the .json if this file is absent. -->
 <script src="data/recovery-data.js"></script>
 <script src="app.js"></script>
 </body>
