@@ -1,6 +1,6 @@
 # Command Reference
 
-KamikazeOS shell commands in v1.3.0.
+KamikazeOS shell commands in v1.6.0.
 
 ## General
 
@@ -11,6 +11,18 @@ KamikazeOS shell commands in v1.3.0.
 | `about` | Version and mission summary |
 | `reboot` | Restart the machine |
 | `panic-test` | Deliberately crash for panic-handler testing |
+
+## Kernel Interrupts
+
+| Command | Purpose |
+|---|---|
+| `interrupts` | Show IDT, PIC, timer, keyboard mode, counters, and last vector |
+| `ticks` | Show the live 100 Hz PIT tick counter |
+| `exceptions-test divide confirm` | Trigger a controlled divide-by-zero exception and halt |
+| `exceptions-test invalid-opcode confirm` | Trigger a controlled invalid-opcode exception and halt |
+
+Both exception tests export structured panic evidence. They do not attempt
+recovery and require the literal `confirm` argument.
 
 ## GhostAttach And Logs
 

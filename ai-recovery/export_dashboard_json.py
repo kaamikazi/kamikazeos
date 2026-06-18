@@ -94,7 +94,8 @@ def main():
     (meta, devices, drivers, events, policy, actions, suggestions,
      memory, store, journal, snapshots, health, timeline,
      modules, pkgs, pkg_policy, pkg_history,
-     trust, pkg_manifests, pkg_states, mod_slots, pending) = parse_report(lines)
+     trust, pkg_manifests, pkg_states, mod_slots, pending,
+     kernel_interrupts, kernel_timing, kernel_exceptions) = parse_report(lines)
 
     # Package recommendations: same catalog-only rule as actions.
     pkg_recs = []
@@ -154,6 +155,9 @@ def main():
         "package_states": pkg_states,
         "module_slots": mod_slots,
         "pending_verification": pending.get("pending") == "1",
+        "kernel_interrupts": kernel_interrupts,
+        "kernel_timing": kernel_timing,
+        "kernel_exceptions": kernel_exceptions,
         "package_policy": pkg_policy,
         "package_history": pkg_history,
         "package_recommendations": pkg_recs,

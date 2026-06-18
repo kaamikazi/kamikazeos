@@ -27,7 +27,7 @@ function scoreClass(score) {
 
 function classify(value) {
   const v = String(value ?? "").toLowerCase();
-  if (["yes", "1", "ok", "allowed", "verified", "attached", "loaded", "trusted"].includes(v)) return "good";
+  if (["yes", "1", "ok", "allowed", "verified", "attached", "loaded", "trusted", "enabled", "irq", "none"].includes(v)) return "good";
   if (["fallback", "suggested", "available", "medium", "pending", "applied"].includes(v)) return "warn";
   if (["no", "0", "blocked", "failed", "invalid", "unsigned", "isolated", "missing_driver", "high", "error", "panic"].includes(v)) return "bad";
   if (["low", "disk_imported", "builtin_seed"].includes(v)) return "info";
@@ -147,6 +147,43 @@ function renderTrust(data) {
   box.appendChild(metric("Signature mode", trust.signature_verification || "simulated_kernel_check_host_ed25519"));
   box.appendChild(metric("Note", trust.note || "Host Ed25519 real; kernel Ed25519 simulated."));
   setBadge("trust-status", "read-only trust view", "info");
+}
+
+function renderKernelFoundation(data) {
+  const interrupts = data.kernel_interrupts || {};
+  const timing = data.kernel_timing || {};
+  const exceptions = data.kernel_exceptions || {};
+
+  const ibox = $("interrupt-panel");
+  ibox.innerHTML = "";
+  ibox.appendChild(metric("IDT loaded", interrupts.idt_loaded));
+  ibox.appendChild(metric("PIC remapped", interrupts.pic_remapped));
+  ibox.appendChild(metric("Timer IRQ", interrupts.timer_enabled));
+  ibox.appendChild(metric("Interrupts enabled", interrupts.interrupts_enabled));
+  ibox.appendChild(metric("Handled", interrupts.interrupts_handled));
+  ibox.appendChild(metric("Last vector", interrupts.last_vector));
+  ibox.appendChild(metric("Keyboard mode", interrupts.keyboard_mode));
+  const foundationOk = interrupts.idt_loaded === "yes" &&
+    interrupts.pic_remapped === "yes" && interrupts.timer_enabled === "yes";
+  setBadge("interrupt-status", foundationOk ? interrupts.keyboard_mode || "ready" : "degraded",
+    foundationOk ? (interrupts.keyboard_mode === "polling_fallback" ? "warn" : "good") : "bad");
+
+  const tbox = $("timing-panel");
+  tbox.innerHTML = "";
+  tbox.appendChild(metric("Tick count", timing.tick_count));
+  tbox.appendChild(metric("Frequency", timing.frequency_hz ? `${timing.frequency_hz} Hz` : "?"));
+  tbox.appendChild(metric("IRQ state", timing.timer_irq));
+  setBadge("timer-status", timing.timer_irq || "unknown", classify(timing.timer_irq));
+
+  const ebox = $("exception-panel");
+  ebox.innerHTML = "";
+  ebox.appendChild(metric("Last exception", exceptions.last_exception || "none"));
+  ebox.appendChild(metric("Vector", exceptions.last_vector || "none"));
+  ebox.appendChild(metric("Error code", exceptions.last_error_code || "0"));
+  ebox.appendChild(metric("Recovery attempted", exceptions.recovery_attempted || "no"));
+  const hasException = exceptions.last_exception && exceptions.last_exception !== "none";
+  setBadge("exception-status", hasException ? "exception recorded" : "none recorded",
+    hasException ? "bad" : "good");
 }
 
 function renderTrend(snapshots) {
@@ -294,6 +331,7 @@ function render(data) {
   renderBackend(data);
   renderBootWarnings(data);
   renderTrust(data);
+  renderKernelFoundation(data);
   renderTrend(data.snapshots || []);
   renderRecommendations(data);
   renderTimelines(data);

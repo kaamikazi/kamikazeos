@@ -9,14 +9,15 @@ This is not a production OS. It is a learning and portfolio project. It runs
 in QEMU, has no user isolation, no networking stack, no real driver loading,
 and no production security guarantees.
 
-Current release: v1.5.0 "Public Demo Release". This is the stable public demo
-package: v1.2.0 "Trust Forge" remains the signing/tooling milestone, and v1.4.0
-"Recovery Center Pro" is the portfolio dashboard milestone.
+Current release: v1.6.0 "Kernel Discipline". It adds real x86 interrupt and
+exception foundations while preserving the constrained recovery and update
+model from the public demo releases.
 
 ## Feature Overview
 
 - Bootable 32-bit x86 kernel in QEMU.
-- VGA text console and PS/2 keyboard polling shell.
+- Real x86 IDT, CPU exception stubs, legacy PIC remap, and PIT timer ticks.
+- VGA text console and PS/2 IRQ keyboard shell with polling fallback.
 - GhostAttach device/driver recovery layer with verified fallback policy.
 - Structured kernel error logs and serial boot reports.
 - RecoveryMemory with CMOS fallback.
@@ -35,7 +36,8 @@ package: v1.2.0 "Trust Forge" remains the signing/tooling milestone, and v1.4.0
 flowchart TD
   QEMU["QEMU i386"] --> Kernel["KamikazeOS kernel"]
   Kernel --> VGA["VGA text console"]
-  Kernel --> Keyboard["PS/2 keyboard shell"]
+  Kernel --> IRQ["IDT + PIC + PIT"]
+  IRQ --> Keyboard["PS/2 IRQ keyboard shell"]
   Kernel --> Ghost["GhostAttach"]
   Kernel --> Errors["Structured error log"]
   Kernel --> Store["RecoveryStore: ATA PIO recovery.img"]
@@ -171,6 +173,7 @@ Simulated:
 
 ## Version History
 
+- v1.6.0 "Kernel Discipline": IDT, CPU exceptions, PIC, PIT, and IRQ keyboard.
 - v1.5.0 "Public Demo Release": stable public demo docs and helper scripts.
 - v1.4.0 "Recovery Center Pro": polished read-only dashboard UI.
 - v1.3.0 "Public Release": documentation, demo, release polish.
@@ -185,9 +188,8 @@ See [docs/VERSION_HISTORY.md](docs/VERSION_HISTORY.md).
 
 ## Roadmap
 
-- Keep v1.x focused on reproducibility, documentation, and safer demos.
-- Possible future technical work: real in-kernel Ed25519 verification,
-  richer test automation, and more complete hardware discovery.
+- Possible future technical work: virtual memory foundations, scheduler
+  groundwork, real in-kernel Ed25519 verification, and richer test automation.
 - Still out of scope: networking, driver downloads, binary patching, and
   autonomous repair.
 

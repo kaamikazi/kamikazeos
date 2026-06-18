@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.6.0 - Kernel Discipline
+
+- Added a 256-entry x86 IDT and `lidt` initialization.
+- Added normalized assembly stubs for CPU exceptions, PIT IRQ0, and keyboard
+  IRQ1.
+- Added non-returning exception diagnostics with vector, error code,
+  instruction pointer, structured logging, serial evidence, and panic state.
+- Remapped the legacy 8259 PIC to vectors 32-47 with masking and EOI support.
+- Added a 100 Hz PIT tick counter and `ticks` command.
+- Added IRQ-driven PS/2 keyboard input with the original polling path retained
+  as an explicit fallback.
+- Added `interrupts` and confirmed `exceptions-test` shell commands.
+- Added interrupt, timing, and exception serial report sections.
+- Updated the offline analyzer and read-only Recovery Center for kernel
+  interrupt evidence.
+- Added no networking, auto-repair, binary patching, downloads, arbitrary code
+  execution, or kernel self-modification.
+
 ## v1.5.0 - Public Demo Release
 
 - Updated public release docs for the stable demo package.

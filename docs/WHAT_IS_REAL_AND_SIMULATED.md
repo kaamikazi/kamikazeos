@@ -7,7 +7,12 @@ real OS and tooling mechanics, but avoids dangerous update behavior.
 
 - QEMU-bootable 32-bit x86 kernel.
 - VGA text output.
-- PS/2 keyboard polling shell.
+- A 256-entry x86 Interrupt Descriptor Table loaded with `lidt`.
+- CPU exception stubs and non-returning diagnostic handlers.
+- Legacy 8259 PIC remapping and IRQ masking/EOI handling.
+- PIT channel 0 timer interrupts and a live 100 Hz tick counter.
+- PS/2 keyboard IRQ1 input with a fixed ring buffer.
+- PS/2 keyboard polling fallback if IRQ mode is unavailable.
 - COM1 serial logs and boot reports.
 - Structured kernel error log.
 - GhostAttach policy decisions over fixed device/driver registries.
@@ -36,13 +41,15 @@ real OS and tooling mechanics, but avoids dangerous update behavior.
 - Kernel self-modification.
 - Arbitrary package loading or execution.
 
-## v1.5 Demo Boundary
+## v1.6 Kernel Boundary
 
-The v1.5 demo can show a real bootable toy OS, real durable recovery state, real
-host-side signing, real manifest validation, and a real read-only dashboard. It
-cannot show real binary patching, actual module replacement, internet updates,
-AI-driven repair, or in-kernel Ed25519 math because those are intentionally not
-implemented.
+The v1.6 kernel has real interrupt gates, exception entry stubs, PIC remapping,
+timer ticks, and IRQ keyboard input. Exception recovery is not simulated: it is
+explicitly absent. The kernel records evidence and halts safely.
+
+The project still has no userspace, scheduler, virtual memory, process model,
+syscalls, networking, real binary patching, actual module replacement,
+AI-driven repair, or in-kernel Ed25519 math.
 
 ## Why Simulate These Parts
 

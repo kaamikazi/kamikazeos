@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-KamikazeOS AI Recovery Core - host-side log analyzer (v1.5, offline/rule-based)
+KamikazeOS AI Recovery Core - host-side log analyzer (v1.6, offline/rule-based)
 
 This is the first working incarnation of the "maintenance brain". It runs on
 the HOST, outside the kernel, and its powers are deliberately limited:
@@ -8,7 +8,7 @@ the HOST, outside the kernel, and its powers are deliberately limited:
     READ logs  ->  EXPLAIN problems  ->  RANK risk  ->  SUGGEST next actions
 
 It never patches binaries, installs drivers, downloads code, or modifies the
-OS. Every suggestion is for a HUMAN to approve and perform. v1.5 is
+OS. Every suggestion is for a HUMAN to approve and perform. v1.6 is
 rule-based (no AI API yet) so the pipeline can be built and trusted first;
 see analyze_with_ai_later() at the bottom for where a real model plugs in.
 
@@ -163,6 +163,12 @@ RULES = {
                   "Multiboot-compliant loader; boot information is untrusted.",
         "action": "Boot via GRUB or QEMU's -kernel option.",
     },
+    "CPU-EXCEPTION": {
+        "cause":  "The CPU raised a synchronous exception. KamikazeOS captured "
+                  "the vector, error code, and instruction pointer before halting.",
+        "action": "Do not attempt automatic recovery. Preserve the serial log, "
+                  "reboot, and investigate the recorded exception evidence.",
+    },
 }
 
 # severity (kernel) -> classification (report)
@@ -234,12 +240,16 @@ def parse_report(lines):
         "[PACKAGE_STATES]": "pkg_states",
         "[MODULE_SLOTS]": "slots",
         "[PENDING_VERIFICATION]": "pending",
+        "[KERNEL_INTERRUPTS]": "kernel_interrupts",
+        "[KERNEL_TIMING]": "kernel_timing",
+        "[KERNEL_EXCEPTIONS]": "kernel_exceptions",
         "[ERROR_LOG]": "events",
     }
     store, journal = {}, []
     snapshots, health, timeline = [], {}, []
     modules, pkgs, pkg_policy, pkg_history = [], [], [], []
     trust, pkg_manifests, pkg_states, mod_slots, pending = {}, [], [], [], {}
+    kernel_interrupts, kernel_timing, kernel_exceptions = {}, {}, {}
     for line in lines:
         if line in section_map:
             section = section_map[line]
@@ -286,12 +296,19 @@ def parse_report(lines):
             mod_slots.append(parse_kv_line(line))
         elif section == "pending":
             pending.update(parse_kv_line(line))
+        elif section == "kernel_interrupts":
+            kernel_interrupts.update(parse_kv_line(line))
+        elif section == "kernel_timing":
+            kernel_timing.update(parse_kv_line(line))
+        elif section == "kernel_exceptions":
+            kernel_exceptions.update(parse_kv_line(line))
         elif section == "events":
             events.append(parse_kv_line(line))
     return (meta, devices, drivers, events, policy, actions, suggestions,
             memory, store, journal, snapshots, health, timeline,
             modules, pkgs, pkg_policy, pkg_history,
-            trust, pkg_manifests, pkg_states, mod_slots, pending)
+            trust, pkg_manifests, pkg_states, mod_slots, pending,
+            kernel_interrupts, kernel_timing, kernel_exceptions)
 
 
 def classify(events):
@@ -330,7 +347,7 @@ def main():
     lines, after_lines, found = extract_last_boot_report(text)
 
     print("=" * 72)
-    print(" KamikazeOS AI RECOVERY CORE - recovery report (v1.5, rule-based)")
+    print(" KamikazeOS AI RECOVERY CORE - recovery report (v1.6, rule-based)")
     print("=" * 72)
 
     if not found:
@@ -344,11 +361,13 @@ def main():
         snapshots, health, timeline = [], {}, []
         modules, pkgs, pkg_policy, pkg_history = [], [], [], []
         trust, pkg_manifests, pkg_states, mod_slots, pending = {}, [], [], [], {}
+        kernel_interrupts, kernel_timing, kernel_exceptions = {}, {}, {}
     else:
         (meta, devices, drivers, events, policy, actions, suggestions,
          memory, store, journal, snapshots, health, timeline,
          modules, pkgs, pkg_policy, pkg_history,
-         trust, pkg_manifests, pkg_states, mod_slots, pending) = parse_report(lines)
+         trust, pkg_manifests, pkg_states, mod_slots, pending,
+         kernel_interrupts, kernel_timing, kernel_exceptions) = parse_report(lines)
         if after_lines:
             # Events streamed after the report (e.g. a panic) — merge them in.
             print(f"\nNote: {len(after_lines)} event(s) occurred AFTER the boot "
@@ -362,6 +381,33 @@ def main():
               f"{meta.get('scan_fallback', '?')} fallback, "
               f"{meta.get('scan_missing', '?')} missing, "
               f"{meta.get('scan_isolated', '?')} isolated")
+
+    if kernel_interrupts:
+        print("\nKernel interrupt foundation:")
+        print(f"  * IDT loaded: {kernel_interrupts.get('idt_loaded', '?')}")
+        print(f"  * PIC remapped: {kernel_interrupts.get('pic_remapped', '?')}")
+        print(f"  * Timer IRQ enabled: {kernel_interrupts.get('timer_enabled', '?')}")
+        print(f"  * Keyboard mode: {kernel_interrupts.get('keyboard_mode', '?')}")
+        print(f"  * Interrupts handled at export: "
+              f"{kernel_interrupts.get('interrupts_handled', '?')}")
+        for key, label in (("idt_loaded", "IDT"), ("pic_remapped", "PIC remap"),
+                           ("timer_enabled", "PIT timer IRQ")):
+            if kernel_interrupts.get(key) != "yes":
+                print(f"  !! WARNING: {label} is not operational.")
+        if kernel_interrupts.get("keyboard_mode") == "polling_fallback":
+            print("  * Keyboard IRQ was unavailable; polling fallback preserved input.")
+
+    if kernel_timing:
+        print(f"\nKernel timing: {kernel_timing.get('tick_count', '?')} ticks at "
+              f"{kernel_timing.get('frequency_hz', '?')} Hz "
+              f"({kernel_timing.get('timer_irq', '?')})")
+
+    if kernel_exceptions and kernel_exceptions.get("last_exception") != "none":
+        print("\nCPU exception evidence:")
+        print(f"  * Exception: {kernel_exceptions.get('last_exception', '?')}")
+        print(f"  * Vector: {kernel_exceptions.get('last_vector', '?')}")
+        print(f"  * Error code: {kernel_exceptions.get('last_error_code', '?')}")
+        print("  * Recovery attempted: no (intentional v1.6 safety policy)")
 
     if devices:
         print("\nDevice summary:")
@@ -725,7 +771,7 @@ def main():
 
 
 # --------------------------------------------------------------------------
-# FUTURE AI INTEGRATION POINT (deliberately not implemented in v1.5)
+# FUTURE AI INTEGRATION POINT (deliberately not implemented in v1.6)
 # --------------------------------------------------------------------------
 def analyze_with_ai_later(log_text: str):
     """
@@ -744,7 +790,7 @@ def analyze_with_ai_later(log_text: str):
         as this rule-based analyzer - the policy engine, not the model,
         decides what may ever be applied automatically.
 
-    Keeping this stub un-implemented in v1.5 is intentional: the transport,
+    Keeping this stub un-implemented in v1.6 is intentional: the transport,
     format, and approval workflow get built and trusted first.
     """
     raise NotImplementedError("AI analysis arrives in a later phase - see docstring")

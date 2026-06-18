@@ -10,6 +10,8 @@
 #include "boot_snapshot.h"
 #include "errors.h"
 #include "ghostattach.h"
+#include "idt.h"
+#include "interrupts.h"
 #include "keyboard.h"
 #include "panic.h"
 #include "recovery_actions.h"
@@ -20,6 +22,8 @@
 #include "report.h"
 #include "serial.h"
 #include "shell.h"
+#include "pic.h"
+#include "timer.h"
 #include "vga.h"
 
 /* The value a Multiboot loader leaves in EAX to prove it booted us. */
@@ -36,7 +40,7 @@ static void boot_banner(void)
     vga_print(" |_|\\_\\__,_|_| |_| |_|_|_|\\_\\__,_/___\\___|  \\___/|____/ \n");
     vga_print("\n");
     vga_set_color(VGA_DARK_GREY, VGA_BLACK);
-    vga_print("  v1.5.0 \"Public Demo Release\"  --  stable demo build\n\n");
+    vga_print("  v1.6.0 \"Kernel Discipline\"  --  interrupt foundations\n\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
 }
 
@@ -83,7 +87,7 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
      */
     serial_init();
     errors_init();
-    serial_print("\n=== KamikazeOS v1.5.0 serial log ===\n");
+    serial_print("\n=== KamikazeOS v1.6.0 serial log ===\n");
 
     error_log(SEV_INFO, "BOOT-000", "kernel",
               "Kernel booted successfully", "no action needed");
@@ -143,13 +147,27 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
     }
     report_ok("multiboot handshake");
 
+    interrupts_init();
+    report_ok(idt_is_loaded() ? "interrupt descriptor table loaded"
+                              : "interrupt descriptor table unavailable");
+    report_ok(pic_is_remapped() ? "8259 PIC remapped to IRQ vectors 32-47"
+                                : "8259 PIC remap failed");
+    report_ok(timer_is_enabled() ? "PIT timer IRQ0 configured at 100 Hz"
+                                 : "PIT timer unavailable");
+
     /* Keyboard: may legitimately fail; it logs its own error and we keep
        booting (a server without a keyboard is still a working server). */
     keyboard_init();
-    if (keyboard_present())
-        report_ok("ps/2 keyboard (polling)");
+    keyboard_enable_irq();
+    if (keyboard_irq_enabled())
+        report_ok("ps/2 keyboard (IRQ1)");
+    else if (keyboard_present())
+        report_warn("ps/2 keyboard (polling fallback)");
     else
         report_warn("ps/2 keyboard missing - shell will be unusable");
+
+    interrupts_enable();
+    report_ok("hardware interrupts enabled");
 
     /*
      * GhostAttach boot scan: walk the device registry, apply the attach

@@ -10,6 +10,9 @@
 #include "boot_snapshot.h"
 #include "errors.h"
 #include "ghostattach.h"
+#include "idt.h"
+#include "interrupts.h"
+#include "keyboard.h"
 #include "module_slots.h"
 #include "module_versions.h"
 #include "package_manifest.h"
@@ -20,8 +23,10 @@
 #include "recovery_store.h"
 #include "serial.h"
 #include "string.h"
+#include "pic.h"
+#include "timer.h"
 
-#define KMZ_VERSION "1.5.0"
+#define KMZ_VERSION "1.6.0"
 
 /* serial_print for numbers: render via kitoa, then send. */
 static void serial_print_dec(uint32_t value)
@@ -54,7 +59,7 @@ void report_send(void)
     emit_kv("version", KMZ_VERSION);
     serial_print("\n");
 
-    /* --- GhostAttach scan summary ---------------------------------- */
+    /* Keep summary fields in report metadata before the first section. */
     struct ghostattach_stats st;
     ghostattach_get_stats(&st);
     serial_print("scan_total=");    serial_print_dec(st.total);
@@ -63,6 +68,33 @@ void report_send(void)
     serial_print(";scan_missing="); serial_print_dec(st.missing);
     serial_print(";scan_isolated=");serial_print_dec(st.isolated);
     serial_print("\n");
+
+    serial_print("[KERNEL_INTERRUPTS]\n");
+    serial_print("idt_loaded="); serial_print(idt_is_loaded() ? "yes" : "no");
+    serial_print("\npic_remapped="); serial_print(pic_is_remapped() ? "yes" : "no");
+    serial_print("\ntimer_enabled="); serial_print(timer_is_enabled() ? "yes" : "no");
+    serial_print("\nkeyboard_mode="); serial_print(keyboard_mode_name());
+    serial_print("\ninterrupts_enabled="); serial_print(interrupts_are_enabled() ? "yes" : "no");
+    serial_print("\ninterrupts_handled="); serial_print_dec(interrupts_handled());
+    serial_print("\nlast_vector=");
+    if (interrupts_last_vector() == 0xFFFFFFFFu) serial_print("none");
+    else serial_print_dec(interrupts_last_vector());
+    serial_print("\n");
+
+    serial_print("[KERNEL_TIMING]\n");
+    serial_print("tick_count="); serial_print_dec(timer_ticks());
+    serial_print("\ntimer_irq="); serial_print(timer_is_enabled() ? "enabled" : "disabled");
+    serial_print("\nfrequency_hz=100\n");
+
+    serial_print("[KERNEL_EXCEPTIONS]\n");
+    serial_print("last_exception=");
+    if (interrupts_last_exception() == 0xFFFFFFFFu) serial_print("none");
+    else serial_print(interrupt_exception_name(interrupts_last_exception()));
+    serial_print("\nlast_vector=");
+    if (interrupts_last_exception() == 0xFFFFFFFFu) serial_print("none");
+    else serial_print_dec(interrupts_last_exception());
+    serial_print("\nlast_error_code="); serial_print_dec(interrupts_last_error_code());
+    serial_print("\nrecovery_attempted=no\n");
 
     /* --- Every device, one line each ------------------------------- */
     serial_print("[DEVICES]\n");

@@ -1,6 +1,6 @@
 # KamikazeOS Architecture
 
-Status: v1.3.0 "Public Release".
+Status: v1.6.0 "Kernel Discipline".
 
 KamikazeOS is a small 32-bit x86 toy OS that runs in QEMU. Its architecture is
 organized around observability, durable recovery state, and constrained update
@@ -12,7 +12,8 @@ policy.
 flowchart TD
   Boot["Multiboot entry"] --> Kernel["kernel.c init sequence"]
   Kernel --> Console["VGA console"]
-  Kernel --> Shell["PS/2 keyboard shell"]
+  Kernel --> Interrupts["IDT + PIC + PIT"]
+  Interrupts --> Shell["PS/2 IRQ keyboard shell"]
   Kernel --> Ghost["GhostAttach device/driver policy"]
   Kernel --> Recovery["RecoveryEngine action catalog"]
   Kernel --> Memory["RecoveryMemory: disk plus CMOS fallback"]
@@ -29,8 +30,8 @@ flowchart TD
 ## Kernel
 
 The kernel initializes in a fixed dependency order: console, serial, error log,
-recovery memory, store, GhostAttach, package metadata, snapshots, report, and
-finally the shell.
+recovery memory/store, IDT/PIC/PIT, keyboard IRQ, GhostAttach, package metadata,
+snapshots, report, and finally the shell.
 
 Important source areas:
 
@@ -38,6 +39,11 @@ Important source areas:
 - `kernel/src/kernel.c`: subsystem initialization and boot banner.
 - `kernel/src/shell.c`: interactive shell commands.
 - `kernel/src/errors.c`: structured error log.
+- `kernel/src/idt.c`: Interrupt Descriptor Table construction and loading.
+- `kernel/src/interrupt_stubs.S`: normalized CPU exception and IRQ entry stubs.
+- `kernel/src/interrupts.c`: common dispatcher and exception state.
+- `kernel/src/pic.c`: legacy 8259 PIC remap, masks, and EOI.
+- `kernel/src/timer.c`: PIT channel 0 and tick counter.
 - `kernel/src/report.c`: serial report format.
 - `kernel/src/ata.c`: minimal ATA PIO storage driver.
 - `kernel/src/recovery_store.c`: disk-backed recovery state.

@@ -14,6 +14,8 @@
 #include "package_state.h"
 #include "recovery_package.h"
 #include "ghostattach.h"
+#include "idt.h"
+#include "interrupts.h"
 #include "io.h"
 #include "keyboard.h"
 #include "panic.h"
@@ -24,6 +26,8 @@
 #include "report.h"
 #include "serial.h"
 #include "string.h"
+#include "pic.h"
+#include "timer.h"
 #include "vga.h"
 
 /*
@@ -126,6 +130,9 @@ static void cmd_help(void)
     vga_print("  log         show the full structured log\n");
     vga_print("  logs-ai     print logs in machine-readable AI format\n");
     vga_print("  export-logs send full boot report to serial for AI analysis\n");
+    vga_print("  interrupts  show IDT PIC IRQ and exception status\n");
+    vga_print("  ticks       show the live PIT timer tick count\n");
+    vga_print("  exceptions-test <type> confirm  trigger a controlled CPU fault\n");
     vga_print("  recovery    show recovery system status\n");
     vga_print("  actions     show the fixed recovery action catalog\n");
     vga_print("  suggestions show currently suggested recovery actions\n");
@@ -163,11 +170,11 @@ static void cmd_about(void)
     cpu_vendor(vendor);
 
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
-    vga_print("KamikazeOS v1.5.0 \"Public Demo Release\"\n");
+    vga_print("KamikazeOS v1.6.0 \"Kernel Discipline\"\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     vga_print("An experimental AI-native, self-healing operating system.\n");
-    vga_print("v1.5: stable public demo package. Trust Forge signing and\n");
-    vga_print("Recovery Center Pro remain the headline demo flows.\n\n");
+    vga_print("v1.6: real IDT exception handling PIC remap PIT ticks and\n");
+    vga_print("IRQ keyboard input with an explicit polling fallback.\n\n");
     vga_print("  Architecture : x86 (i686), 32-bit protected mode\n");
     vga_print("  CPU vendor   : ");
     vga_print(vendor);
@@ -430,6 +437,51 @@ static void cmd_panic_test(void)
     kpanic("TEST-PANIC-001",
            "Deliberate test panic requested via panic-test",
            "test only - reboot the VM, no data affected");
+}
+
+static void cmd_interrupts(void)
+{
+    uint32_t vector = interrupts_last_vector();
+    uint32_t exception = interrupts_last_exception();
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("Kernel Interrupt Status:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print("  IDT loaded          : "); vga_print(idt_is_loaded() ? "yes\n" : "no\n");
+    vga_print("  PIC remapped        : "); vga_print(pic_is_remapped() ? "yes\n" : "no\n");
+    vga_print("  Timer IRQ enabled   : "); vga_print(timer_is_enabled() ? "yes\n" : "no\n");
+    vga_print("  Keyboard mode       : "); vga_print(keyboard_mode_name()); vga_print("\n");
+    vga_print("  Interrupts enabled  : "); vga_print(interrupts_are_enabled() ? "yes\n" : "no\n");
+    vga_print("  Interrupts handled  : "); vga_print_dec(interrupts_handled()); vga_print("\n");
+    vga_print("  Last vector         : ");
+    if (vector == 0xFFFFFFFFu) vga_print("none\n");
+    else { vga_print_dec(vector); vga_print("\n"); }
+    vga_print("  Last exception      : ");
+    if (exception == 0xFFFFFFFFu) vga_print("none\n");
+    else { vga_print(interrupt_exception_name(exception)); vga_print("\n"); }
+}
+
+static void cmd_ticks(void)
+{
+    vga_print("PIT tick count: ");
+    vga_print_dec(timer_ticks());
+    vga_print(" (100 Hz, timer IRQ ");
+    vga_print(timer_is_enabled() ? "enabled" : "disabled");
+    vga_print(")\n");
+}
+
+static void cmd_exceptions_test(const char *arg)
+{
+    if (kstrcmp(arg, "divide confirm") == 0) {
+        vga_print("Triggering controlled divide-by-zero exception. The VM will halt.\n");
+        interrupts_trigger_divide_test();
+    } else if (kstrcmp(arg, "invalid-opcode confirm") == 0) {
+        vga_print("Triggering controlled invalid-opcode exception. The VM will halt.\n");
+        interrupts_trigger_invalid_opcode_test();
+    } else {
+        vga_print("This command deliberately halts the kernel after exporting evidence.\n");
+        vga_print("Usage: exceptions-test divide confirm\n");
+        vga_print("   or: exceptions-test invalid-opcode confirm\n");
+    }
 }
 
 /* ------------------------------------------------------------------ */
@@ -1303,6 +1355,8 @@ static const struct command commands[] = {
     { "log",        cmd_log        },
     { "logs-ai",    cmd_logs_ai    },
     { "export-logs",cmd_export_logs},
+    { "interrupts", cmd_interrupts },
+    { "ticks",      cmd_ticks      },
     { "recovery",   cmd_recovery   },
     { "actions",    cmd_actions    },
     { "suggestions",cmd_suggestions},
@@ -1398,6 +1452,7 @@ void shell_run(void)
         if (kstrcmp(line, "rollback-pkg") == 0) { cmd_rollback_pkg(arg); continue; }
         if (kstrcmp(line, "seed-manifests") == 0) { cmd_seed_manifests(arg); continue; }
         if (kstrcmp(line, "reset-packages") == 0) { cmd_reset_packages(arg); continue; }
+        if (kstrcmp(line, "exceptions-test") == 0) { cmd_exceptions_test(arg); continue; }
 
         int found = 0;
         for (unsigned i = 0; i < sizeof(commands) / sizeof(commands[0]); i++) {

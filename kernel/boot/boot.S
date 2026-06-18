@@ -53,6 +53,9 @@ stack_top:                           /* stacks grow DOWN, so we start here */
 .global _start
 .type _start, @function
 _start:
+    /* No device interrupt may arrive before the kernel installs its IDT. */
+    cli
+
     /* Give C code a stack. */
     lea esp, stack_top
 

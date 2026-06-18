@@ -1,5 +1,13 @@
 # KamikazeOS Version History
 
+## v1.6.0 "Kernel Discipline"
+
+Added the kernel's first real interrupt foundation: a loaded x86 IDT, assembly
+exception/IRQ stubs, CPU exception diagnostics, legacy PIC remapping, PIT timer
+ticks, and PS/2 keyboard IRQ input with a polling fallback. Added shell/report,
+offline analyzer, and read-only Recovery Center visibility. CPU exceptions are
+recorded and halt safely; no automatic exception recovery was added.
+
 ## v1.5.0 "Public Demo Release"
 
 Stable public demo package. Added demo helper scripts, dashboard generation
