@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.5.0 - Public Demo Release
+
+- Updated public release docs for the stable demo package.
+- Added one-command demo preparation scripts.
+- Added dashboard generation helper script.
+- Added public demo script, demo flow, and portfolio summary artifacts.
+- Updated honest real-vs-simulated documentation.
+- No networking, package downloads, auto-repair, binary patching, driver
+  downloads, arbitrary code execution, or kernel self-modification added.
+
+## v1.4.0 - Recovery Center Pro
+
+- Rebuilt the Recovery Center into a portfolio-grade read-only dashboard.
+- Added system status, health, storage, trust/signature, package, journal,
+  snapshot, and command-copy panels.
+- Added dashboard docs and demo guidance.
+
 ## v1.3.0 - Public Release
 
 - Reworked README for public demo and portfolio use.

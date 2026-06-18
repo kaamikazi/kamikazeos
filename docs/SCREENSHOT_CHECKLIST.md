@@ -1,5 +1,30 @@
 # Screenshot Checklist
 
+## v1.5 Public Demo Release
+
+Suggested release screenshots:
+
+- QEMU boot screen with v1.5 banner.
+- Shell `about`.
+- Shell `help`.
+- `health`.
+- `store`.
+- `journal`.
+- `snapshots`.
+- `trust`.
+- `manifests`.
+- `packages`.
+- `package PKG-101`.
+- `approve-pkg PKG-101`, `apply-pkg PKG-101`, `verify-pkg PKG-101` flow.
+- Analyzer output.
+- Recovery Center Pro top system status header.
+- Recovery Center Pro health score and trend.
+- Recovery Center Pro trust/signature panel.
+- Recovery Center Pro package/manifest tables.
+- Recovery Center Pro recommended command chips.
+
+Do not imply browser visual QA was performed unless it actually was.
+
 Suggested v1.3 public release screenshots:
 
 - Boot screen.

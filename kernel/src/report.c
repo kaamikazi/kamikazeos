@@ -21,7 +21,7 @@
 #include "serial.h"
 #include "string.h"
 
-#define KMZ_VERSION "1.3.0"
+#define KMZ_VERSION "1.5.0"
 
 /* serial_print for numbers: render via kitoa, then send. */
 static void serial_print_dec(uint32_t value)

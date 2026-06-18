@@ -36,7 +36,7 @@ static void boot_banner(void)
     vga_print(" |_|\\_\\__,_|_| |_| |_|_|_|\\_\\__,_/___\\___|  \\___/|____/ \n");
     vga_print("\n");
     vga_set_color(VGA_DARK_GREY, VGA_BLACK);
-    vga_print("  v1.3.0 \"Public Release\"  --  documented demo build\n\n");
+    vga_print("  v1.5.0 \"Public Demo Release\"  --  stable demo build\n\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
 }
 
@@ -83,7 +83,7 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
      */
     serial_init();
     errors_init();
-    serial_print("\n=== KamikazeOS v1.3.0 serial log ===\n");
+    serial_print("\n=== KamikazeOS v1.5.0 serial log ===\n");
 
     error_log(SEV_INFO, "BOOT-000", "kernel",
               "Kernel booted successfully", "no action needed");

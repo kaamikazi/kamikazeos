@@ -1,5 +1,17 @@
 # KamikazeOS Version History
 
+## v1.5.0 "Public Demo Release"
+
+Stable public demo package. Added demo helper scripts, dashboard generation
+workflow, release notes, demo scripts, and portfolio-ready summaries. No new
+dangerous OS functionality was added.
+
+## v1.4.0 "Recovery Center Pro"
+
+Polished the Recovery Center into a portfolio-grade read-only dashboard with
+status cards, health trend, storage/trust panels, timelines, package tables,
+and copy-only command chips.
+
 ## v1.3.0 "Public Release"
 
 Documentation, demo, and release polish. No new dangerous functionality was

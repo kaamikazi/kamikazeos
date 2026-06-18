@@ -43,6 +43,18 @@ python ai-recovery\export_dashboard_json.py build\serial.log recovery-center\dat
 or:
 
 ```powershell
+.\scripts\generate-dashboard.ps1 -Serve
+```
+
+For a specific smoke log:
+
+```powershell
+.\scripts\generate-dashboard.ps1 -LogPath build\serial-v15-smoke.log -Serve
+```
+
+or:
+
+```powershell
 make dashboard-json
 ```
 

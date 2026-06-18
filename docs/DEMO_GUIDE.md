@@ -1,7 +1,17 @@
-# KamikazeOS v1.3 Demo Guide
+# KamikazeOS v1.5 Demo Guide
 
 This guide is for a public, portfolio, or reviewer demo. It avoids claims that
 the project does not implement.
+
+## Fast Prep
+
+```powershell
+.\scripts\demo-v15.ps1
+```
+
+This builds the kernel, validates the safe and unsafe package examples, imports
+PKG-101 if possible, runs analyzer/dashboard export when a serial log exists,
+and prints the exact QEMU and shell steps.
 
 ## 1. Build
 
@@ -39,7 +49,7 @@ This writes PKG-101 into the package manifest slot range of
 ## 4. Boot
 
 ```powershell
-.\scripts\run.ps1
+.\scripts\run-demo.ps1
 ```
 
 ## 5. Shell Walkthrough
@@ -86,13 +96,19 @@ the kernel. It does not apply anything.
 ## 7. Dashboard
 
 ```powershell
-python ai-recovery\export_dashboard_json.py build\serial.log recovery-center\data\recovery-report.json
+.\scripts\generate-dashboard.ps1 -Serve
+```
+
+For a smoke-test log:
+
+```powershell
+.\scripts\generate-dashboard.ps1 -LogPath build\serial-v15-smoke.log -Serve
 ```
 
 Open:
 
 ```text
-recovery-center/index.html
+http://127.0.0.1:8080/
 ```
 
 The dashboard is static and read-only. Copy buttons copy shell commands only.
@@ -100,7 +116,7 @@ The dashboard is static and read-only. Copy buttons copy shell commands only.
 ## Optional Helper
 
 ```powershell
-.\scripts\demo-v13.ps1
+.\scripts\demo-v15.ps1
 ```
 
 This helper builds, validates packages, imports PKG-101 when possible, and

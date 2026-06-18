@@ -9,9 +9,9 @@ This is not a production OS. It is a learning and portfolio project. It runs
 in QEMU, has no user isolation, no networking stack, no real driver loading,
 and no production security guarantees.
 
-Current release: v1.3.0 "Public Release". The latest technical milestone is
-v1.2.0 "Trust Forge", which added offline Ed25519 signing tools and kernel-side
-checksum/trust enforcement for package manifests.
+Current release: v1.5.0 "Public Demo Release". This is the stable public demo
+package: v1.2.0 "Trust Forge" remains the signing/tooling milestone, and v1.4.0
+"Recovery Center Pro" is the portfolio dashboard milestone.
 
 ## Feature Overview
 
@@ -66,10 +66,16 @@ Build:
 .\scripts\build.ps1
 ```
 
-Run:
+Run the OS:
 
 ```powershell
 .\scripts\run.ps1
+```
+
+Prepare a demo checklist:
+
+```powershell
+.\scripts\demo-v15.ps1
 ```
 
 Analyze the captured serial report after running `export-logs` in the OS:
@@ -87,7 +93,13 @@ python ai-recovery\export_dashboard_json.py build\serial.log recovery-center\dat
 Open:
 
 ```text
-recovery-center/index.html
+http://127.0.0.1:8080/
+```
+
+Serve the dashboard locally:
+
+```powershell
+.\scripts\generate-dashboard.ps1
 ```
 
 ## Demo Flow
@@ -117,7 +129,8 @@ python ai-recovery\analyze_logs.py build\serial.log
 python ai-recovery\export_dashboard_json.py build\serial.log recovery-center\data\recovery-report.json
 ```
 
-See [docs/DEMO_GUIDE.md](docs/DEMO_GUIDE.md) for the full public demo script.
+See [docs/DEMO_GUIDE.md](docs/DEMO_GUIDE.md) and
+[docs/demo-script.md](docs/demo-script.md) for the public demo flow.
 
 ## Screenshots
 
@@ -135,7 +148,7 @@ Real:
 - Host-side package manifest creation, validation, import/export.
 - Real host-side Ed25519 manifest signing and verification.
 - Kernel-side manifest checksum, trust-anchor, and policy enforcement.
-- Read-only analyzer and dashboard.
+- Read-only analyzer and Recovery Center Pro dashboard.
 
 Simulated:
 
@@ -158,6 +171,8 @@ Simulated:
 
 ## Version History
 
+- v1.5.0 "Public Demo Release": stable public demo docs and helper scripts.
+- v1.4.0 "Recovery Center Pro": polished read-only dashboard UI.
 - v1.3.0 "Public Release": documentation, demo, release polish.
 - v1.2.0 "Trust Forge": offline signing pipeline and trust metadata.
 - v1.1.0 "Offline Package Manifest Tooling": host import/export tools.

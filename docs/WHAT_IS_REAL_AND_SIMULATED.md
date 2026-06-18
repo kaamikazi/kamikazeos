@@ -23,7 +23,7 @@ real OS and tooling mechanics, but avoids dangerous update behavior.
 - Host-side deterministic checksums.
 - Real host-side Ed25519 manifest signing and verification.
 - Kernel-side checksum, trust-anchor, signature metadata, and policy checks.
-- Offline analyzer and static Recovery Center dashboard.
+- Offline analyzer and Recovery Center Pro dashboard.
 
 ## Simulated
 
@@ -35,6 +35,14 @@ real OS and tooling mechanics, but avoids dangerous update behavior.
 - AI auto-repair.
 - Kernel self-modification.
 - Arbitrary package loading or execution.
+
+## v1.5 Demo Boundary
+
+The v1.5 demo can show a real bootable toy OS, real durable recovery state, real
+host-side signing, real manifest validation, and a real read-only dashboard. It
+cannot show real binary patching, actual module replacement, internet updates,
+AI-driven repair, or in-kernel Ed25519 math because those are intentionally not
+implemented.
 
 ## Why Simulate These Parts
 

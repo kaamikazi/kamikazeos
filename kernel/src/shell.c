@@ -163,11 +163,11 @@ static void cmd_about(void)
     cpu_vendor(vendor);
 
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
-    vga_print("KamikazeOS v1.3.0 \"Public Release\"\n");
+    vga_print("KamikazeOS v1.5.0 \"Public Demo Release\"\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     vga_print("An experimental AI-native, self-healing operating system.\n");
-    vga_print("v1.3: public demo/docs release. v1.2 Trust Forge remains\n");
-    vga_print("the latest technical update milestone.\n\n");
+    vga_print("v1.5: stable public demo package. Trust Forge signing and\n");
+    vga_print("Recovery Center Pro remain the headline demo flows.\n\n");
     vga_print("  Architecture : x86 (i686), 32-bit protected mode\n");
     vga_print("  CPU vendor   : ");
     vga_print(vendor);
