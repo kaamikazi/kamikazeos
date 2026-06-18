@@ -9,14 +9,15 @@ This is not a production OS. It is a learning and portfolio project. It runs
 in QEMU, has no user isolation, no networking stack, no real driver loading,
 and no production security guarantees.
 
-Current release: v1.6.0 "Kernel Discipline". It adds real x86 interrupt and
-exception foundations while preserving the constrained recovery and update
-model from the public demo releases.
+Current release: v1.7.0 "Task Seed". It adds a fixed kernel task table,
+cooperative step dispatch, and timer accounting while preserving the
+constrained recovery and update model from earlier releases.
 
 ## Feature Overview
 
 - Bootable 32-bit x86 kernel in QEMU.
 - Real x86 IDT, CPU exception stubs, legacy PIC remap, and PIT timer ticks.
+- Fixed kernel task records and cooperative built-in task steps.
 - VGA text console and PS/2 IRQ keyboard shell with polling fallback.
 - GhostAttach device/driver recovery layer with verified fallback policy.
 - Structured kernel error logs and serial boot reports.
@@ -38,6 +39,7 @@ flowchart TD
   Kernel --> VGA["VGA text console"]
   Kernel --> IRQ["IDT + PIC + PIT"]
   IRQ --> Keyboard["PS/2 IRQ keyboard shell"]
+  IRQ --> Tasks["Task table + tick accounting"]
   Kernel --> Ghost["GhostAttach"]
   Kernel --> Errors["Structured error log"]
   Kernel --> Store["RecoveryStore: ATA PIO recovery.img"]
@@ -173,6 +175,7 @@ Simulated:
 
 ## Version History
 
+- v1.7.0 "Task Seed": fixed task table and cooperative scheduler skeleton.
 - v1.6.0 "Kernel Discipline": IDT, CPU exceptions, PIC, PIT, and IRQ keyboard.
 - v1.5.0 "Public Demo Release": stable public demo docs and helper scripts.
 - v1.4.0 "Recovery Center Pro": polished read-only dashboard UI.

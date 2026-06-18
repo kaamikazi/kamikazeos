@@ -28,6 +28,7 @@
 #include "string.h"
 #include "pic.h"
 #include "timer.h"
+#include "task.h"
 #include "vga.h"
 
 /*
@@ -132,6 +133,10 @@ static void cmd_help(void)
     vga_print("  export-logs send full boot report to serial for AI analysis\n");
     vga_print("  interrupts  show IDT PIC IRQ and exception status\n");
     vga_print("  ticks       show the live PIT timer tick count\n");
+    vga_print("  tasks       show the fixed kernel task table\n");
+    vga_print("  task-current show the current logical kernel task\n");
+    vga_print("  task-yield  cooperatively run one ready task step\n");
+    vga_print("  task-demo   run one round of safe built-in task steps\n");
     vga_print("  exceptions-test <type> confirm  trigger a controlled CPU fault\n");
     vga_print("  recovery    show recovery system status\n");
     vga_print("  actions     show the fixed recovery action catalog\n");
@@ -170,11 +175,11 @@ static void cmd_about(void)
     cpu_vendor(vendor);
 
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
-    vga_print("KamikazeOS v1.6.0 \"Kernel Discipline\"\n");
+    vga_print("KamikazeOS v1.7.0 \"Task Seed\"\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     vga_print("An experimental AI-native, self-healing operating system.\n");
-    vga_print("v1.6: real IDT exception handling PIC remap PIT ticks and\n");
-    vga_print("IRQ keyboard input with an explicit polling fallback.\n\n");
+    vga_print("v1.7: fixed kernel task records cooperative step scheduling\n");
+    vga_print("and timer accounting without stack or context switching.\n\n");
     vga_print("  Architecture : x86 (i686), 32-bit protected mode\n");
     vga_print("  CPU vendor   : ");
     vga_print(vendor);
@@ -467,6 +472,61 @@ static void cmd_ticks(void)
     vga_print(" (100 Hz, timer IRQ ");
     vga_print(timer_is_enabled() ? "enabled" : "disabled");
     vga_print(")\n");
+}
+
+static void cmd_tasks(void)
+{
+    const struct task *list[TASK_MAX];
+    uint32_t count = task_list(list, TASK_MAX);
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("Kernel Tasks (cooperative steps - no context switching):\n");
+    vga_set_color(VGA_DARK_GREY, VGA_BLACK);
+    print_col("ID", 5);
+    print_col("Name", 19);
+    print_col("State", 11);
+    print_col("Prio", 7);
+    print_col("TicksRun", 12);
+    vga_print("LastRun\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    for (uint32_t i = 0; i < count; i++) {
+        vga_print_dec(list[i]->task_id); vga_print("    ");
+        print_col(list[i]->name, 19);
+        print_col(task_state_name(list[i]->state), 11);
+        vga_print_dec(list[i]->priority); vga_print("      ");
+        vga_print_dec(list[i]->ticks_run); vga_print("           ");
+        vga_print_dec(list[i]->last_run_tick); vga_print("\n");
+    }
+}
+
+static void cmd_task_current(void)
+{
+    const struct task *t = task_current();
+    if (!t) {
+        vga_print("No current task.\n");
+        return;
+    }
+    vga_print("Current task: "); vga_print_dec(t->task_id);
+    vga_print(" "); vga_print(t->name);
+    vga_print(" state="); vga_print(task_state_name(t->state));
+    vga_print(" ticks_run="); vga_print_dec(t->ticks_run);
+    vga_print("\n");
+}
+
+static void cmd_task_yield(void)
+{
+    task_yield();
+    vga_print("Cooperative yield completed one ready task step.\n");
+    vga_print("No stack switch or preemptive context switch occurred.\n");
+}
+
+static void cmd_task_demo(void)
+{
+    uint32_t ran = task_demo_round();
+    vga_print("Task demo round completed "); vga_print_dec(ran);
+    vga_print(" safe steps.\n  idle="); vga_print_dec(task_idle_steps());
+    vga_print(" health_monitor="); vga_print_dec(task_health_steps());
+    vga_print(" recovery_watch="); vga_print_dec(task_recovery_steps());
+    vga_print("\n");
 }
 
 static void cmd_exceptions_test(const char *arg)
@@ -1357,6 +1417,10 @@ static const struct command commands[] = {
     { "export-logs",cmd_export_logs},
     { "interrupts", cmd_interrupts },
     { "ticks",      cmd_ticks      },
+    { "tasks",      cmd_tasks      },
+    { "task-current", cmd_task_current },
+    { "task-yield", cmd_task_yield },
+    { "task-demo",  cmd_task_demo  },
     { "recovery",   cmd_recovery   },
     { "actions",    cmd_actions    },
     { "suggestions",cmd_suggestions},

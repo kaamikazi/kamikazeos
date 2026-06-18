@@ -1,6 +1,6 @@
 # Command Reference
 
-KamikazeOS shell commands in v1.6.0.
+KamikazeOS shell commands in v1.7.0.
 
 ## General
 
@@ -23,6 +23,18 @@ KamikazeOS shell commands in v1.6.0.
 
 Both exception tests export structured panic evidence. They do not attempt
 recovery and require the literal `confirm` argument.
+
+## Kernel Tasks
+
+| Command | Purpose |
+|---|---|
+| `tasks` | Show the fixed task table and tick accounting |
+| `task-current` | Show the current logical kernel task |
+| `task-yield` | Run one ready built-in task step cooperatively |
+| `task-demo` | Run one safe three-step demo round |
+
+These commands do not create processes or switch stacks. `task-yield` invokes
+a fixed kernel-owned step function and returns to the shell.
 
 ## GhostAttach And Logs
 

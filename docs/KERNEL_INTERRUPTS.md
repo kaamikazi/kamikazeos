@@ -70,7 +70,7 @@ read-only and never attempt repair.
 ## Current Limits
 
 - no userspace or privilege separation
-- no scheduler or context switching
+- no preemptive scheduler or context switching
 - no processes or real process management
 - no virtual memory or page-table ownership
 - no syscall interface

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-KamikazeOS AI Recovery Core - host-side log analyzer (v1.6, offline/rule-based)
+KamikazeOS AI Recovery Core - host-side log analyzer (v1.7, offline/rule-based)
 
 This is the first working incarnation of the "maintenance brain". It runs on
 the HOST, outside the kernel, and its powers are deliberately limited:
@@ -8,7 +8,7 @@ the HOST, outside the kernel, and its powers are deliberately limited:
     READ logs  ->  EXPLAIN problems  ->  RANK risk  ->  SUGGEST next actions
 
 It never patches binaries, installs drivers, downloads code, or modifies the
-OS. Every suggestion is for a HUMAN to approve and perform. v1.6 is
+OS. Every suggestion is for a HUMAN to approve and perform. v1.7 is
 rule-based (no AI API yet) so the pipeline can be built and trusted first;
 see analyze_with_ai_later() at the bottom for where a real model plugs in.
 
@@ -243,6 +243,7 @@ def parse_report(lines):
         "[KERNEL_INTERRUPTS]": "kernel_interrupts",
         "[KERNEL_TIMING]": "kernel_timing",
         "[KERNEL_EXCEPTIONS]": "kernel_exceptions",
+        "[KERNEL_TASKS]": "kernel_tasks",
         "[ERROR_LOG]": "events",
     }
     store, journal = {}, []
@@ -250,6 +251,7 @@ def parse_report(lines):
     modules, pkgs, pkg_policy, pkg_history = [], [], [], []
     trust, pkg_manifests, pkg_states, mod_slots, pending = {}, [], [], [], {}
     kernel_interrupts, kernel_timing, kernel_exceptions = {}, {}, {}
+    kernel_tasks, task_rows = {}, []
     for line in lines:
         if line in section_map:
             section = section_map[line]
@@ -302,13 +304,20 @@ def parse_report(lines):
             kernel_timing.update(parse_kv_line(line))
         elif section == "kernel_exceptions":
             kernel_exceptions.update(parse_kv_line(line))
+        elif section == "kernel_tasks":
+            values = parse_kv_line(line)
+            if "task_id" in values:
+                task_rows.append(values)
+            else:
+                kernel_tasks.update(values)
         elif section == "events":
             events.append(parse_kv_line(line))
     return (meta, devices, drivers, events, policy, actions, suggestions,
             memory, store, journal, snapshots, health, timeline,
             modules, pkgs, pkg_policy, pkg_history,
             trust, pkg_manifests, pkg_states, mod_slots, pending,
-            kernel_interrupts, kernel_timing, kernel_exceptions)
+            kernel_interrupts, kernel_timing, kernel_exceptions,
+            kernel_tasks, task_rows)
 
 
 def classify(events):
@@ -347,7 +356,7 @@ def main():
     lines, after_lines, found = extract_last_boot_report(text)
 
     print("=" * 72)
-    print(" KamikazeOS AI RECOVERY CORE - recovery report (v1.6, rule-based)")
+    print(" KamikazeOS AI RECOVERY CORE - recovery report (v1.7, rule-based)")
     print("=" * 72)
 
     if not found:
@@ -362,12 +371,14 @@ def main():
         modules, pkgs, pkg_policy, pkg_history = [], [], [], []
         trust, pkg_manifests, pkg_states, mod_slots, pending = {}, [], [], [], {}
         kernel_interrupts, kernel_timing, kernel_exceptions = {}, {}, {}
+        kernel_tasks, task_rows = {}, []
     else:
         (meta, devices, drivers, events, policy, actions, suggestions,
          memory, store, journal, snapshots, health, timeline,
          modules, pkgs, pkg_policy, pkg_history,
          trust, pkg_manifests, pkg_states, mod_slots, pending,
-         kernel_interrupts, kernel_timing, kernel_exceptions) = parse_report(lines)
+         kernel_interrupts, kernel_timing, kernel_exceptions,
+         kernel_tasks, task_rows) = parse_report(lines)
         if after_lines:
             # Events streamed after the report (e.g. a panic) — merge them in.
             print(f"\nNote: {len(after_lines)} event(s) occurred AFTER the boot "
@@ -407,7 +418,33 @@ def main():
         print(f"  * Exception: {kernel_exceptions.get('last_exception', '?')}")
         print(f"  * Vector: {kernel_exceptions.get('last_vector', '?')}")
         print(f"  * Error code: {kernel_exceptions.get('last_error_code', '?')}")
-        print("  * Recovery attempted: no (intentional v1.6 safety policy)")
+        print("  * Recovery attempted: no (intentional v1.7 safety policy)")
+
+    if kernel_tasks:
+        print("\nKernel task foundation:")
+        print(f"  * Scheduler mode: {kernel_tasks.get('scheduler_mode', '?')}")
+        print(f"  * Preemptive switching: "
+              f"{kernel_tasks.get('preemptive_switching', '?')}")
+        print(f"  * Current task: {kernel_tasks.get('running_task', '?')}")
+        print(f"  * Tasks: {kernel_tasks.get('total_tasks', '?')} total, "
+              f"{kernel_tasks.get('ready_count', '?')} ready, "
+              f"{kernel_tasks.get('sleeping_count', '?')} sleeping, "
+              f"{kernel_tasks.get('blocked_count', '?')} blocked, "
+              f"{kernel_tasks.get('crashed_count', '?')} crashed")
+        print("  * Timer IRQ accounts ticks only; task switches require an "
+              "explicit cooperative yield.")
+        blocked_count = int(kernel_tasks.get("blocked_count", "0") or 0)
+        crashed_count = int(kernel_tasks.get("crashed_count", "0") or 0)
+        if blocked_count:
+            print("  !! WARNING: blocked kernel task records require manual inspection.")
+        if crashed_count:
+            print("  !! WARNING: crashed kernel task records require manual inspection.")
+        if task_rows:
+            for task in task_rows:
+                print(f"    - {task.get('task_id', '?'):>2} "
+                      f"{task.get('name', '?'):<18} "
+                      f"{task.get('state', '?'):<9} "
+                      f"ticks={task.get('ticks_run', '?')}")
 
     if devices:
         print("\nDevice summary:")
@@ -771,7 +808,7 @@ def main():
 
 
 # --------------------------------------------------------------------------
-# FUTURE AI INTEGRATION POINT (deliberately not implemented in v1.6)
+# FUTURE AI INTEGRATION POINT (deliberately not implemented in v1.7)
 # --------------------------------------------------------------------------
 def analyze_with_ai_later(log_text: str):
     """
@@ -790,7 +827,7 @@ def analyze_with_ai_later(log_text: str):
         as this rule-based analyzer - the policy engine, not the model,
         decides what may ever be applied automatically.
 
-    Keeping this stub un-implemented in v1.6 is intentional: the transport,
+    Keeping this stub un-implemented in v1.7 is intentional: the transport,
     format, and approval workflow get built and trusted first.
     """
     raise NotImplementedError("AI analysis arrives in a later phase - see docstring")

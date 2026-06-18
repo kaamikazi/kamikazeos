@@ -5,6 +5,7 @@
 #include "panic.h"
 #include "pic.h"
 #include "timer.h"
+#include "task.h"
 
 static volatile uint32_t handled;
 static volatile uint32_t last_vector = 0xFFFFFFFFu;
@@ -72,9 +73,10 @@ void interrupt_dispatch(struct interrupt_frame *frame)
                          interrupt_exception_name(frame->vector), frame->eip);
     }
 
-    if (frame->vector == 32)
+    if (frame->vector == 32) {
         timer_handle_irq();
-    else if (frame->vector == 33)
+        task_tick();
+    } else if (frame->vector == 33)
         keyboard_handle_irq();
 
     if (frame->vector >= 32 && frame->vector <= 47)

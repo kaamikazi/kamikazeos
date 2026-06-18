@@ -1,5 +1,13 @@
 # KamikazeOS Version History
 
+## v1.7.0 "Task Seed"
+
+Added a fixed-size kernel task table, cooperative step scheduler skeleton,
+three counter-only demo tasks, PIT tick accounting, task shell commands, serial
+task health reporting, analyzer support, and read-only Recovery Center task
+views. No userspace, per-task stacks, process isolation, virtual memory, or
+preemptive context switching was added.
+
 ## v1.6.0 "Kernel Discipline"
 
 Added the kernel's first real interrupt foundation: a loaded x86 IDT, assembly

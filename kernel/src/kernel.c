@@ -24,6 +24,7 @@
 #include "shell.h"
 #include "pic.h"
 #include "timer.h"
+#include "task.h"
 #include "vga.h"
 
 /* The value a Multiboot loader leaves in EAX to prove it booted us. */
@@ -40,7 +41,7 @@ static void boot_banner(void)
     vga_print(" |_|\\_\\__,_|_| |_| |_|_|_|\\_\\__,_/___\\___|  \\___/|____/ \n");
     vga_print("\n");
     vga_set_color(VGA_DARK_GREY, VGA_BLACK);
-    vga_print("  v1.6.0 \"Kernel Discipline\"  --  interrupt foundations\n\n");
+    vga_print("  v1.7.0 \"Task Seed\"  --  cooperative task foundation\n\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
 }
 
@@ -87,7 +88,7 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
      */
     serial_init();
     errors_init();
-    serial_print("\n=== KamikazeOS v1.6.0 serial log ===\n");
+    serial_print("\n=== KamikazeOS v1.7.0 serial log ===\n");
 
     error_log(SEV_INFO, "BOOT-000", "kernel",
               "Kernel booted successfully", "no action needed");
@@ -154,6 +155,9 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
                                 : "8259 PIC remap failed");
     report_ok(timer_is_enabled() ? "PIT timer IRQ0 configured at 100 Hz"
                                  : "PIT timer unavailable");
+
+    task_init();
+    report_ok("fixed cooperative task table (no stack switching)");
 
     /* Keyboard: may legitimately fail; it logs its own error and we keep
        booting (a server without a keyboard is still a working server). */

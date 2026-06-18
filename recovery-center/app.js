@@ -27,10 +27,10 @@ function scoreClass(score) {
 
 function classify(value) {
   const v = String(value ?? "").toLowerCase();
-  if (["yes", "1", "ok", "allowed", "verified", "attached", "loaded", "trusted", "enabled", "irq", "none"].includes(v)) return "good";
-  if (["fallback", "suggested", "available", "medium", "pending", "applied"].includes(v)) return "warn";
-  if (["no", "0", "blocked", "failed", "invalid", "unsigned", "isolated", "missing_driver", "high", "error", "panic"].includes(v)) return "bad";
-  if (["low", "disk_imported", "builtin_seed"].includes(v)) return "info";
+  if (["yes", "1", "ok", "allowed", "verified", "attached", "loaded", "trusted", "enabled", "irq", "none", "running"].includes(v)) return "good";
+  if (["fallback", "suggested", "available", "medium", "pending", "applied", "sleeping"].includes(v)) return "warn";
+  if (["no", "0", "blocked", "failed", "invalid", "unsigned", "isolated", "missing_driver", "high", "error", "panic", "crashed"].includes(v)) return "bad";
+  if (["low", "disk_imported", "builtin_seed", "ready", "cooperative"].includes(v)) return "info";
   return "neutral";
 }
 
@@ -186,6 +186,34 @@ function renderKernelFoundation(data) {
     hasException ? "bad" : "good");
 }
 
+function renderTaskFoundation(data) {
+  const tasks = data.kernel_tasks || {};
+  const box = $("task-panel");
+  box.innerHTML = "";
+  box.appendChild(metric("Scheduler", tasks.scheduler_mode));
+  box.appendChild(metric("Preemptive switching", tasks.preemptive_switching));
+  box.appendChild(metric("Current task", tasks.running_task));
+  box.appendChild(metric("Total", tasks.total_tasks));
+  box.appendChild(metric("Ready", tasks.ready_count));
+  box.appendChild(metric("Sleeping", tasks.sleeping_count));
+  box.appendChild(metric("Blocked", tasks.blocked_count));
+  box.appendChild(metric("Crashed", tasks.crashed_count));
+  const unhealthy = parseInt(tasks.blocked_count || "0", 10) > 0 ||
+    parseInt(tasks.crashed_count || "0", 10) > 0;
+  setBadge("task-status", unhealthy ? "manual inspection" : "cooperative",
+    unhealthy ? "bad" : "info");
+
+  renderTable("tasks", data.tasks || [], [
+    { key: "task_id", label: "ID" },
+    { key: "name", label: "Name" },
+    { key: "state", label: "State", badge: true },
+    { key: "priority", label: "Priority" },
+    { key: "ticks_run", label: "Ticks Run" },
+    { key: "created_at_tick", label: "Created" },
+    { key: "last_run_tick", label: "Last Run" },
+  ]);
+}
+
 function renderTrend(snapshots) {
   const trend = $("trend");
   trend.innerHTML = "";
@@ -332,6 +360,7 @@ function render(data) {
   renderBootWarnings(data);
   renderTrust(data);
   renderKernelFoundation(data);
+  renderTaskFoundation(data);
   renderTrend(data.snapshots || []);
   renderRecommendations(data);
   renderTimelines(data);

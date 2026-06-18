@@ -13,6 +13,10 @@ real OS and tooling mechanics, but avoids dangerous update behavior.
 - PIT channel 0 timer interrupts and a live 100 Hz tick counter.
 - PS/2 keyboard IRQ1 input with a fixed ring buffer.
 - PS/2 keyboard polling fallback if IRQ mode is unavailable.
+- Fixed-size kernel task records and task states.
+- Cooperative dispatch of fixed kernel-owned step functions.
+- PIT tick accounting against the current logical task.
+- Task health data in serial reports, analyzer, and dashboard.
 - COM1 serial logs and boot reports.
 - Structured kernel error log.
 - GhostAttach policy decisions over fixed device/driver registries.
@@ -47,9 +51,17 @@ The v1.6 kernel has real interrupt gates, exception entry stubs, PIC remapping,
 timer ticks, and IRQ keyboard input. Exception recovery is not simulated: it is
 explicitly absent. The kernel records evidence and halts safely.
 
-The project still has no userspace, scheduler, virtual memory, process model,
-syscalls, networking, real binary patching, actual module replacement,
-AI-driven repair, or in-kernel Ed25519 math.
+The project still has no userspace, process isolation, preemptive context
+switching, per-task stacks, virtual memory, real process model, syscalls,
+networking, real binary patching, actual module replacement, AI-driven repair,
+or in-kernel Ed25519 math.
+
+## v1.7 Task Boundary
+
+The task table, task states, explicit cooperative yields, built-in step
+functions, and tick accounting are real. The shell and task steps still execute
+on one kernel stack in ring 0. A task record is not a userspace process, and
+the PIT never switches execution contexts.
 
 ## Why Simulate These Parts
 

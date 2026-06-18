@@ -95,7 +95,8 @@ def main():
      memory, store, journal, snapshots, health, timeline,
      modules, pkgs, pkg_policy, pkg_history,
      trust, pkg_manifests, pkg_states, mod_slots, pending,
-     kernel_interrupts, kernel_timing, kernel_exceptions) = parse_report(lines)
+     kernel_interrupts, kernel_timing, kernel_exceptions,
+     kernel_tasks, task_rows) = parse_report(lines)
 
     # Package recommendations: same catalog-only rule as actions.
     pkg_recs = []
@@ -158,6 +159,8 @@ def main():
         "kernel_interrupts": kernel_interrupts,
         "kernel_timing": kernel_timing,
         "kernel_exceptions": kernel_exceptions,
+        "kernel_tasks": kernel_tasks,
+        "tasks": task_rows,
         "package_policy": pkg_policy,
         "package_history": pkg_history,
         "package_recommendations": pkg_recs,

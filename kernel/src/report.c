@@ -25,8 +25,9 @@
 #include "string.h"
 #include "pic.h"
 #include "timer.h"
+#include "task.h"
 
-#define KMZ_VERSION "1.6.0"
+#define KMZ_VERSION "1.7.0"
 
 /* serial_print for numbers: render via kitoa, then send. */
 static void serial_print_dec(uint32_t value)
@@ -95,6 +96,31 @@ void report_send(void)
     else serial_print_dec(interrupts_last_exception());
     serial_print("\nlast_error_code="); serial_print_dec(interrupts_last_error_code());
     serial_print("\nrecovery_attempted=no\n");
+
+    serial_print("[KERNEL_TASKS]\n");
+    serial_print("total_tasks="); serial_print_dec(task_count());
+    serial_print("\nrunning_task=");
+    const struct task *current = task_current();
+    serial_print(current ? current->name : "none");
+    serial_print("\nready_count="); serial_print_dec(task_count_state(TASK_READY));
+    serial_print("\nsleeping_count="); serial_print_dec(task_count_state(TASK_SLEEPING));
+    serial_print("\nblocked_count="); serial_print_dec(task_count_state(TASK_BLOCKED));
+    serial_print("\ncrashed_count="); serial_print_dec(task_count_state(TASK_CRASHED));
+    serial_print("\nscheduler_mode=cooperative\npreemptive_switching=no\n");
+    const struct task *task_rows[TASK_MAX];
+    uint32_t task_rows_count = task_list(task_rows, TASK_MAX);
+    for (uint32_t i = 0; i < task_rows_count; i++) {
+        const struct task *t = task_rows[i];
+        serial_print("task_id="); serial_print_dec(t->task_id);
+        serial_print(";name="); serial_print(t->name);
+        serial_print(";state="); serial_print(task_state_name(t->state));
+        serial_print(";priority="); serial_print_dec(t->priority);
+        serial_print(";ticks_run="); serial_print_dec(t->ticks_run);
+        serial_print(";created_at_tick="); serial_print_dec(t->created_at_tick);
+        serial_print(";last_run_tick="); serial_print_dec(t->last_run_tick);
+        serial_print(";flags="); serial_print_dec(t->flags);
+        serial_print("\n");
+    }
 
     /* --- Every device, one line each ------------------------------- */
     serial_print("[DEVICES]\n");

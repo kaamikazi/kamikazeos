@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.7.0 - Task Seed
+
+- Added a statically allocated kernel task table with six explicit states.
+- Added cooperative `task_yield()` step dispatch without stack switching.
+- Added counter-only idle, health-monitor, and recovery-watch demo tasks.
+- Added PIT IRQ tick accounting for the current logical task.
+- Added `tasks`, `task-current`, `task-yield`, and `task-demo` shell commands.
+- Added `[KERNEL_TASKS]` serial reporting and offline analyzer support.
+- Added read-only Recovery Center task status and table views.
+- Added no userspace, process isolation, preemptive switching, per-task stacks,
+  virtual memory, networking, downloads, arbitrary execution, or self-modification.
+
 ## v1.6.0 - Kernel Discipline
 
 - Added a 256-entry x86 IDT and `lidt` initialization.
