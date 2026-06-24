@@ -1,10 +1,10 @@
 # KamikazeOS Architecture
 
-Status: v1.7.0 "Task Seed".
+Status: v1.8.0 "TinyFS".
 
-KamikazeOS is a small 32-bit x86 toy OS that runs in QEMU. Its architecture is
-organized around observability, durable recovery state, and constrained update
-policy.
+KamikazeOS is a small 32-bit x86 experimental OS research prototype that runs
+in QEMU. Its architecture is organized around observability, durable recovery
+state, and constrained update policy.
 
 ## Runtime Layers
 
@@ -23,6 +23,7 @@ flowchart TD
   Store --> Health["Boot snapshots and health score"]
   Store --> PkgState["Package state and A/B slot metadata"]
   Store --> Manifests["Package manifest sectors"]
+  Store --> TinyFS["TinyFS LBA 64-127"]
   Kernel --> Report["Serial boot report"]
   Report --> Analyzer["Offline analyzer"]
   Report --> Dashboard["Recovery Center JSON/dashboard"]
@@ -46,6 +47,7 @@ Important source areas:
 - `kernel/src/pic.c`: legacy 8259 PIC remap, masks, and EOI.
 - `kernel/src/timer.c`: PIT channel 0 and tick counter.
 - `kernel/src/task.c`: fixed task records and cooperative step dispatch.
+- `kernel/src/tinyfs.c`: fixed-sector file metadata and bounded text I/O.
 - `kernel/src/report.c`: serial report format.
 - `kernel/src/ata.c`: minimal ATA PIO storage driver.
 - `kernel/src/recovery_store.c`: disk-backed recovery state.
@@ -67,6 +69,9 @@ to QEMU as an IDE disk. Current fixed LBA use:
 | 40-47 | Currently unused/reserved gap |
 | 48-55 | Persistent package lifecycle state |
 | 56-63 | A/B module slot metadata |
+| 64 | TinyFS superblock |
+| 65-72 | TinyFS file table |
+| 73-127 | TinyFS file data |
 
 The layout is deliberately fixed and small so it can be audited by inspection.
 Host manifest tools write only the package manifest slot range.

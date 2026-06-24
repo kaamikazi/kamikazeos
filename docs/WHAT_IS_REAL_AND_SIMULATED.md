@@ -17,6 +17,9 @@ real OS and tooling mechanics, but avoids dangerous update behavior.
 - Cooperative dispatch of fixed kernel-owned step functions.
 - PIT tick accounting against the current logical task.
 - Task health data in serial reports, analyzer, and dashboard.
+- Fixed-sector TinyFS superblock and file table on LBA 64-127.
+- Bounded text file creation, first-fit writes, checksummed reads, and deletion.
+- TinyFS shell commands and read-only report/dashboard visibility.
 - COM1 serial logs and boot reports.
 - Structured kernel error log.
 - GhostAttach policy decisions over fixed device/driver registries.
@@ -62,6 +65,14 @@ The task table, task states, explicit cooperative yields, built-in step
 functions, and tick accounting are real. The shell and task steps still execute
 on one kernel stack in ring 0. A task record is not a userspace process, and
 the PIT never switches execution contexts.
+
+## v1.8 Filesystem Boundary
+
+TinyFS performs real ATA sector reads and durable writes inside its fixed LBA
+range. Its metadata, allocation checks, filename checks, size limits, and
+content checksums are real. It has no directories, permissions, userspace
+files, dynamic allocation, journal, transactions, or crash-safe update
+protocol. File contents are never loaded or executed.
 
 ## Why Simulate These Parts
 

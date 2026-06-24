@@ -1,6 +1,6 @@
 # Command Reference
 
-KamikazeOS shell commands in v1.7.0.
+KamikazeOS shell commands in v1.8.0.
 
 ## General
 
@@ -35,6 +35,21 @@ recovery and require the literal `confirm` argument.
 
 These commands do not create processes or switch stacks. `task-yield` invokes
 a fixed kernel-owned step function and returns to the shell.
+
+## TinyFS
+
+| Command | Purpose |
+|---|---|
+| `fs` | Show availability, format state, limits, LBA range, and last error |
+| `fs-format confirm` | Wipe and initialize only TinyFS LBA 64-127 |
+| `ls` | List TinyFS file metadata |
+| `touch <name>` | Create an empty file |
+| `write <name> <text>` | Store bounded text; remaining line is the content |
+| `cat <name>` | Verify checksum and print file text |
+| `rm <name>` | Delete the file and wipe its referenced data sectors |
+
+Names are 1-24 characters using letters, digits, `.`, `_`, or `-`. Files are
+limited to 2048 bytes. TinyFS never interprets file contents as code.
 
 ## GhostAttach And Logs
 

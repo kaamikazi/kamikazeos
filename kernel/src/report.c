@@ -26,8 +26,9 @@
 #include "pic.h"
 #include "timer.h"
 #include "task.h"
+#include "tinyfs.h"
 
-#define KMZ_VERSION "1.7.0"
+#define KMZ_VERSION "1.8.0"
 
 /* serial_print for numbers: render via kitoa, then send. */
 static void serial_print_dec(uint32_t value)
@@ -121,6 +122,8 @@ void report_send(void)
         serial_print(";flags="); serial_print_dec(t->flags);
         serial_print("\n");
     }
+
+    tinyfs_export_report();
 
     /* --- Every device, one line each ------------------------------- */
     serial_print("[DEVICES]\n");

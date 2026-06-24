@@ -29,6 +29,7 @@
 #include "pic.h"
 #include "timer.h"
 #include "task.h"
+#include "tinyfs.h"
 #include "vga.h"
 
 /*
@@ -137,6 +138,13 @@ static void cmd_help(void)
     vga_print("  task-current show the current logical kernel task\n");
     vga_print("  task-yield  cooperatively run one ready task step\n");
     vga_print("  task-demo   run one round of safe built-in task steps\n");
+    vga_print("  fs          show TinyFS status and fixed LBA range\n");
+    vga_print("  fs-format confirm   format only TinyFS LBA 64-127\n");
+    vga_print("  ls          list TinyFS files\n");
+    vga_print("  touch <name> create an empty TinyFS file\n");
+    vga_print("  write <name> <text> store bounded text\n");
+    vga_print("  cat <name>  read and verify a TinyFS text file\n");
+    vga_print("  rm <name>   delete a TinyFS file\n");
     vga_print("  exceptions-test <type> confirm  trigger a controlled CPU fault\n");
     vga_print("  recovery    show recovery system status\n");
     vga_print("  actions     show the fixed recovery action catalog\n");
@@ -175,11 +183,11 @@ static void cmd_about(void)
     cpu_vendor(vendor);
 
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
-    vga_print("KamikazeOS v1.7.0 \"Task Seed\"\n");
+    vga_print("KamikazeOS v1.8.0 \"TinyFS\"\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     vga_print("An experimental AI-native, self-healing operating system.\n");
-    vga_print("v1.7: fixed kernel task records cooperative step scheduling\n");
-    vga_print("and timer accounting without stack or context switching.\n\n");
+    vga_print("v1.8: bounded fixed-sector files on the ATA recovery disk\n");
+    vga_print("without directories dynamic allocation or userspace.\n\n");
     vga_print("  Architecture : x86 (i686), 32-bit protected mode\n");
     vga_print("  CPU vendor   : ");
     vga_print(vendor);
@@ -527,6 +535,103 @@ static void cmd_task_demo(void)
     vga_print(" health_monitor="); vga_print_dec(task_health_steps());
     vga_print(" recovery_watch="); vga_print_dec(task_recovery_steps());
     vga_print("\n");
+}
+
+static void cmd_fs(void)
+{
+    const struct tinyfs_status_info *s = tinyfs_status();
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("TinyFS Status:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print("  Available      : "); vga_print(s->available ? "yes\n" : "no\n");
+    vga_print("  Formatted      : "); vga_print(s->formatted ? "yes\n" : "no\n");
+    vga_print("  Files          : "); vga_print_dec(s->file_count); vga_print(" / ");
+    vga_print_dec(s->max_files); vga_print("\n");
+    vga_print("  Max file size  : "); vga_print_dec(s->max_file_size); vga_print(" bytes\n");
+    vga_print("  Metadata       : LBA 64-72\n");
+    vga_print("  Data           : LBA 73-127\n");
+    vga_print("  Last error     : "); vga_print(s->last_error); vga_print("\n");
+}
+
+static void cmd_fs_format(const char *arg)
+{
+    if (kstrcmp(arg, "confirm") != 0) {
+        vga_print("Usage: fs-format confirm\n");
+        vga_print("This wipes only TinyFS sectors LBA 64-127.\n");
+        return;
+    }
+    vga_print("Formatting TinyFS LBA 64-127...\n");
+    vga_print(tinyfs_format() ? "TinyFS format complete.\n"
+                              : "TinyFS format failed; run fs for details.\n");
+}
+
+static void cmd_ls(void)
+{
+    const struct tinyfs_status_info *s = tinyfs_status();
+    if (!s->formatted) {
+        vga_print("TinyFS is not formatted or unavailable. Run fs for details.\n");
+        return;
+    }
+    const struct tinyfs_file *list[TINYFS_MAX_FILES];
+    uint32_t count = tinyfs_list(list, TINYFS_MAX_FILES);
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("TinyFS Files:\n");
+    vga_set_color(VGA_DARK_GREY, VGA_BLACK);
+    print_col("Name", 28); print_col("Size", 12); vga_print("LBA\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    if (count == 0) {
+        vga_print("  (empty)\n");
+        return;
+    }
+    for (uint32_t i = 0; i < count; i++) {
+        print_col(list[i]->name, 28);
+        vga_print_dec(list[i]->size); vga_print("           ");
+        if (list[i]->sector_count) vga_print_dec(list[i]->start_lba);
+        else vga_print("-");
+        vga_print("\n");
+    }
+}
+
+static void cmd_touch(const char *arg)
+{
+    if (!arg[0]) { vga_print("Usage: touch <name>\n"); return; }
+    vga_print(tinyfs_create(arg) ? "File created.\n"
+                                 : "Create failed; run fs for details.\n");
+}
+
+static void cmd_write(const char *arg)
+{
+    if (!arg[0]) { vga_print("Usage: write <name> <text>\n"); return; }
+    char *text = (char *)arg;
+    while (*text && *text != ' ')
+        text++;
+    if (!*text) { vga_print("Usage: write <name> <text>\n"); return; }
+    *text++ = '\0';
+    while (*text == ' ')
+        text++;
+    if (!*text) { vga_print("Write text must not be empty.\n"); return; }
+    vga_print(tinyfs_write_text(arg, text) ? "File written.\n"
+                                           : "Write failed; run fs for details.\n");
+}
+
+static void cmd_cat(const char *arg)
+{
+    static char text[TINYFS_MAX_FILE_SIZE + 1];
+    uint32_t size;
+    if (!arg[0]) { vga_print("Usage: cat <name>\n"); return; }
+    if (!tinyfs_read_text(arg, text, sizeof(text), &size)) {
+        vga_print("Read failed; run fs for details.\n");
+        return;
+    }
+    vga_print(text);
+    vga_print("\n");
+}
+
+static void cmd_rm(const char *arg)
+{
+    if (!arg[0]) { vga_print("Usage: rm <name>\n"); return; }
+    vga_print(tinyfs_delete(arg) ? "File deleted.\n"
+                                 : "Delete failed; run fs for details.\n");
 }
 
 static void cmd_exceptions_test(const char *arg)
@@ -1421,6 +1526,8 @@ static const struct command commands[] = {
     { "task-current", cmd_task_current },
     { "task-yield", cmd_task_yield },
     { "task-demo",  cmd_task_demo  },
+    { "fs",         cmd_fs         },
+    { "ls",         cmd_ls         },
     { "recovery",   cmd_recovery   },
     { "actions",    cmd_actions    },
     { "suggestions",cmd_suggestions},
@@ -1517,6 +1624,11 @@ void shell_run(void)
         if (kstrcmp(line, "seed-manifests") == 0) { cmd_seed_manifests(arg); continue; }
         if (kstrcmp(line, "reset-packages") == 0) { cmd_reset_packages(arg); continue; }
         if (kstrcmp(line, "exceptions-test") == 0) { cmd_exceptions_test(arg); continue; }
+        if (kstrcmp(line, "fs-format") == 0) { cmd_fs_format(arg); continue; }
+        if (kstrcmp(line, "touch") == 0) { cmd_touch(arg); continue; }
+        if (kstrcmp(line, "write") == 0) { cmd_write(arg); continue; }
+        if (kstrcmp(line, "cat") == 0) { cmd_cat(arg); continue; }
+        if (kstrcmp(line, "rm") == 0) { cmd_rm(arg); continue; }
 
         int found = 0;
         for (unsigned i = 0; i < sizeof(commands) / sizeof(commands[0]); i++) {

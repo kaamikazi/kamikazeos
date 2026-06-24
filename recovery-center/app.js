@@ -214,6 +214,31 @@ function renderTaskFoundation(data) {
   ]);
 }
 
+function renderTinyFS(data) {
+  const fs = data.tinyfs || {};
+  const box = $("tinyfs-panel");
+  box.innerHTML = "";
+  box.appendChild(metric("Available", fs.available));
+  box.appendChild(metric("Formatted", fs.formatted));
+  box.appendChild(metric("Files", `${fs.file_count || "0"} / ${fs.max_files || "?"}`));
+  box.appendChild(metric("Data start LBA", fs.data_start_lba));
+  box.appendChild(metric("Max file size", fs.max_file_size ? `${fs.max_file_size} bytes` : "?"));
+  box.appendChild(metric("Last error", fs.last_error));
+  const ready = fs.available === "yes" && fs.formatted === "yes";
+  setBadge("tinyfs-status", ready ? "formatted" :
+    fs.available === "yes" ? "not formatted" : "unavailable",
+    ready ? "good" : "warn");
+
+  renderTable("tinyfs-files", data.tinyfs_files || [], [
+    { key: "name", label: "Name" },
+    { key: "size", label: "Size" },
+    { key: "start_lba", label: "Start LBA" },
+    { key: "sector_count", label: "Sectors" },
+    { key: "checksum", label: "Checksum" },
+    { key: "flags", label: "Flags" },
+  ]);
+}
+
 function renderTrend(snapshots) {
   const trend = $("trend");
   trend.innerHTML = "";
@@ -361,6 +386,7 @@ function render(data) {
   renderTrust(data);
   renderKernelFoundation(data);
   renderTaskFoundation(data);
+  renderTinyFS(data);
   renderTrend(data.snapshots || []);
   renderRecommendations(data);
   renderTimelines(data);

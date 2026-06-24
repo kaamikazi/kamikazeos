@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.8.0 - TinyFS
+
+- Added a checksummed TinyFS superblock at LBA 64.
+- Added a serialized fixed file table at LBA 65-72.
+- Added bounded first-fit file data allocation at LBA 73-127.
+- Added a 16-file limit, 24-character validated names, and 2048-byte files.
+- Added checksum-verified text create, write, read, list, and delete operations.
+- Added `fs`, confirmed `fs-format`, `ls`, `touch`, `write`, `cat`, and `rm`.
+- Added TinyFS serial reporting, analyzer support, and read-only dashboard views.
+- Added no directories, permissions, dynamic allocation, filesystem journal,
+  crash-safe transactions, userspace, arbitrary execution, or self-modification.
+
 ## v1.7.0 - Task Seed
 
 - Added a statically allocated kernel task table with six explicit states.

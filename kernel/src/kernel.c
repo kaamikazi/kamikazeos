@@ -25,6 +25,7 @@
 #include "pic.h"
 #include "timer.h"
 #include "task.h"
+#include "tinyfs.h"
 #include "vga.h"
 
 /* The value a Multiboot loader leaves in EAX to prove it booted us. */
@@ -41,7 +42,7 @@ static void boot_banner(void)
     vga_print(" |_|\\_\\__,_|_| |_| |_|_|_|\\_\\__,_/___\\___|  \\___/|____/ \n");
     vga_print("\n");
     vga_set_color(VGA_DARK_GREY, VGA_BLACK);
-    vga_print("  v1.7.0 \"Task Seed\"  --  cooperative task foundation\n\n");
+    vga_print("  v1.8.0 \"TinyFS\"  --  fixed-sector file storage\n\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
 }
 
@@ -88,7 +89,7 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
      */
     serial_init();
     errors_init();
-    serial_print("\n=== KamikazeOS v1.7.0 serial log ===\n");
+    serial_print("\n=== KamikazeOS v1.8.0 serial log ===\n");
 
     error_log(SEV_INFO, "BOOT-000", "kernel",
               "Kernel booted successfully", "no action needed");
@@ -147,6 +148,14 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
                "boot via a Multiboot loader (GRUB or QEMU -kernel)");
     }
     report_ok("multiboot handshake");
+
+    tinyfs_init();
+    if (tinyfs_status()->formatted)
+        report_ok("TinyFS metadata loaded from LBA 64-127");
+    else if (tinyfs_status()->available)
+        report_warn("TinyFS not formatted (run `fs-format confirm`)");
+    else
+        report_warn("TinyFS unavailable - kernel continues without files");
 
     interrupts_init();
     report_ok(idt_is_loaded() ? "interrupt descriptor table loaded"

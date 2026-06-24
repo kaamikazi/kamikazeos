@@ -1,23 +1,31 @@
 # KamikazeOS
 
-KamikazeOS is an experimental toy operating system that explores a narrow,
-auditable version of "self-healing" infrastructure: the kernel records what
-went wrong, exports structured reports, and allows only human-approved,
-policy-gated recovery actions and simulated package updates.
+KamikazeOS is an experimental operating system research prototype exploring
+auditable self-healing infrastructure. The kernel records failures, exports
+structured recovery reports, persists recovery evidence, and supports
+human-approved, policy-gated recovery actions and controlled package update
+flows.
 
-This is not a production OS. It is a learning and portfolio project. It runs
-in QEMU, has no user isolation, no networking stack, no real driver loading,
-and no production security guarantees.
+It runs in QEMU as a focused research OS prototype. It is not intended to
+replace Linux, Windows, or any production operating system. The goal is to
+demonstrate low-level OS mechanisms, durable recovery architecture, offline
+package trust tooling, and a read-only Recovery Center dashboard while keeping
+all repair/update actions explicit, logged, and human-approved.
 
-Current release: v1.7.0 "Task Seed". It adds a fixed kernel task table,
-cooperative step dispatch, and timer accounting while preserving the
-constrained recovery and update model from earlier releases.
+KamikazeOS is not production-ready and not a general-purpose operating system.
+It has no user isolation, no networking stack, no real driver loading, and no
+production security guarantees.
+
+Current release: v1.8.0 "TinyFS". It adds bounded fixed-sector text files on
+the ATA recovery disk while preserving the constrained recovery and update
+model from earlier releases.
 
 ## Feature Overview
 
 - Bootable 32-bit x86 kernel in QEMU.
 - Real x86 IDT, CPU exception stubs, legacy PIC remap, and PIT timer ticks.
 - Fixed kernel task records and cooperative built-in task steps.
+- Fixed-sector TinyFS with bounded checksummed text files.
 - VGA text console and PS/2 IRQ keyboard shell with polling fallback.
 - GhostAttach device/driver recovery layer with verified fallback policy.
 - Structured kernel error logs and serial boot reports.
@@ -46,6 +54,7 @@ flowchart TD
   Store --> Journal["Durable journal"]
   Store --> Snapshots["Boot snapshots"]
   Store --> Manifests["Package manifest sectors"]
+  Store --> TinyFS["TinyFS: LBA 64-127"]
   Kernel --> Packages["Package lifecycle and A/B slot metadata"]
   Errors --> Serial["COM1 serial report"]
   Serial --> Analyzer["ai-recovery/analyze_logs.py"]
@@ -175,6 +184,7 @@ Simulated:
 
 ## Version History
 
+- v1.8.0 "TinyFS": bounded fixed-sector text file abstraction.
 - v1.7.0 "Task Seed": fixed task table and cooperative scheduler skeleton.
 - v1.6.0 "Kernel Discipline": IDT, CPU exceptions, PIC, PIT, and IRQ keyboard.
 - v1.5.0 "Public Demo Release": stable public demo docs and helper scripts.
@@ -198,9 +208,9 @@ See [docs/VERSION_HISTORY.md](docs/VERSION_HISTORY.md).
 
 ## Portfolio Description
 
-KamikazeOS is a small x86 toy OS built to demonstrate operating-systems
-fundamentals, recovery-system design, update policy, offline signing tooling,
-and honest AI-adjacent safety boundaries. It is deliberately constrained:
-the interesting part is not that the OS can magically fix itself, but that it
-can explain state, preserve evidence, reject unsafe changes, and keep humans
-in control.
+KamikazeOS is a QEMU-based experimental kernel built to demonstrate
+operating-systems fundamentals, recovery-system design, update policy, offline
+signing tooling, and honest AI-adjacent safety boundaries. It is deliberately
+constrained: the interesting part is not that the OS can magically fix itself,
+but that it can explain state, preserve evidence, reject unsafe changes, and
+keep humans in control.

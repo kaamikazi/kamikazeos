@@ -1,5 +1,14 @@
 # KamikazeOS Version History
 
+## v1.8.0 "TinyFS"
+
+Added a fixed-sector file abstraction on LBA 64-127 with a checksummed
+superblock, serialized 16-entry file table, bounded first-fit data allocation,
+text create/read/write/delete commands, serial reporting, analyzer support,
+and read-only Recovery Center views. No directories, permissions, dynamic
+allocation, journaling, crash-safe transactions, userspace, or file execution
+were added.
+
 ## v1.7.0 "Task Seed"
 
 Added a fixed-size kernel task table, cooperative step scheduler skeleton,

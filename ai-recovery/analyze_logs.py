@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-KamikazeOS AI Recovery Core - host-side log analyzer (v1.7, offline/rule-based)
+KamikazeOS AI Recovery Core - host-side log analyzer (v1.8, offline/rule-based)
 
 This is the first working incarnation of the "maintenance brain". It runs on
 the HOST, outside the kernel, and its powers are deliberately limited:
@@ -8,7 +8,7 @@ the HOST, outside the kernel, and its powers are deliberately limited:
     READ logs  ->  EXPLAIN problems  ->  RANK risk  ->  SUGGEST next actions
 
 It never patches binaries, installs drivers, downloads code, or modifies the
-OS. Every suggestion is for a HUMAN to approve and perform. v1.7 is
+OS. Every suggestion is for a HUMAN to approve and perform. v1.8 is
 rule-based (no AI API yet) so the pipeline can be built and trusted first;
 see analyze_with_ai_later() at the bottom for where a real model plugs in.
 
@@ -244,6 +244,8 @@ def parse_report(lines):
         "[KERNEL_TIMING]": "kernel_timing",
         "[KERNEL_EXCEPTIONS]": "kernel_exceptions",
         "[KERNEL_TASKS]": "kernel_tasks",
+        "[TINYFS]": "tinyfs",
+        "[TINYFS_FILES]": "tinyfs_files",
         "[ERROR_LOG]": "events",
     }
     store, journal = {}, []
@@ -252,6 +254,7 @@ def parse_report(lines):
     trust, pkg_manifests, pkg_states, mod_slots, pending = {}, [], [], [], {}
     kernel_interrupts, kernel_timing, kernel_exceptions = {}, {}, {}
     kernel_tasks, task_rows = {}, []
+    tinyfs, tinyfs_files = {}, []
     for line in lines:
         if line in section_map:
             section = section_map[line]
@@ -310,6 +313,10 @@ def parse_report(lines):
                 task_rows.append(values)
             else:
                 kernel_tasks.update(values)
+        elif section == "tinyfs":
+            tinyfs.update(parse_kv_line(line))
+        elif section == "tinyfs_files":
+            tinyfs_files.append(parse_kv_line(line))
         elif section == "events":
             events.append(parse_kv_line(line))
     return (meta, devices, drivers, events, policy, actions, suggestions,
@@ -317,7 +324,7 @@ def parse_report(lines):
             modules, pkgs, pkg_policy, pkg_history,
             trust, pkg_manifests, pkg_states, mod_slots, pending,
             kernel_interrupts, kernel_timing, kernel_exceptions,
-            kernel_tasks, task_rows)
+            kernel_tasks, task_rows, tinyfs, tinyfs_files)
 
 
 def classify(events):
@@ -356,7 +363,7 @@ def main():
     lines, after_lines, found = extract_last_boot_report(text)
 
     print("=" * 72)
-    print(" KamikazeOS AI RECOVERY CORE - recovery report (v1.7, rule-based)")
+    print(" KamikazeOS AI RECOVERY CORE - recovery report (v1.8, rule-based)")
     print("=" * 72)
 
     if not found:
@@ -372,13 +379,14 @@ def main():
         trust, pkg_manifests, pkg_states, mod_slots, pending = {}, [], [], [], {}
         kernel_interrupts, kernel_timing, kernel_exceptions = {}, {}, {}
         kernel_tasks, task_rows = {}, []
+        tinyfs, tinyfs_files = {}, []
     else:
         (meta, devices, drivers, events, policy, actions, suggestions,
          memory, store, journal, snapshots, health, timeline,
          modules, pkgs, pkg_policy, pkg_history,
          trust, pkg_manifests, pkg_states, mod_slots, pending,
          kernel_interrupts, kernel_timing, kernel_exceptions,
-         kernel_tasks, task_rows) = parse_report(lines)
+         kernel_tasks, task_rows, tinyfs, tinyfs_files) = parse_report(lines)
         if after_lines:
             # Events streamed after the report (e.g. a panic) — merge them in.
             print(f"\nNote: {len(after_lines)} event(s) occurred AFTER the boot "
@@ -418,7 +426,7 @@ def main():
         print(f"  * Exception: {kernel_exceptions.get('last_exception', '?')}")
         print(f"  * Vector: {kernel_exceptions.get('last_vector', '?')}")
         print(f"  * Error code: {kernel_exceptions.get('last_error_code', '?')}")
-        print("  * Recovery attempted: no (intentional v1.7 safety policy)")
+        print("  * Recovery attempted: no (intentional v1.8 safety policy)")
 
     if kernel_tasks:
         print("\nKernel task foundation:")
@@ -445,6 +453,23 @@ def main():
                       f"{task.get('name', '?'):<18} "
                       f"{task.get('state', '?'):<9} "
                       f"ticks={task.get('ticks_run', '?')}")
+
+    if tinyfs:
+        print("\nTinyFS status:")
+        print(f"  * Available: {tinyfs.get('available', '?')}")
+        print(f"  * Formatted: {tinyfs.get('formatted', '?')}")
+        print(f"  * Files: {tinyfs.get('file_count', '?')} / "
+              f"{tinyfs.get('max_files', '?')}")
+        print(f"  * Data starts at LBA {tinyfs.get('data_start_lba', '?')}")
+        print(f"  * Last error: {tinyfs.get('last_error', '?')}")
+        if tinyfs.get("available") != "yes":
+            print("  !! WARNING: TinyFS is unavailable because the ATA disk is missing.")
+        elif tinyfs.get("formatted") != "yes":
+            print("  !! WARNING: TinyFS is not formatted. Formatting requires the "
+                  "manual `fs-format confirm` command inside KamikazeOS.")
+        for file in tinyfs_files:
+            print(f"    - {file.get('name', '?'):<24} "
+                  f"{file.get('size', '?')} bytes")
 
     if devices:
         print("\nDevice summary:")
@@ -808,7 +833,7 @@ def main():
 
 
 # --------------------------------------------------------------------------
-# FUTURE AI INTEGRATION POINT (deliberately not implemented in v1.7)
+# FUTURE AI INTEGRATION POINT (deliberately not implemented in v1.8)
 # --------------------------------------------------------------------------
 def analyze_with_ai_later(log_text: str):
     """
@@ -827,7 +852,7 @@ def analyze_with_ai_later(log_text: str):
         as this rule-based analyzer - the policy engine, not the model,
         decides what may ever be applied automatically.
 
-    Keeping this stub un-implemented in v1.7 is intentional: the transport,
+    Keeping this stub un-implemented in v1.8 is intentional: the transport,
     format, and approval workflow get built and trusted first.
     """
     raise NotImplementedError("AI analysis arrives in a later phase - see docstring")

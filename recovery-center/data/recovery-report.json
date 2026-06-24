@@ -1,17 +1,17 @@
 {
-  "version": "1.7.0",
+  "version": "1.8.0",
   "backend": "disk+CMOS",
   "store": {
     "backend": "disk+CMOS",
     "disk_available": "1",
     "state_valid": "1",
-    "journal_count": "52",
-    "durable_boot_count": "14",
+    "journal_count": "73",
+    "durable_boot_count": "21",
     "cmos_fallback_used": "0"
   },
   "memory": {
     "persistence_mode": "cmos_nvram_survives_reboot_not_qemu_restart",
-    "boot_count": "14",
+    "boot_count": "21",
     "safe_mode_next_boot": "0",
     "safe_mode_active": "0",
     "network_quarantined": "0",
@@ -31,71 +31,6 @@
     "health_delta": "0"
   },
   "snapshots": [
-    {
-      "boot": "1",
-      "health": "22",
-      "safe_mode": "0",
-      "panic": "0",
-      "attached": "3",
-      "fallback": "1",
-      "missing": "2",
-      "isolated": "1",
-      "warnings": "5",
-      "criticals": "1",
-      "applied": "1"
-    },
-    {
-      "boot": "2",
-      "health": "22",
-      "safe_mode": "0",
-      "panic": "0",
-      "attached": "3",
-      "fallback": "1",
-      "missing": "2",
-      "isolated": "1",
-      "warnings": "5",
-      "criticals": "1",
-      "applied": "1"
-    },
-    {
-      "boot": "3",
-      "health": "27",
-      "safe_mode": "0",
-      "panic": "0",
-      "attached": "3",
-      "fallback": "1",
-      "missing": "2",
-      "isolated": "1",
-      "warnings": "4",
-      "criticals": "1",
-      "applied": "1"
-    },
-    {
-      "boot": "4",
-      "health": "27",
-      "safe_mode": "0",
-      "panic": "0",
-      "attached": "3",
-      "fallback": "1",
-      "missing": "2",
-      "isolated": "1",
-      "warnings": "4",
-      "criticals": "1",
-      "applied": "1"
-    },
-    {
-      "boot": "5",
-      "health": "27",
-      "safe_mode": "0",
-      "panic": "0",
-      "attached": "3",
-      "fallback": "1",
-      "missing": "2",
-      "isolated": "1",
-      "warnings": "4",
-      "criticals": "1",
-      "applied": "1"
-    },
     {
       "boot": "6",
       "health": "27",
@@ -199,44 +134,100 @@
       "warnings": "4",
       "criticals": "1",
       "applied": "1"
+    },
+    {
+      "boot": "15",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "attached": "3",
+      "fallback": "1",
+      "missing": "2",
+      "isolated": "1",
+      "warnings": "4",
+      "criticals": "1",
+      "applied": "1"
+    },
+    {
+      "boot": "16",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "attached": "3",
+      "fallback": "1",
+      "missing": "2",
+      "isolated": "1",
+      "warnings": "4",
+      "criticals": "1",
+      "applied": "1"
+    },
+    {
+      "boot": "17",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "attached": "3",
+      "fallback": "1",
+      "missing": "2",
+      "isolated": "1",
+      "warnings": "4",
+      "criticals": "1",
+      "applied": "1"
+    },
+    {
+      "boot": "18",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "attached": "3",
+      "fallback": "1",
+      "missing": "2",
+      "isolated": "1",
+      "warnings": "4",
+      "criticals": "1",
+      "applied": "1"
+    },
+    {
+      "boot": "19",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "attached": "3",
+      "fallback": "1",
+      "missing": "2",
+      "isolated": "1",
+      "warnings": "4",
+      "criticals": "1",
+      "applied": "1"
+    },
+    {
+      "boot": "20",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "attached": "3",
+      "fallback": "1",
+      "missing": "2",
+      "isolated": "1",
+      "warnings": "4",
+      "criticals": "1",
+      "applied": "1"
+    },
+    {
+      "boot": "21",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "attached": "3",
+      "fallback": "1",
+      "missing": "2",
+      "isolated": "1",
+      "warnings": "4",
+      "criticals": "1",
+      "applied": "1"
     }
   ],
   "timeline": [
-    {
-      "boot": "1",
-      "health": "22",
-      "safe_mode": "0",
-      "panic": "0",
-      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004,PKG-BLOCKED PKG-003,PKG-APPROVED PKG-001,PKG-APPLIED PKG-001,PKG-VERIFIED PKG-001,PKG-APPROVED PKG-002,PKG-APPLIED PKG-002,PKG-VERIFIED PKG-002,PKG-ROLLED_BACK PKG-002"
-    },
-    {
-      "boot": "2",
-      "health": "22",
-      "safe_mode": "0",
-      "panic": "0",
-      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
-    },
-    {
-      "boot": "3",
-      "health": "27",
-      "safe_mode": "0",
-      "panic": "0",
-      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
-    },
-    {
-      "boot": "4",
-      "health": "27",
-      "safe_mode": "0",
-      "panic": "0",
-      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004,PKG-APPROVED PKG-101,PKG-APPLIED PKG-101,PKG-VERIFIED PKG-101"
-    },
-    {
-      "boot": "5",
-      "health": "27",
-      "safe_mode": "0",
-      "panic": "0",
-      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
-    },
     {
       "boot": "6",
       "health": "27",
@@ -288,6 +279,55 @@
     },
     {
       "boot": "14",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
+    },
+    {
+      "boot": "15",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
+    },
+    {
+      "boot": "16",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
+    },
+    {
+      "boot": "17",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
+    },
+    {
+      "boot": "18",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
+    },
+    {
+      "boot": "19",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
+    },
+    {
+      "boot": "20",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
+    },
+    {
+      "boot": "21",
       "health": "27",
       "safe_mode": "0",
       "panic": "0",
@@ -457,7 +497,7 @@
   ],
   "journal": [
     {
-      "boot": "11",
+      "boot": "18",
       "event": "SUGGESTED",
       "action": "ACT-001",
       "result": "ok",
@@ -466,7 +506,7 @@
       "code": "REC001"
     },
     {
-      "boot": "11",
+      "boot": "18",
       "event": "SUGGESTED",
       "action": "ACT-004",
       "result": "ok",
@@ -475,7 +515,7 @@
       "code": "REC001"
     },
     {
-      "boot": "11",
+      "boot": "18",
       "event": "CLEAN_BOOT",
       "action": "none",
       "result": "ok",
@@ -484,7 +524,7 @@
       "code": "CLEANB"
     },
     {
-      "boot": "12",
+      "boot": "19",
       "event": "SUGGESTED",
       "action": "ACT-001",
       "result": "ok",
@@ -493,7 +533,7 @@
       "code": "REC001"
     },
     {
-      "boot": "12",
+      "boot": "19",
       "event": "SUGGESTED",
       "action": "ACT-004",
       "result": "ok",
@@ -502,7 +542,7 @@
       "code": "REC001"
     },
     {
-      "boot": "12",
+      "boot": "19",
       "event": "CLEAN_BOOT",
       "action": "none",
       "result": "ok",
@@ -511,7 +551,7 @@
       "code": "CLEANB"
     },
     {
-      "boot": "13",
+      "boot": "20",
       "event": "SUGGESTED",
       "action": "ACT-001",
       "result": "ok",
@@ -520,7 +560,7 @@
       "code": "REC001"
     },
     {
-      "boot": "13",
+      "boot": "20",
       "event": "SUGGESTED",
       "action": "ACT-004",
       "result": "ok",
@@ -529,7 +569,7 @@
       "code": "REC001"
     },
     {
-      "boot": "13",
+      "boot": "20",
       "event": "CLEAN_BOOT",
       "action": "none",
       "result": "ok",
@@ -538,7 +578,7 @@
       "code": "CLEANB"
     },
     {
-      "boot": "14",
+      "boot": "21",
       "event": "SUGGESTED",
       "action": "ACT-001",
       "result": "ok",
@@ -547,7 +587,7 @@
       "code": "REC001"
     },
     {
-      "boot": "14",
+      "boot": "21",
       "event": "SUGGESTED",
       "action": "ACT-004",
       "result": "ok",
@@ -556,7 +596,7 @@
       "code": "REC001"
     },
     {
-      "boot": "14",
+      "boot": "21",
       "event": "CLEAN_BOOT",
       "action": "none",
       "result": "ok",
@@ -605,8 +645,8 @@
   "modules": [
     {
       "module": "Kernel",
-      "version": "1.7",
-      "base": "1.7",
+      "version": "1.8",
+      "base": "1.8",
       "updated": "0"
     },
     {
@@ -760,11 +800,11 @@
     "timer_enabled": "yes",
     "keyboard_mode": "irq",
     "interrupts_enabled": "yes",
-    "interrupts_handled": "3104",
+    "interrupts_handled": "1405",
     "last_vector": "33"
   },
   "kernel_timing": {
-    "tick_count": "3060",
+    "tick_count": "1344",
     "timer_irq": "enabled",
     "frequency_hz": "100"
   },
@@ -790,9 +830,9 @@
       "name": "kernel_shell",
       "state": "running",
       "priority": "3",
-      "ticks_run": "3061",
+      "ticks_run": "1345",
       "created_at_tick": "0",
-      "last_run_tick": "3061",
+      "last_run_tick": "1345",
       "flags": "1"
     },
     {
@@ -802,7 +842,7 @@
       "priority": "0",
       "ticks_run": "0",
       "created_at_tick": "0",
-      "last_run_tick": "2871",
+      "last_run_tick": "0",
       "flags": "3"
     },
     {
@@ -812,7 +852,7 @@
       "priority": "2",
       "ticks_run": "0",
       "created_at_tick": "0",
-      "last_run_tick": "2871",
+      "last_run_tick": "0",
       "flags": "3"
     },
     {
@@ -822,8 +862,27 @@
       "priority": "2",
       "ticks_run": "0",
       "created_at_tick": "0",
-      "last_run_tick": "2871",
+      "last_run_tick": "0",
       "flags": "3"
+    }
+  ],
+  "tinyfs": {
+    "available": "yes",
+    "formatted": "yes",
+    "file_count": "1",
+    "max_files": "16",
+    "data_start_lba": "73",
+    "max_file_size": "2048",
+    "last_error": "none"
+  },
+  "tinyfs_files": [
+    {
+      "name": "note.txt",
+      "size": "14",
+      "start_lba": "73",
+      "sector_count": "1",
+      "checksum": "1021132145",
+      "flags": "0"
     }
   ],
   "package_policy": [
