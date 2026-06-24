@@ -1,6 +1,6 @@
 # Command Reference
 
-KamikazeOS shell commands in v1.8.0.
+KamikazeOS shell commands in v1.9.0.
 
 ## General
 
@@ -35,6 +35,18 @@ recovery and require the literal `confirm` argument.
 
 These commands do not create processes or switch stacks. `task-yield` invokes
 a fixed kernel-owned step function and returns to the shell.
+
+## Kernel-Managed Apps
+
+| Command | Purpose |
+|---|---|
+| `apps` | Show the fixed built-in app registry |
+| `app <name>` | Show metadata and run status for one app |
+| `run <name>` | Run a compile-time registered app through policy |
+| `app-log` | Show app runs, failures, and blocked attempts |
+
+Apps are kernel-managed built-ins, not Ring 3 userspace programs. Unknown app
+names are blocked. TinyFS contents and package payloads are never executed.
 
 ## TinyFS
 

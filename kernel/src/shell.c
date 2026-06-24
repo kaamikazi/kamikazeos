@@ -6,6 +6,7 @@
  * arrives when we have processes and syscalls.
  */
 #include "shell.h"
+#include "app.h"
 #include "boot_snapshot.h"
 #include "errors.h"
 #include "module_slots.h"
@@ -138,6 +139,10 @@ static void cmd_help(void)
     vga_print("  task-current show the current logical kernel task\n");
     vga_print("  task-yield  cooperatively run one ready task step\n");
     vga_print("  task-demo   run one round of safe built-in task steps\n");
+    vga_print("  apps        show fixed kernel-managed app registry\n");
+    vga_print("  app <name>  show details for one registered app\n");
+    vga_print("  run <name>  run a fixed built-in app through policy\n");
+    vga_print("  app-log     show app run and block history\n");
     vga_print("  fs          show TinyFS status and fixed LBA range\n");
     vga_print("  fs-format confirm   format only TinyFS LBA 64-127\n");
     vga_print("  ls          list TinyFS files\n");
@@ -183,11 +188,11 @@ static void cmd_about(void)
     cpu_vendor(vendor);
 
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
-    vga_print("KamikazeOS v1.8.0 \"TinyFS\"\n");
+    vga_print("KamikazeOS v1.9.0 \"Userland Spark\"\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
-    vga_print("An experimental AI-native, self-healing operating system.\n");
-    vga_print("v1.8: bounded fixed-sector files on the ATA recovery disk\n");
-    vga_print("without directories dynamic allocation or userspace.\n\n");
+    vga_print("Experimental OS research prototype for auditable recovery.\n");
+    vga_print("v1.9: fixed kernel-managed apps via compile-time registry.\n");
+    vga_print("This is not Ring 3 userspace or executable loading.\n\n");
     vga_print("  Architecture : x86 (i686), 32-bit protected mode\n");
     vga_print("  CPU vendor   : ");
     vga_print(vendor);
@@ -534,6 +539,107 @@ static void cmd_task_demo(void)
     vga_print(" safe steps.\n  idle="); vga_print_dec(task_idle_steps());
     vga_print(" health_monitor="); vga_print_dec(task_health_steps());
     vga_print(" recovery_watch="); vga_print_dec(task_recovery_steps());
+    vga_print("\n");
+}
+
+static void cmd_apps(void)
+{
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("Kernel-Managed Apps (fixed registry, not Ring 3 userspace):\n");
+    vga_set_color(VGA_DARK_GREY, VGA_BLACK);
+    print_col("Name", 18);
+    print_col("Type", 15);
+    print_col("Version", 9);
+    print_col("Status", 12);
+    vga_print("Runs\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+
+    for (uint32_t i = 0; i < app_count(); i++) {
+        const struct app *a = app_get(i);
+        print_col(a->name, 18);
+        print_col(app_type_name(a->type), 15);
+        print_col(a->version, 9);
+        print_col(app_status_name(a->status), 12);
+        vga_print_dec(a->run_count);
+        vga_print("\n");
+    }
+    vga_print("\nPolicy: only compile-time built-in apps can run.\n");
+    vga_print("No TinyFS code loading, package payload execution, or Ring 3 isolation.\n");
+}
+
+static void cmd_app_detail(const char *arg)
+{
+    if (!arg[0]) {
+        vga_print("Usage: app <name>\n");
+        return;
+    }
+    const struct app *a = app_find(arg);
+    if (!a) {
+        vga_print("Unknown app. Run `apps` for the fixed registry.\n");
+        return;
+    }
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print(a->name);
+    vga_print("\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print("  id          : "); vga_print_dec(a->app_id); vga_print("\n");
+    vga_print("  description : "); vga_print(a->description); vga_print("\n");
+    vga_print("  version     : "); vga_print(a->version); vga_print("\n");
+    vga_print("  type        : "); vga_print(app_type_name(a->type)); vga_print("\n");
+    vga_print("  status      : "); vga_print(app_status_name(a->status)); vga_print("\n");
+    vga_print("  run_count   : "); vga_print_dec(a->run_count); vga_print("\n");
+    vga_print("  last_result : "); vga_print(a->last_result); vga_print("\n");
+    vga_print("  isolation   : none yet - kernel-managed builtin function\n");
+}
+
+static void cmd_run_app(const char *arg)
+{
+    if (!arg[0]) {
+        vga_print("Usage: run <name>\n");
+        return;
+    }
+    int result = app_run(arg);
+    if (result > 0) {
+        vga_set_color(VGA_LIGHT_GREEN, VGA_BLACK);
+        vga_print("App completed.\n");
+        vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    } else if (result == 0) {
+        vga_set_color(VGA_YELLOW, VGA_BLACK);
+        vga_print("App failed.\n");
+        vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    } else {
+        vga_set_color(VGA_LIGHT_RED, VGA_BLACK);
+        vga_print("App blocked by policy.\n");
+        vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+        vga_print("Only fixed built-in apps can run; no arbitrary code loading exists.\n");
+    }
+}
+
+static void cmd_app_log(void)
+{
+    const struct app_log_entry *rows[APP_LOG_MAX];
+    uint32_t count = app_log_list(rows, APP_LOG_MAX);
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("App Run Log:\n");
+    vga_set_color(VGA_DARK_GREY, VGA_BLACK);
+    print_col("Seq", 6);
+    print_col("Name", 18);
+    print_col("Result", 12);
+    vga_print("Message\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    if (!count) {
+        vga_print("  (no app runs yet)\n");
+    }
+    for (uint32_t i = 0; i < count; i++) {
+        vga_print_dec(rows[i]->seq);
+        vga_print("     ");
+        print_col(rows[i]->name, 18);
+        print_col(rows[i]->result, 12);
+        vga_print(rows[i]->message);
+        vga_print("\n");
+    }
+    vga_print("Blocked attempts: ");
+    vga_print_dec(app_blocked_attempts());
     vga_print("\n");
 }
 
@@ -1526,6 +1632,8 @@ static const struct command commands[] = {
     { "task-current", cmd_task_current },
     { "task-yield", cmd_task_yield },
     { "task-demo",  cmd_task_demo  },
+    { "apps",       cmd_apps       },
+    { "app-log",    cmd_app_log    },
     { "fs",         cmd_fs         },
     { "ls",         cmd_ls         },
     { "recovery",   cmd_recovery   },
@@ -1624,6 +1732,8 @@ void shell_run(void)
         if (kstrcmp(line, "seed-manifests") == 0) { cmd_seed_manifests(arg); continue; }
         if (kstrcmp(line, "reset-packages") == 0) { cmd_reset_packages(arg); continue; }
         if (kstrcmp(line, "exceptions-test") == 0) { cmd_exceptions_test(arg); continue; }
+        if (kstrcmp(line, "app") == 0) { cmd_app_detail(arg); continue; }
+        if (kstrcmp(line, "run") == 0) { cmd_run_app(arg); continue; }
         if (kstrcmp(line, "fs-format") == 0) { cmd_fs_format(arg); continue; }
         if (kstrcmp(line, "touch") == 0) { cmd_touch(arg); continue; }
         if (kstrcmp(line, "write") == 0) { cmd_write(arg); continue; }

@@ -1,17 +1,17 @@
 {
-  "version": "1.8.0",
+  "version": "1.9.0",
   "backend": "disk+CMOS",
   "store": {
     "backend": "disk+CMOS",
     "disk_available": "1",
     "state_valid": "1",
-    "journal_count": "73",
-    "durable_boot_count": "21",
+    "journal_count": "76",
+    "durable_boot_count": "22",
     "cmos_fallback_used": "0"
   },
   "memory": {
     "persistence_mode": "cmos_nvram_survives_reboot_not_qemu_restart",
-    "boot_count": "21",
+    "boot_count": "22",
     "safe_mode_next_boot": "0",
     "safe_mode_active": "0",
     "network_quarantined": "0",
@@ -21,29 +21,16 @@
     "last_action_id": "none"
   },
   "health": {
-    "score": "27",
+    "score": "22",
     "panic_penalty": "0",
     "missing_penalty": "20",
     "isolated_penalty": "8",
-    "warning_penalty": "20",
+    "warning_penalty": "25",
     "critical_penalty": "25",
     "prev_score": "27",
-    "health_delta": "0"
+    "health_delta": "-5"
   },
   "snapshots": [
-    {
-      "boot": "6",
-      "health": "27",
-      "safe_mode": "0",
-      "panic": "0",
-      "attached": "3",
-      "fallback": "1",
-      "missing": "2",
-      "isolated": "1",
-      "warnings": "4",
-      "criticals": "1",
-      "applied": "1"
-    },
     {
       "boot": "7",
       "health": "27",
@@ -225,16 +212,22 @@
       "warnings": "4",
       "criticals": "1",
       "applied": "1"
-    }
-  ],
-  "timeline": [
+    },
     {
-      "boot": "6",
+      "boot": "22",
       "health": "27",
       "safe_mode": "0",
       "panic": "0",
-      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
-    },
+      "attached": "3",
+      "fallback": "1",
+      "missing": "2",
+      "isolated": "1",
+      "warnings": "4",
+      "criticals": "1",
+      "applied": "1"
+    }
+  ],
+  "timeline": [
     {
       "boot": "7",
       "health": "27",
@@ -328,6 +321,13 @@
     },
     {
       "boot": "21",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
+    },
+    {
+      "boot": "22",
       "health": "27",
       "safe_mode": "0",
       "panic": "0",
@@ -497,33 +497,6 @@
   ],
   "journal": [
     {
-      "boot": "18",
-      "event": "SUGGESTED",
-      "action": "ACT-001",
-      "result": "ok",
-      "risk": "low",
-      "reversible": "yes",
-      "code": "REC001"
-    },
-    {
-      "boot": "18",
-      "event": "SUGGESTED",
-      "action": "ACT-004",
-      "result": "ok",
-      "risk": "medium",
-      "reversible": "yes",
-      "code": "REC001"
-    },
-    {
-      "boot": "18",
-      "event": "CLEAN_BOOT",
-      "action": "none",
-      "result": "ok",
-      "risk": "low",
-      "reversible": "yes",
-      "code": "CLEANB"
-    },
-    {
       "boot": "19",
       "event": "SUGGESTED",
       "action": "ACT-001",
@@ -597,6 +570,33 @@
     },
     {
       "boot": "21",
+      "event": "CLEAN_BOOT",
+      "action": "none",
+      "result": "ok",
+      "risk": "low",
+      "reversible": "yes",
+      "code": "CLEANB"
+    },
+    {
+      "boot": "22",
+      "event": "SUGGESTED",
+      "action": "ACT-001",
+      "result": "ok",
+      "risk": "low",
+      "reversible": "yes",
+      "code": "REC001"
+    },
+    {
+      "boot": "22",
+      "event": "SUGGESTED",
+      "action": "ACT-004",
+      "result": "ok",
+      "risk": "medium",
+      "reversible": "yes",
+      "code": "REC001"
+    },
+    {
+      "boot": "22",
       "event": "CLEAN_BOOT",
       "action": "none",
       "result": "ok",
@@ -640,13 +640,20 @@
       "component": "RecoveryPolicy",
       "message": "Blocked high-risk action ACT-999 install_unknown_driver",
       "hint": "unknown driver installation is not allowed"
+    },
+    {
+      "code": "APP-BLOCK-001",
+      "severity": "warning",
+      "component": "apps",
+      "message": "App run blocked by fixed registry policy",
+      "hint": "only compile-time built-in apps can run"
     }
   ],
   "modules": [
     {
       "module": "Kernel",
-      "version": "1.8",
-      "base": "1.8",
+      "version": "1.9",
+      "base": "1.9",
       "updated": "0"
     },
     {
@@ -800,11 +807,11 @@
     "timer_enabled": "yes",
     "keyboard_mode": "irq",
     "interrupts_enabled": "yes",
-    "interrupts_handled": "1405",
+    "interrupts_handled": "3495",
     "last_vector": "33"
   },
   "kernel_timing": {
-    "tick_count": "1344",
+    "tick_count": "3252",
     "timer_irq": "enabled",
     "frequency_hz": "100"
   },
@@ -830,9 +837,9 @@
       "name": "kernel_shell",
       "state": "running",
       "priority": "3",
-      "ticks_run": "1345",
+      "ticks_run": "3252",
       "created_at_tick": "0",
-      "last_run_tick": "1345",
+      "last_run_tick": "3252",
       "flags": "1"
     },
     {
@@ -869,7 +876,7 @@
   "tinyfs": {
     "available": "yes",
     "formatted": "yes",
-    "file_count": "1",
+    "file_count": "2",
     "max_files": "16",
     "data_start_lba": "73",
     "max_file_size": "2048",
@@ -883,6 +890,148 @@
       "sector_count": "1",
       "checksum": "1021132145",
       "flags": "0"
+    },
+    {
+      "name": "appdemo.txt",
+      "size": "14",
+      "start_lba": "74",
+      "sector_count": "1",
+      "checksum": "3158320032",
+      "flags": "0"
+    }
+  ],
+  "apps_status": {
+    "total_apps": "6",
+    "userland_mode": "kernel_managed_builtin_apps",
+    "last_app": "unknownapp",
+    "last_result": "blocked",
+    "blocked_attempts": "1"
+  },
+  "apps": [
+    {
+      "app_id": "1",
+      "name": "hello",
+      "description": "Print a friendly app-model greeting",
+      "version": "1.0",
+      "type": "demo",
+      "status": "completed",
+      "run_count": "1",
+      "last_result": "ok"
+    },
+    {
+      "app_id": "2",
+      "name": "sysinfo",
+      "description": "Show kernel timing and module version basics",
+      "version": "1.0",
+      "type": "diagnostic",
+      "status": "completed",
+      "run_count": "1",
+      "last_result": "ok"
+    },
+    {
+      "app_id": "3",
+      "name": "tinyfs-demo",
+      "description": "Create write and read appdemo.txt through TinyFS",
+      "version": "1.0",
+      "type": "tinyfs_tool",
+      "status": "completed",
+      "run_count": "1",
+      "last_result": "ok"
+    },
+    {
+      "app_id": "4",
+      "name": "recovery-summary",
+      "description": "Summarize durable recovery state",
+      "version": "1.0",
+      "type": "recovery_tool",
+      "status": "available",
+      "run_count": "0",
+      "last_result": "never_run"
+    },
+    {
+      "app_id": "5",
+      "name": "task-demo",
+      "description": "Run one cooperative task demo round",
+      "version": "1.0",
+      "type": "demo",
+      "status": "available",
+      "run_count": "0",
+      "last_result": "never_run"
+    },
+    {
+      "app_id": "6",
+      "name": "health-report",
+      "description": "Show current deterministic health score",
+      "version": "1.0",
+      "type": "diagnostic",
+      "status": "completed",
+      "run_count": "1",
+      "last_result": "ok"
+    }
+  ],
+  "app_log": [
+    {
+      "seq": "1",
+      "name": "hello",
+      "result": "started",
+      "status": "running",
+      "message": "registered app entered"
+    },
+    {
+      "seq": "2",
+      "name": "hello",
+      "result": "ok",
+      "status": "completed",
+      "message": "app completed"
+    },
+    {
+      "seq": "3",
+      "name": "sysinfo",
+      "result": "started",
+      "status": "running",
+      "message": "registered app entered"
+    },
+    {
+      "seq": "4",
+      "name": "sysinfo",
+      "result": "ok",
+      "status": "completed",
+      "message": "app completed"
+    },
+    {
+      "seq": "5",
+      "name": "tinyfs-demo",
+      "result": "started",
+      "status": "running",
+      "message": "registered app entered"
+    },
+    {
+      "seq": "6",
+      "name": "tinyfs-demo",
+      "result": "ok",
+      "status": "completed",
+      "message": "app completed"
+    },
+    {
+      "seq": "7",
+      "name": "health-report",
+      "result": "started",
+      "status": "running",
+      "message": "registered app entered"
+    },
+    {
+      "seq": "8",
+      "name": "health-report",
+      "result": "ok",
+      "status": "completed",
+      "message": "app completed"
+    },
+    {
+      "seq": "9",
+      "name": "unknownapp",
+      "result": "blocked",
+      "status": "blocked",
+      "message": "unknown app - only fixed built-in apps can run"
     }
   ],
   "package_policy": [
@@ -1061,6 +1210,10 @@
     "CPU-EXCEPTION": {
       "cause": "The CPU raised a synchronous exception. KamikazeOS captured the vector, error code, and instruction pointer before halting.",
       "action": "Do not attempt automatic recovery. Preserve the serial log, reboot, and investigate the recorded exception evidence."
+    },
+    "APP-BLOCK-001": {
+      "cause": "The app policy gate refused a requested app name that is not in the fixed compile-time registry, or an app without a registered entry point.",
+      "action": "This is the correct safety behavior. Run only names listed by `apps`; TinyFS files and package payloads are never executed."
     }
   },
   "recommendations": [

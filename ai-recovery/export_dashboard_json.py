@@ -96,7 +96,8 @@ def main():
      modules, pkgs, pkg_policy, pkg_history,
      trust, pkg_manifests, pkg_states, mod_slots, pending,
      kernel_interrupts, kernel_timing, kernel_exceptions,
-     kernel_tasks, task_rows, tinyfs, tinyfs_files) = parse_report(lines)
+     kernel_tasks, task_rows, tinyfs, tinyfs_files,
+     apps, app_rows, app_log) = parse_report(lines)
 
     # Package recommendations: same catalog-only rule as actions.
     pkg_recs = []
@@ -163,6 +164,9 @@ def main():
         "tasks": task_rows,
         "tinyfs": tinyfs,
         "tinyfs_files": tinyfs_files,
+        "apps_status": apps,
+        "apps": app_rows,
+        "app_log": app_log,
         "package_policy": pkg_policy,
         "package_history": pkg_history,
         "package_recommendations": pkg_recs,

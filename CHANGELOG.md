@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.9.0 - Userland Spark
+
+- Added a fixed kernel-managed app registry.
+- Added an app policy gate that allows only compile-time built-in apps.
+- Added `apps`, `app <name>`, `run <name>`, and `app-log` shell commands.
+- Added safe built-in apps: `hello`, `sysinfo`, `tinyfs-demo`,
+  `recovery-summary`, `task-demo`, and `health-report`.
+- Added TinyFS-backed demo app behavior through bounded TinyFS APIs.
+- Added `[APPS]` and `[APP_LOG]` serial report sections.
+- Added analyzer and read-only Recovery Center app visibility.
+- Added no Ring 3 userspace, process isolation, executable loading, ELF loader,
+  per-process memory, syscalls, virtual memory, or arbitrary code execution.
+
 ## v1.8.0 - TinyFS
 
 - Added a checksummed TinyFS superblock at LBA 64.

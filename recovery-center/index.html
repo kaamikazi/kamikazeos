@@ -96,6 +96,14 @@
         </div>
         <div id="tinyfs-panel" class="metric-list"></div>
       </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h2>Userland Spark</h2>
+          <span id="apps-status" class="badge neutral">unknown</span>
+        </div>
+        <div id="apps-panel" class="metric-list"></div>
+      </article>
     </section>
 
     <section class="card wide">
@@ -120,6 +128,22 @@
         <span class="hint">read-only exported metadata</span>
       </div>
       <div class="table-wrap"><table id="tinyfs-files"></table></div>
+    </section>
+
+    <section class="card wide">
+      <div class="card-head">
+        <h2>Kernel-Managed Apps</h2>
+        <span class="hint">fixed built-ins, no Ring 3 isolation</span>
+      </div>
+      <div class="table-wrap"><table id="apps"></table></div>
+    </section>
+
+    <section class="card wide">
+      <div class="card-head">
+        <h2>App Run History</h2>
+        <span class="hint">read-only app log</span>
+      </div>
+      <div class="table-wrap"><table id="app-log"></table></div>
     </section>
 
     <section class="card wide">

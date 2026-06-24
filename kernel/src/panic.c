@@ -99,6 +99,6 @@ void kpanic_exception(uint32_t vector, uint32_t error_code,
         vga_print("\n  Fault address : "); vga_print_hex(fault_address);
     }
     vga_print("\n\n  Structured evidence was streamed to serial and persisted.\n");
-    vga_print("  CPU exceptions are not recovered in v1.8; the kernel halted safely.\n");
+    vga_print("  CPU exceptions are not recovered in v1.9; the kernel halted safely.\n");
     halt_forever();
 }

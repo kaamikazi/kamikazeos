@@ -7,6 +7,7 @@
  * the boot screen, and hand off to the shell.
  */
 #include <stdint.h>
+#include "app.h"
 #include "boot_snapshot.h"
 #include "errors.h"
 #include "ghostattach.h"
@@ -42,7 +43,7 @@ static void boot_banner(void)
     vga_print(" |_|\\_\\__,_|_| |_| |_|_|_|\\_\\__,_/___\\___|  \\___/|____/ \n");
     vga_print("\n");
     vga_set_color(VGA_DARK_GREY, VGA_BLACK);
-    vga_print("  v1.8.0 \"TinyFS\"  --  fixed-sector file storage\n\n");
+    vga_print("  v1.9.0 \"Userland Spark\"  --  kernel-managed apps\n\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
 }
 
@@ -89,7 +90,7 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
      */
     serial_init();
     errors_init();
-    serial_print("\n=== KamikazeOS v1.8.0 serial log ===\n");
+    serial_print("\n=== KamikazeOS v1.9.0 serial log ===\n");
 
     error_log(SEV_INFO, "BOOT-000", "kernel",
               "Kernel booted successfully", "no action needed");
@@ -167,6 +168,9 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
 
     task_init();
     report_ok("fixed cooperative task table (no stack switching)");
+
+    apps_init();
+    report_ok("kernel-managed app registry (not Ring 3 userspace)");
 
     /* Keyboard: may legitimately fail; it logs its own error and we keep
        booting (a server without a keyboard is still a working server). */

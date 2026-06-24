@@ -1,6 +1,6 @@
 # KamikazeOS Architecture
 
-Status: v1.8.0 "TinyFS".
+Status: v1.9.0 "Userland Spark".
 
 KamikazeOS is a small 32-bit x86 experimental OS research prototype that runs
 in QEMU. Its architecture is organized around observability, durable recovery
@@ -17,6 +17,7 @@ flowchart TD
   Interrupts --> Shell["PS/2 IRQ keyboard shell"]
   Kernel --> Ghost["GhostAttach device/driver policy"]
   Kernel --> Recovery["RecoveryEngine action catalog"]
+  Kernel --> Apps["Kernel-managed app registry"]
   Kernel --> Memory["RecoveryMemory: disk plus CMOS fallback"]
   Kernel --> Store["RecoveryStore: ATA PIO disk image"]
   Store --> Journal["Append-only durable journal"]
@@ -48,6 +49,8 @@ Important source areas:
 - `kernel/src/timer.c`: PIT channel 0 and tick counter.
 - `kernel/src/task.c`: fixed task records and cooperative step dispatch.
 - `kernel/src/tinyfs.c`: fixed-sector file metadata and bounded text I/O.
+- `kernel/src/app.c`: fixed kernel-managed app registry and built-in apps.
+- `kernel/src/app_policy.c`: app launch policy for compile-time entries only.
 - `kernel/src/report.c`: serial report format.
 - `kernel/src/ata.c`: minimal ATA PIO storage driver.
 - `kernel/src/recovery_store.c`: disk-backed recovery state.

@@ -16,9 +16,9 @@ KamikazeOS is not production-ready and not a general-purpose operating system.
 It has no user isolation, no networking stack, no real driver loading, and no
 production security guarantees.
 
-Current release: v1.8.0 "TinyFS". It adds bounded fixed-sector text files on
-the ATA recovery disk while preserving the constrained recovery and update
-model from earlier releases.
+Current release: v1.9.0 "Userland Spark". It adds a fixed kernel-managed app
+registry and policy-gated `run <app>` command while preserving the constrained
+recovery, update, task, and TinyFS model from earlier releases.
 
 ## Feature Overview
 
@@ -26,6 +26,7 @@ model from earlier releases.
 - Real x86 IDT, CPU exception stubs, legacy PIC remap, and PIT timer ticks.
 - Fixed kernel task records and cooperative built-in task steps.
 - Fixed-sector TinyFS with bounded checksummed text files.
+- Fixed kernel-managed app registry with policy-gated built-in app runs.
 - VGA text console and PS/2 IRQ keyboard shell with polling fallback.
 - GhostAttach device/driver recovery layer with verified fallback policy.
 - Structured kernel error logs and serial boot reports.
@@ -48,6 +49,7 @@ flowchart TD
   Kernel --> IRQ["IDT + PIC + PIT"]
   IRQ --> Keyboard["PS/2 IRQ keyboard shell"]
   IRQ --> Tasks["Task table + tick accounting"]
+  Kernel --> Apps["Kernel-managed app registry"]
   Kernel --> Ghost["GhostAttach"]
   Kernel --> Errors["Structured error log"]
   Kernel --> Store["RecoveryStore: ATA PIO recovery.img"]
@@ -184,6 +186,7 @@ Simulated:
 
 ## Version History
 
+- v1.9.0 "Userland Spark": fixed built-in app registry and safe run command.
 - v1.8.0 "TinyFS": bounded fixed-sector text file abstraction.
 - v1.7.0 "Task Seed": fixed task table and cooperative scheduler skeleton.
 - v1.6.0 "Kernel Discipline": IDT, CPU exceptions, PIC, PIT, and IRQ keyboard.

@@ -20,6 +20,10 @@ real OS and tooling mechanics, but avoids dangerous update behavior.
 - Fixed-sector TinyFS superblock and file table on LBA 64-127.
 - Bounded text file creation, first-fit writes, checksummed reads, and deletion.
 - TinyFS shell commands and read-only report/dashboard visibility.
+- Fixed kernel-managed app registry.
+- Policy-gated `run <app>` command for compile-time built-in apps.
+- TinyFS-backed demo app using bounded filesystem APIs.
+- App run/block history in serial reports, analyzer, and dashboard.
 - COM1 serial logs and boot reports.
 - Structured kernel error log.
 - GhostAttach policy decisions over fixed device/driver registries.
@@ -47,6 +51,10 @@ real OS and tooling mechanics, but avoids dangerous update behavior.
 - AI auto-repair.
 - Kernel self-modification.
 - Arbitrary package loading or execution.
+- Ring 3 userspace.
+- Process isolation.
+- Executable loading or ELF loading.
+- Per-process memory and syscalls.
 
 ## v1.6 Kernel Boundary
 
@@ -73,6 +81,16 @@ range. Its metadata, allocation checks, filename checks, size limits, and
 content checksums are real. It has no directories, permissions, userspace
 files, dynamic allocation, journal, transactions, or crash-safe update
 protocol. File contents are never loaded or executed.
+
+## v1.9 App/Userland Boundary
+
+The app registry, app policy gate, `run <app>` command, built-in app functions,
+TinyFS-backed demo app, and app reports are real. The shell can run only
+compile-time registered functions. Unknown app names are blocked and logged.
+
+This is not real userspace. Apps still execute in kernel context on the kernel
+stack. There is no Ring 3 transition, process isolation, ELF loader, syscall
+ABI, virtual memory, or arbitrary executable loading.
 
 ## Why Simulate These Parts
 

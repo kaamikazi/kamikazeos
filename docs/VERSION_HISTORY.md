@@ -1,5 +1,14 @@
 # KamikazeOS Version History
 
+## v1.9.0 "Userland Spark"
+
+Added the first userland-style app model using a fixed compile-time registry,
+a policy-gated `run <app>` shell command, built-in diagnostic/demo apps,
+TinyFS-backed `tinyfs-demo`, app run history, serial app reports, analyzer
+support, and read-only Recovery Center views. This is not Ring 3 userspace:
+there is no process isolation, executable loading, ELF loader, per-process
+memory, syscall ABI, virtual memory, or arbitrary code execution.
+
 ## v1.8.0 "TinyFS"
 
 Added a fixed-sector file abstraction on LBA 64-127 with a checksummed

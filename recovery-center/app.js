@@ -27,8 +27,8 @@ function scoreClass(score) {
 
 function classify(value) {
   const v = String(value ?? "").toLowerCase();
-  if (["yes", "1", "ok", "allowed", "verified", "attached", "loaded", "trusted", "enabled", "irq", "none", "running"].includes(v)) return "good";
-  if (["fallback", "suggested", "available", "medium", "pending", "applied", "sleeping"].includes(v)) return "warn";
+  if (["yes", "1", "ok", "allowed", "verified", "attached", "loaded", "trusted", "enabled", "irq", "none", "running", "completed"].includes(v)) return "good";
+  if (["fallback", "suggested", "available", "medium", "pending", "applied", "sleeping", "kernel_managed_builtin_apps"].includes(v)) return "warn";
   if (["no", "0", "blocked", "failed", "invalid", "unsigned", "isolated", "missing_driver", "high", "error", "panic", "crashed"].includes(v)) return "bad";
   if (["low", "disk_imported", "builtin_seed", "ready", "cooperative"].includes(v)) return "info";
   return "neutral";
@@ -239,6 +239,40 @@ function renderTinyFS(data) {
   ]);
 }
 
+function renderApps(data) {
+  const apps = data.apps_status || {};
+  const box = $("apps-panel");
+  box.innerHTML = "";
+  box.appendChild(metric("Userland mode", apps.userland_mode || "kernel_managed_builtin_apps"));
+  box.appendChild(metric("Total apps", apps.total_apps));
+  box.appendChild(metric("Last app", apps.last_app));
+  box.appendChild(metric("Last result", apps.last_result));
+  box.appendChild(metric("Blocked attempts", apps.blocked_attempts || "0"));
+  box.appendChild(metric("Boundary", "kernel-managed built-ins only"));
+  const blocked = parseInt(apps.blocked_attempts || "0", 10) > 0;
+  setBadge("apps-status", blocked ? "blocked attempts" : "fixed registry",
+    blocked ? "warn" : "info");
+
+  renderTable("apps", data.apps || [], [
+    { key: "app_id", label: "ID" },
+    { key: "name", label: "Name" },
+    { key: "description", label: "Description", wrap: true },
+    { key: "version", label: "Version" },
+    { key: "type", label: "Type", badge: true },
+    { key: "status", label: "Status", badge: true },
+    { key: "run_count", label: "Runs" },
+    { key: "last_result", label: "Last Result", badge: true },
+  ]);
+
+  renderTable("app-log", data.app_log || [], [
+    { key: "seq", label: "Seq" },
+    { key: "name", label: "Name" },
+    { key: "result", label: "Result", badge: true },
+    { key: "status", label: "Status", badge: true },
+    { key: "message", label: "Message", wrap: true },
+  ]);
+}
+
 function renderTrend(snapshots) {
   const trend = $("trend");
   trend.innerHTML = "";
@@ -387,6 +421,7 @@ function render(data) {
   renderKernelFoundation(data);
   renderTaskFoundation(data);
   renderTinyFS(data);
+  renderApps(data);
   renderTrend(data.snapshots || []);
   renderRecommendations(data);
   renderTimelines(data);

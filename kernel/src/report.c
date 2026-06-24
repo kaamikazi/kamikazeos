@@ -7,6 +7,7 @@
  *     the live log stream, and the same rule: values never contain ';'/'='.
  */
 #include "report.h"
+#include "app.h"
 #include "boot_snapshot.h"
 #include "errors.h"
 #include "ghostattach.h"
@@ -28,7 +29,7 @@
 #include "task.h"
 #include "tinyfs.h"
 
-#define KMZ_VERSION "1.8.0"
+#define KMZ_VERSION "1.9.0"
 
 /* serial_print for numbers: render via kitoa, then send. */
 static void serial_print_dec(uint32_t value)
@@ -124,6 +125,7 @@ void report_send(void)
     }
 
     tinyfs_export_report();
+    app_export_report();
 
     /* --- Every device, one line each ------------------------------- */
     serial_print("[DEVICES]\n");

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-KamikazeOS AI Recovery Core - host-side log analyzer (v1.8, offline/rule-based)
+KamikazeOS AI Recovery Core - host-side log analyzer (v1.9, offline/rule-based)
 
 This is the first working incarnation of the "maintenance brain". It runs on
 the HOST, outside the kernel, and its powers are deliberately limited:
@@ -8,7 +8,7 @@ the HOST, outside the kernel, and its powers are deliberately limited:
     READ logs  ->  EXPLAIN problems  ->  RANK risk  ->  SUGGEST next actions
 
 It never patches binaries, installs drivers, downloads code, or modifies the
-OS. Every suggestion is for a HUMAN to approve and perform. v1.8 is
+OS. Every suggestion is for a HUMAN to approve and perform. v1.9 is
 rule-based (no AI API yet) so the pipeline can be built and trusted first;
 see analyze_with_ai_later() at the bottom for where a real model plugs in.
 
@@ -169,6 +169,14 @@ RULES = {
         "action": "Do not attempt automatic recovery. Preserve the serial log, "
                   "reboot, and investigate the recorded exception evidence.",
     },
+    "APP-BLOCK-001": {
+        "cause":  "The app policy gate refused a requested app name that is not "
+                  "in the fixed compile-time registry, or an app without a "
+                  "registered entry point.",
+        "action": "This is the correct safety behavior. Run only names listed "
+                  "by `apps`; TinyFS files and package payloads are never "
+                  "executed.",
+    },
 }
 
 # severity (kernel) -> classification (report)
@@ -246,6 +254,8 @@ def parse_report(lines):
         "[KERNEL_TASKS]": "kernel_tasks",
         "[TINYFS]": "tinyfs",
         "[TINYFS_FILES]": "tinyfs_files",
+        "[APPS]": "apps",
+        "[APP_LOG]": "app_log",
         "[ERROR_LOG]": "events",
     }
     store, journal = {}, []
@@ -255,6 +265,7 @@ def parse_report(lines):
     kernel_interrupts, kernel_timing, kernel_exceptions = {}, {}, {}
     kernel_tasks, task_rows = {}, []
     tinyfs, tinyfs_files = {}, []
+    apps, app_rows, app_log = {}, [], []
     for line in lines:
         if line in section_map:
             section = section_map[line]
@@ -317,6 +328,14 @@ def parse_report(lines):
             tinyfs.update(parse_kv_line(line))
         elif section == "tinyfs_files":
             tinyfs_files.append(parse_kv_line(line))
+        elif section == "apps":
+            values = parse_kv_line(line)
+            if "app_id" in values:
+                app_rows.append(values)
+            else:
+                apps.update(values)
+        elif section == "app_log":
+            app_log.append(parse_kv_line(line))
         elif section == "events":
             events.append(parse_kv_line(line))
     return (meta, devices, drivers, events, policy, actions, suggestions,
@@ -324,7 +343,8 @@ def parse_report(lines):
             modules, pkgs, pkg_policy, pkg_history,
             trust, pkg_manifests, pkg_states, mod_slots, pending,
             kernel_interrupts, kernel_timing, kernel_exceptions,
-            kernel_tasks, task_rows, tinyfs, tinyfs_files)
+            kernel_tasks, task_rows, tinyfs, tinyfs_files,
+            apps, app_rows, app_log)
 
 
 def classify(events):
@@ -363,7 +383,7 @@ def main():
     lines, after_lines, found = extract_last_boot_report(text)
 
     print("=" * 72)
-    print(" KamikazeOS AI RECOVERY CORE - recovery report (v1.8, rule-based)")
+    print(" KamikazeOS AI RECOVERY CORE - recovery report (v1.9, rule-based)")
     print("=" * 72)
 
     if not found:
@@ -380,13 +400,15 @@ def main():
         kernel_interrupts, kernel_timing, kernel_exceptions = {}, {}, {}
         kernel_tasks, task_rows = {}, []
         tinyfs, tinyfs_files = {}, []
+        apps, app_rows, app_log = {}, [], []
     else:
         (meta, devices, drivers, events, policy, actions, suggestions,
          memory, store, journal, snapshots, health, timeline,
          modules, pkgs, pkg_policy, pkg_history,
          trust, pkg_manifests, pkg_states, mod_slots, pending,
          kernel_interrupts, kernel_timing, kernel_exceptions,
-         kernel_tasks, task_rows, tinyfs, tinyfs_files) = parse_report(lines)
+         kernel_tasks, task_rows, tinyfs, tinyfs_files,
+         apps, app_rows, app_log) = parse_report(lines)
         if after_lines:
             # Events streamed after the report (e.g. a panic) — merge them in.
             print(f"\nNote: {len(after_lines)} event(s) occurred AFTER the boot "
@@ -426,7 +448,7 @@ def main():
         print(f"  * Exception: {kernel_exceptions.get('last_exception', '?')}")
         print(f"  * Vector: {kernel_exceptions.get('last_vector', '?')}")
         print(f"  * Error code: {kernel_exceptions.get('last_error_code', '?')}")
-        print("  * Recovery attempted: no (intentional v1.8 safety policy)")
+        print("  * Recovery attempted: no (intentional v1.9 safety policy)")
 
     if kernel_tasks:
         print("\nKernel task foundation:")
@@ -470,6 +492,30 @@ def main():
         for file in tinyfs_files:
             print(f"    - {file.get('name', '?'):<24} "
                   f"{file.get('size', '?')} bytes")
+
+    if apps:
+        print("\nKernel-managed app model:")
+        print(f"  * Userland mode: {apps.get('userland_mode', '?')}")
+        print("  * Boundary: not real Ring 3 userspace, no ELF loader, no "
+              "process isolation, no arbitrary code execution.")
+        print(f"  * Apps: {apps.get('total_apps', '?')} fixed built-ins")
+        print(f"  * Last app: {apps.get('last_app', '?')} "
+              f"({apps.get('last_result', '?')})")
+        print(f"  * Blocked run attempts: {apps.get('blocked_attempts', '0')}")
+        for app in app_rows:
+            print(f"    - {app.get('name', '?'):<16} "
+                  f"{app.get('type', '?'):<13} "
+                  f"runs={app.get('run_count', '?')} "
+                  f"status={app.get('status', '?')} "
+                  f"last={app.get('last_result', '?')}")
+        failed = [a for a in app_rows if a.get("status") == "failed"]
+        blocked = [a for a in app_rows if a.get("status") == "blocked"]
+        blocked_events = [e for e in app_log if e.get("result") == "blocked"]
+        if failed:
+            print("  !! WARNING: one or more fixed apps failed during this boot.")
+        if blocked or blocked_events or apps.get("blocked_attempts", "0") not in ("0", ""):
+            print("  !! WARNING: app policy blocked at least one run attempt. "
+                  "This is correct for unknown or unregistered apps.")
 
     if devices:
         print("\nDevice summary:")
@@ -833,7 +879,7 @@ def main():
 
 
 # --------------------------------------------------------------------------
-# FUTURE AI INTEGRATION POINT (deliberately not implemented in v1.8)
+# FUTURE AI INTEGRATION POINT (deliberately not implemented in v1.9)
 # --------------------------------------------------------------------------
 def analyze_with_ai_later(log_text: str):
     """
@@ -852,7 +898,7 @@ def analyze_with_ai_later(log_text: str):
         as this rule-based analyzer - the policy engine, not the model,
         decides what may ever be applied automatically.
 
-    Keeping this stub un-implemented in v1.8 is intentional: the transport,
+    Keeping this stub un-implemented in v1.9 is intentional: the transport,
     format, and approval workflow get built and trusted first.
     """
     raise NotImplementedError("AI analysis arrives in a later phase - see docstring")
