@@ -14,6 +14,7 @@
 #include "idt.h"
 #include "interrupts.h"
 #include "keyboard.h"
+#include "memory.h"
 #include "panic.h"
 #include "recovery_actions.h"
 #include "module_slots.h"
@@ -43,7 +44,7 @@ static void boot_banner(void)
     vga_print(" |_|\\_\\__,_|_| |_| |_|_|_|\\_\\__,_/___\\___|  \\___/|____/ \n");
     vga_print("\n");
     vga_set_color(VGA_DARK_GREY, VGA_BLACK);
-    vga_print("  v2.0.0 \"Real Kernel Demo\"  --  integrated milestone\n\n");
+    vga_print("  v2.1.0 \"Memory Map\"  --  physical memory foundation\n\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
 }
 
@@ -73,13 +74,10 @@ static void report_warn(const char *what)
 /*
  * kmain — called from boot.S with the two values the Multiboot loader
  * left for us (see boot.S for how they travel through the stack).
- * `mb_info` points at boot facts (memory map etc.); we start using it
- * when memory management arrives. Marked unused for now.
+ * `mb_info` points at boot facts (memory map etc.).
  */
 void kmain(uint32_t mb_magic, uint32_t mb_info)
 {
-    (void)mb_info;
-
     /* Display first: until vga_init runs we are blind. */
     vga_init();
     boot_banner();
@@ -90,7 +88,7 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
      */
     serial_init();
     errors_init();
-    serial_print("\n=== KamikazeOS v2.0.0 serial log ===\n");
+    serial_print("\n=== KamikazeOS v2.1.0 serial log ===\n");
 
     error_log(SEV_INFO, "BOOT-000", "kernel",
               "Kernel booted successfully", "no action needed");
@@ -149,6 +147,10 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
                "boot via a Multiboot loader (GRUB or QEMU -kernel)");
     }
     report_ok("multiboot handshake");
+
+    memory_init(mb_magic, mb_info);
+    report_ok(memory_map_available() ? "multiboot memory map parsed"
+                                     : "memory map fallback active");
 
     tinyfs_init();
     if (tinyfs_status()->formatted)

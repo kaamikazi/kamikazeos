@@ -1,5 +1,16 @@
 # KamikazeOS Version History
 
+## v2.1.0 "Memory Map"
+
+Added the first kernel memory management foundation: Multiboot memory map
+parsing when available, a conservative fallback map, fixed 4 KiB physical page
+tracking, low-memory and kernel image reservation, `mem`, `memmap`, and
+`pages` shell commands, serial `[MEMORY]`, `[MEMORY_MAP]`, and `[PAGES]`
+sections, analyzer support, and read-only Recovery Center memory views. No
+virtual memory, paging isolation, heap allocator, userspace memory, process
+address spaces, networking, auto-repair, arbitrary execution, or
+self-modification was added.
+
 ## v2.0.0 "Real Kernel Demo"
 
 Integrated milestone release. Added `system` and `diagnose` shell commands,

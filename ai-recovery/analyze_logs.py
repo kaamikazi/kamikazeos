@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-KamikazeOS AI Recovery Core - host-side log analyzer (v2.0, offline/rule-based)
+KamikazeOS AI Recovery Core - host-side log analyzer (v2.1, offline/rule-based)
 
 This is the first working incarnation of the "maintenance brain". It runs on
 the HOST, outside the kernel, and its powers are deliberately limited:
@@ -8,7 +8,7 @@ the HOST, outside the kernel, and its powers are deliberately limited:
     READ logs  ->  EXPLAIN problems  ->  RANK risk  ->  SUGGEST next actions
 
 It never patches binaries, installs drivers, downloads code, or modifies the
-OS. Every suggestion is for a HUMAN to approve and perform. v2.0 is
+OS. Every suggestion is for a HUMAN to approve and perform. v2.1 is
 rule-based (no AI API yet) so the pipeline can be built and trusted first;
 see analyze_with_ai_later() at the bottom for where a real model plugs in.
 
@@ -250,6 +250,9 @@ def parse_report(lines):
         "[PACKAGE_STATES]": "pkg_states",
         "[MODULE_SLOTS]": "slots",
         "[PENDING_VERIFICATION]": "pending",
+        "[MEMORY]": "kernel_memory",
+        "[MEMORY_MAP]": "memory_map",
+        "[PAGES]": "pages",
         "[KERNEL_INTERRUPTS]": "kernel_interrupts",
         "[KERNEL_TIMING]": "kernel_timing",
         "[KERNEL_EXCEPTIONS]": "kernel_exceptions",
@@ -265,6 +268,7 @@ def parse_report(lines):
     modules, pkgs, pkg_policy, pkg_history = [], [], [], []
     trust, pkg_manifests, pkg_states, mod_slots, pending = {}, [], [], [], {}
     kernel_interrupts, kernel_timing, kernel_exceptions = {}, {}, {}
+    kernel_memory, memory_map, pages = {}, [], {}
     kernel_tasks, task_rows = {}, []
     tinyfs, tinyfs_files = {}, []
     apps, app_rows, app_log = {}, [], []
@@ -319,6 +323,12 @@ def parse_report(lines):
             mod_slots.append(parse_kv_line(line))
         elif section == "pending":
             pending.update(parse_kv_line(line))
+        elif section == "kernel_memory":
+            kernel_memory.update(parse_kv_line(line))
+        elif section == "memory_map":
+            memory_map.append(parse_kv_line(line))
+        elif section == "pages":
+            pages.update(parse_kv_line(line))
         elif section == "kernel_interrupts":
             kernel_interrupts.update(parse_kv_line(line))
         elif section == "kernel_timing":
@@ -349,6 +359,7 @@ def parse_report(lines):
             memory, store, journal, snapshots, health, timeline,
             modules, pkgs, pkg_policy, pkg_history,
             trust, pkg_manifests, pkg_states, mod_slots, pending,
+            kernel_memory, memory_map, pages,
             kernel_interrupts, kernel_timing, kernel_exceptions,
             kernel_tasks, task_rows, tinyfs, tinyfs_files,
             apps, app_rows, app_log, system_status, diagnostics)
@@ -390,7 +401,7 @@ def main():
     lines, after_lines, found = extract_last_boot_report(text)
 
     print("=" * 72)
-    print(" KamikazeOS AI RECOVERY CORE - recovery report (v2.0, rule-based)")
+    print(" KamikazeOS AI RECOVERY CORE - recovery report (v2.1, rule-based)")
     print("=" * 72)
 
     if not found:
@@ -404,6 +415,7 @@ def main():
         snapshots, health, timeline = [], {}, []
         modules, pkgs, pkg_policy, pkg_history = [], [], [], []
         trust, pkg_manifests, pkg_states, mod_slots, pending = {}, [], [], [], {}
+        kernel_memory, memory_map, pages = {}, [], {}
         kernel_interrupts, kernel_timing, kernel_exceptions = {}, {}, {}
         kernel_tasks, task_rows = {}, []
         tinyfs, tinyfs_files = {}, []
@@ -414,6 +426,7 @@ def main():
          memory, store, journal, snapshots, health, timeline,
          modules, pkgs, pkg_policy, pkg_history,
          trust, pkg_manifests, pkg_states, mod_slots, pending,
+         kernel_memory, memory_map, pages,
          kernel_interrupts, kernel_timing, kernel_exceptions,
          kernel_tasks, task_rows, tinyfs, tinyfs_files,
          apps, app_rows, app_log, system_status, diagnostics) = parse_report(lines)
@@ -432,11 +445,13 @@ def main():
               f"{meta.get('scan_isolated', '?')} isolated")
 
     if system_status:
-        print("\nv2.0 integrated system status:")
+        print("\nv2.1 integrated system status:")
         print(f"  * Kernel: {system_status.get('kernel_version', '?')}")
         print(f"  * Interrupts: IDT={system_status.get('idt_loaded', '?')} "
               f"PIC={system_status.get('pic_remapped', '?')} "
               f"keyboard={system_status.get('keyboard_mode', '?')}")
+        print(f"  * Memory: map={system_status.get('memory_map', '?')} "
+              f"free_pages={system_status.get('free_pages', '?')}")
         print(f"  * Storage: {system_status.get('recovery_backend', '?')} "
               f"TinyFS={system_status.get('tinyfs_status', '?')} "
               f"files={system_status.get('tinyfs_files', '?')}")
@@ -448,6 +463,25 @@ def main():
             print(f"  * Recommended manual command: "
                   f"{diagnostics.get('recommended_command')}")
         print("  * Automatic repair: no")
+
+    if kernel_memory:
+        print("\nKernel memory foundation:")
+        print(f"  * Map available: {kernel_memory.get('map_available', '?')}")
+        print(f"  * Fallback used: {kernel_memory.get('fallback_used', '?')}")
+        print(f"  * Regions: {kernel_memory.get('region_count', '?')}")
+        print(f"  * Total: {kernel_memory.get('total_kib', '?')} KiB")
+        print(f"  * Usable: {kernel_memory.get('usable_kib', '?')} KiB")
+        print(f"  * Allocation mode: {kernel_memory.get('allocation_mode', '?')}")
+        print(f"  * Page tracker: {pages.get('free_pages', '?')} free / "
+              f"{pages.get('total_pages', '?')} tracked pages")
+        if kernel_memory.get("map_available") != "yes":
+            print("  !! WARNING: Multiboot memory map missing; kernel used fallback.")
+        try:
+            free_pages = int(pages.get("free_pages", "0") or 0)
+            if free_pages < 128:
+                print("  !! WARNING: free physical pages are very low.")
+        except ValueError:
+            pass
 
     if kernel_interrupts:
         print("\nKernel interrupt foundation:")
@@ -905,7 +939,7 @@ def main():
 
 
 # --------------------------------------------------------------------------
-# FUTURE AI INTEGRATION POINT (deliberately not implemented in v2.0)
+# FUTURE AI INTEGRATION POINT (deliberately not implemented in v2.1)
 # --------------------------------------------------------------------------
 def analyze_with_ai_later(log_text: str):
     """
@@ -924,7 +958,7 @@ def analyze_with_ai_later(log_text: str):
         as this rule-based analyzer - the policy engine, not the model,
         decides what may ever be applied automatically.
 
-    Keeping this stub un-implemented in v2.0 is intentional: the transport,
+    Keeping this stub un-implemented in v2.1 is intentional: the transport,
     format, and approval workflow get built and trusted first.
     """
     raise NotImplementedError("AI analysis arrives in a later phase - see docstring")

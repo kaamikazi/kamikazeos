@@ -26,6 +26,10 @@ real OS and tooling mechanics, but avoids dangerous update behavior.
 - App run/block history in serial reports, analyzer, and dashboard.
 - Integrated v2.0 `system` and `diagnose` summaries.
 - v2.0 serial report overview sections for system status and diagnostics.
+- Multiboot memory map parsing when the bootloader provides it.
+- Conservative memory-map fallback when Multiboot data is unavailable.
+- Fixed 4 KiB physical page tracking with low-memory and kernel reservations.
+- Memory status, memory map, and page reports in shell, analyzer, and dashboard.
 - COM1 serial logs and boot reports.
 - Structured kernel error log.
 - GhostAttach policy decisions over fixed device/driver registries.
@@ -57,6 +61,10 @@ real OS and tooling mechanics, but avoids dangerous update behavior.
 - Process isolation.
 - Executable loading or ELF loading.
 - Per-process memory and syscalls.
+- Virtual memory.
+- Paging isolation.
+- General-purpose `malloc/free` heap allocation.
+- Process address spaces.
 
 ## v1.6 Kernel Boundary
 
@@ -100,6 +108,13 @@ v2.0 is a stabilization and integration milestone. The new `system` and
 `diagnose` commands summarize existing real subsystems; they do not add
 automatic repair or new execution privileges. Analyzer and dashboard output
 remain read-only and may recommend or copy manual shell commands only.
+
+## v2.1 Memory Boundary
+
+v2.1 parses real bootloader memory-map data when present and maintains a fixed
+physical page tracker. The page tracker is accounting only: there is no virtual
+memory, no paging isolation, no heap allocator, no userspace memory model, and
+no process address space management.
 
 ## Why Simulate These Parts
 

@@ -14,6 +14,7 @@
 #include "idt.h"
 #include "interrupts.h"
 #include "keyboard.h"
+#include "memory.h"
 #include "module_slots.h"
 #include "module_versions.h"
 #include "package_manifest.h"
@@ -29,7 +30,7 @@
 #include "task.h"
 #include "tinyfs.h"
 
-#define KMZ_VERSION "2.0.0"
+#define KMZ_VERSION "2.1.0"
 
 /* serial_print for numbers: render via kitoa, then send. */
 static void serial_print_dec(uint32_t value)
@@ -103,6 +104,9 @@ void report_send(void)
     struct health_breakdown system_health;
     boot_snapshot_health_now(&system_health);
     const struct tinyfs_status_info *fs_status = tinyfs_status();
+    const struct memory_status *mem_status = memory_status();
+    struct page_status page_status;
+    memory_pages(&page_status);
     struct kerror last_critical;
 
     serial_print("[SYSTEM_STATUS]\n");
@@ -111,6 +115,8 @@ void report_send(void)
     serial_print("\npic_remapped="); serial_print(pic_is_remapped() ? "yes" : "no");
     serial_print("\ntimer_ticks="); serial_print_dec(timer_ticks());
     serial_print("\nkeyboard_mode="); serial_print(keyboard_mode_name());
+    serial_print("\nmemory_map="); serial_print(mem_status->map_available ? "multiboot" : "fallback");
+    serial_print("\nfree_pages="); serial_print_dec(page_status.free_pages);
     serial_print("\ntask_count="); serial_print_dec(task_count());
     serial_print("\ntinyfs_status=");
     serial_print(fs_status->available ? (fs_status->formatted ? "formatted" : "not_formatted") : "unavailable");
@@ -136,6 +142,10 @@ void report_send(void)
     serial_print(",missing:"); serial_print_dec(st.missing);
     serial_print(",isolated:"); serial_print_dec(st.isolated);
     serial_print("\ndrivers=verified_policy_active");
+    serial_print("\nmemory=map:");
+    serial_print(mem_status->map_available ? "multiboot" : "fallback");
+    serial_print(",usable_kib:"); serial_print_dec(mem_status->usable_kib);
+    serial_print(",free_pages:"); serial_print_dec(page_status.free_pages);
     serial_print("\ntasks=total:"); serial_print_dec(task_count());
     serial_print(",ready:"); serial_print_dec(task_count_state(TASK_READY));
     serial_print(",crashed:"); serial_print_dec(task_count_state(TASK_CRASHED));
@@ -156,6 +166,43 @@ void report_send(void)
         serial_print("approve ");
     serial_print(next);
     serial_print("\nauto_repair=no\n");
+
+    serial_print("[MEMORY]\n");
+    serial_print("map_available="); serial_print(mem_status->map_available ? "yes" : "no");
+    serial_print("\nfallback_used="); serial_print(mem_status->fallback_used ? "yes" : "no");
+    serial_print("\nregion_count="); serial_print_dec(mem_status->region_count);
+    serial_print("\ntotal_kib="); serial_print_dec(mem_status->total_kib);
+    serial_print("\nusable_kib="); serial_print_dec(mem_status->usable_kib);
+    serial_print("\nreserved_kib="); serial_print_dec(mem_status->reserved_kib);
+    serial_print("\nkernel_start="); serial_print_dec(mem_status->kernel_start);
+    serial_print("\nkernel_end="); serial_print_dec(mem_status->kernel_end);
+    serial_print("\nheap_start="); serial_print_dec(mem_status->heap_start);
+    serial_print("\nheap_end="); serial_print_dec(mem_status->heap_end);
+    serial_print("\nallocation_mode="); serial_print(mem_status->allocation_mode);
+    serial_print("\nvirtual_memory=no\nheap_allocator=no\n");
+
+    serial_print("[MEMORY_MAP]\n");
+    for (uint32_t i = 0; i < memory_region_count(); i++) {
+        struct memory_region r;
+        if (!memory_region_get(i, &r))
+            continue;
+        serial_print("index="); serial_print_dec(i);
+        serial_print(";base="); serial_print_dec(r.base);
+        serial_print(";length="); serial_print_dec(r.length);
+        serial_print(";kib="); serial_print_dec(r.length / 1024u);
+        serial_print(";type="); serial_print(memory_region_type_name(r.type));
+        serial_print("\n");
+    }
+
+    serial_print("[PAGES]\n");
+    serial_print("page_size="); serial_print_dec(page_status.page_size);
+    serial_print("\ntotal_pages="); serial_print_dec(page_status.total_pages);
+    serial_print("\nfree_pages="); serial_print_dec(page_status.free_pages);
+    serial_print("\nused_pages="); serial_print_dec(page_status.used_pages);
+    serial_print("\nreserved_low_pages="); serial_print_dec(page_status.reserved_low_pages);
+    serial_print("\nreserved_kernel_pages="); serial_print_dec(page_status.reserved_kernel_pages);
+    serial_print("\ntracked_limit_kib="); serial_print_dec(page_status.tracked_limit_kib);
+    serial_print("\nvirtual_memory=no\n");
 
     serial_print("[KERNEL_INTERRUPTS]\n");
     serial_print("idt_loaded="); serial_print(idt_is_loaded() ? "yes" : "no");

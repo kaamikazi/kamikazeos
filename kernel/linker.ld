@@ -14,6 +14,7 @@ SECTIONS
      * BIOS ROM). 1 MiB is the traditional safe home for kernels.
      */
     . = 1M;
+    _kernel_start = .;
 
     .text : ALIGN(4K)
     {
@@ -27,4 +28,6 @@ SECTIONS
     .rodata : ALIGN(4K) { *(.rodata) }          /* read-only data (strings) */
     .data   : ALIGN(4K) { *(.data) }            /* initialised globals */
     .bss    : ALIGN(4K) { *(COMMON) *(.bss) }   /* zeroed globals + stack */
+    . = ALIGN(4K);
+    _kernel_end = .;
 }

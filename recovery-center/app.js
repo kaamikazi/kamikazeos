@@ -113,6 +113,7 @@ function renderV20Overview(data) {
   box.innerHTML = "";
   box.appendChild(metric("Kernel", status.kernel_version || data.version));
   box.appendChild(metric("Interrupts", `IDT ${status.idt_loaded || "?"}, PIC ${status.pic_remapped || "?"}, keyboard ${status.keyboard_mode || "?"}`));
+  box.appendChild(metric("Memory", `map ${status.memory_map || data.kernel_memory?.map_available || "?"}, free pages ${status.free_pages || data.pages?.free_pages || "?"}`));
   box.appendChild(metric("Storage", `${status.recovery_backend || data.backend || "?"}, TinyFS ${status.tinyfs_status || "?"}`));
   box.appendChild(metric("Apps", `${status.app_registry || data.apps_status?.total_apps || "?"} fixed built-ins`));
   box.appendChild(metric("Packages", status.package_trust_mode || data.trust?.signature_verification || "?"));
@@ -122,11 +123,40 @@ function renderV20Overview(data) {
   box.appendChild(metric("Auto repair", diag.auto_repair || "no"));
   const ready = status.idt_loaded === "yes" &&
     status.pic_remapped === "yes" &&
+    parseInt(status.free_pages || data.pages?.free_pages || "0", 10) > 0 &&
     status.tinyfs_status === "formatted" &&
     (status.recovery_backend || "").includes("disk") &&
     parseInt(status.app_registry || "0", 10) > 0;
   setBadge("v20-status", ready ? "integrated demo ready" : "review report",
     ready ? "good" : "warn");
+}
+
+function renderMemory(data) {
+  const mem = data.kernel_memory || {};
+  const pages = data.pages || {};
+  const box = $("memory-panel");
+  box.innerHTML = "";
+  box.appendChild(metric("Map available", mem.map_available || "?"));
+  box.appendChild(metric("Fallback used", mem.fallback_used || "?"));
+  box.appendChild(metric("Regions", mem.region_count || "0"));
+  box.appendChild(metric("Usable", mem.usable_kib ? `${mem.usable_kib} KiB` : "?"));
+  box.appendChild(metric("Reserved", mem.reserved_kib ? `${mem.reserved_kib} KiB` : "?"));
+  box.appendChild(metric("Free pages", `${pages.free_pages || "?"} / ${pages.total_pages || "?"}`));
+  box.appendChild(metric("Kernel pages", pages.reserved_kernel_pages || "?"));
+  box.appendChild(metric("Mode", mem.allocation_mode || "physical_page_tracker_only"));
+  const healthy = (mem.map_available === "yes" || mem.fallback_used === "yes") &&
+    parseInt(pages.free_pages || "0", 10) > 0;
+  setBadge("memory-status", mem.map_available === "yes" ? "multiboot map" :
+    mem.fallback_used === "yes" ? "fallback map" : "missing",
+    healthy ? (mem.map_available === "yes" ? "good" : "warn") : "bad");
+
+  renderTable("memory-map", data.memory_map || [], [
+    { key: "index", label: "Index" },
+    { key: "base", label: "Base" },
+    { key: "length", label: "Length" },
+    { key: "kib", label: "KiB" },
+    { key: "type", label: "Type", badge: true },
+  ]);
 }
 
 function renderBackend(data) {
@@ -442,6 +472,7 @@ function render(data) {
   renderBackend(data);
   renderBootWarnings(data);
   renderTrust(data);
+  renderMemory(data);
   renderKernelFoundation(data);
   renderTaskFoundation(data);
   renderTinyFS(data);

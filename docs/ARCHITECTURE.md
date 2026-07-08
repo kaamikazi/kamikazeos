@@ -1,6 +1,6 @@
 # KamikazeOS Architecture
 
-Status: v2.0.0 "Real Kernel Demo".
+Status: v2.1.0 "Memory Map".
 
 KamikazeOS is a small 32-bit x86 experimental OS research prototype that runs
 in QEMU. Its architecture is organized around observability, durable recovery

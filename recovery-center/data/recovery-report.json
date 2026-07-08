@@ -1,12 +1,14 @@
 {
-  "version": "2.0.0",
+  "version": "2.1.0",
   "backend": "disk+CMOS",
   "system_status": {
-    "kernel_version": "2.0",
+    "kernel_version": "2.1",
     "idt_loaded": "yes",
     "pic_remapped": "yes",
-    "timer_ticks": "2734",
+    "timer_ticks": "1520",
     "keyboard_mode": "irq",
+    "memory_map": "multiboot",
+    "free_pages": "16050",
     "task_count": "4",
     "tinyfs_status": "formatted",
     "tinyfs_files": "2",
@@ -19,26 +21,96 @@
   "diagnostics": {
     "devices": "total:7,attached:3,fallback:1,missing:2,isolated:1",
     "drivers": "verified_policy_active",
+    "memory": "map:multiboot,usable_kib:65023,free_pages:16050",
     "tasks": "total:4,ready:3,crashed:0",
     "tinyfs": "status:formatted,files:2,last_error:none",
     "apps": "total:6,blocked_attempts:0",
-    "recovery": "backend:disk+CMOS,journal:82",
+    "recovery": "backend:disk+CMOS,journal:85",
     "packages": "manifests:1,pending_verify:no",
     "health": "score:27",
     "recommended_command": "approve ACT-001",
     "auto_repair": "no"
   },
+  "kernel_memory": {
+    "map_available": "yes",
+    "fallback_used": "no",
+    "region_count": "6",
+    "total_kib": "65472",
+    "usable_kib": "65023",
+    "reserved_kib": "449",
+    "kernel_start": "1048576",
+    "kernel_end": "1236992",
+    "heap_start": "1236992",
+    "heap_end": "1236992",
+    "allocation_mode": "physical_page_tracker_only",
+    "virtual_memory": "no",
+    "heap_allocator": "no"
+  },
+  "memory_map": [
+    {
+      "index": "0",
+      "base": "0",
+      "length": "654336",
+      "kib": "639",
+      "type": "usable"
+    },
+    {
+      "index": "1",
+      "base": "654336",
+      "length": "1024",
+      "kib": "1",
+      "type": "reserved"
+    },
+    {
+      "index": "2",
+      "base": "983040",
+      "length": "65536",
+      "kib": "64",
+      "type": "reserved"
+    },
+    {
+      "index": "3",
+      "base": "1048576",
+      "length": "65929216",
+      "kib": "64384",
+      "type": "usable"
+    },
+    {
+      "index": "4",
+      "base": "66977792",
+      "length": "131072",
+      "kib": "128",
+      "type": "reserved"
+    },
+    {
+      "index": "5",
+      "base": "4294705152",
+      "length": "262144",
+      "kib": "256",
+      "type": "reserved"
+    }
+  ],
+  "pages": {
+    "page_size": "4096",
+    "total_pages": "16368",
+    "free_pages": "16050",
+    "used_pages": "318",
+    "reserved_low_pages": "159",
+    "reserved_kernel_pages": "46",
+    "tracked_limit_kib": "131072",
+    "virtual_memory": "no"
+  },
   "store": {
     "backend": "disk+CMOS",
     "disk_available": "1",
     "state_valid": "1",
-    "journal_count": "82",
-    "durable_boot_count": "24",
+    "journal_count": "85",
+    "durable_boot_count": "25",
     "cmos_fallback_used": "0"
   },
   "memory": {
     "persistence_mode": "cmos_nvram_survives_reboot_not_qemu_restart",
-    "boot_count": "24",
+    "boot_count": "25",
     "safe_mode_next_boot": "0",
     "safe_mode_active": "0",
     "network_quarantined": "0",
@@ -58,19 +130,6 @@
     "health_delta": "0"
   },
   "snapshots": [
-    {
-      "boot": "9",
-      "health": "2",
-      "safe_mode": "0",
-      "panic": "1",
-      "attached": "3",
-      "fallback": "1",
-      "missing": "2",
-      "isolated": "1",
-      "warnings": "6",
-      "criticals": "1",
-      "applied": "1"
-    },
     {
       "boot": "10",
       "health": "27",
@@ -265,16 +324,22 @@
       "warnings": "4",
       "criticals": "1",
       "applied": "1"
+    },
+    {
+      "boot": "25",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "attached": "3",
+      "fallback": "1",
+      "missing": "2",
+      "isolated": "1",
+      "warnings": "4",
+      "criticals": "1",
+      "applied": "1"
     }
   ],
   "timeline": [
-    {
-      "boot": "9",
-      "health": "2",
-      "safe_mode": "0",
-      "panic": "1",
-      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
-    },
     {
       "boot": "10",
       "health": "27",
@@ -375,6 +440,13 @@
     },
     {
       "boot": "24",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
+    },
+    {
+      "boot": "25",
       "health": "27",
       "safe_mode": "0",
       "panic": "0",
@@ -544,33 +616,6 @@
   ],
   "journal": [
     {
-      "boot": "21",
-      "event": "SUGGESTED",
-      "action": "ACT-001",
-      "result": "ok",
-      "risk": "low",
-      "reversible": "yes",
-      "code": "REC001"
-    },
-    {
-      "boot": "21",
-      "event": "SUGGESTED",
-      "action": "ACT-004",
-      "result": "ok",
-      "risk": "medium",
-      "reversible": "yes",
-      "code": "REC001"
-    },
-    {
-      "boot": "21",
-      "event": "CLEAN_BOOT",
-      "action": "none",
-      "result": "ok",
-      "risk": "low",
-      "reversible": "yes",
-      "code": "CLEANB"
-    },
-    {
       "boot": "22",
       "event": "SUGGESTED",
       "action": "ACT-001",
@@ -644,6 +689,33 @@
     },
     {
       "boot": "24",
+      "event": "CLEAN_BOOT",
+      "action": "none",
+      "result": "ok",
+      "risk": "low",
+      "reversible": "yes",
+      "code": "CLEANB"
+    },
+    {
+      "boot": "25",
+      "event": "SUGGESTED",
+      "action": "ACT-001",
+      "result": "ok",
+      "risk": "low",
+      "reversible": "yes",
+      "code": "REC001"
+    },
+    {
+      "boot": "25",
+      "event": "SUGGESTED",
+      "action": "ACT-004",
+      "result": "ok",
+      "risk": "medium",
+      "reversible": "yes",
+      "code": "REC001"
+    },
+    {
+      "boot": "25",
       "event": "CLEAN_BOOT",
       "action": "none",
       "result": "ok",
@@ -692,8 +764,8 @@
   "modules": [
     {
       "module": "Kernel",
-      "version": "2.0",
-      "base": "2.0",
+      "version": "2.1",
+      "base": "2.1",
       "updated": "0"
     },
     {
@@ -847,11 +919,11 @@
     "timer_enabled": "yes",
     "keyboard_mode": "irq",
     "interrupts_enabled": "yes",
-    "interrupts_handled": "2894",
+    "interrupts_handled": "1611",
     "last_vector": "32"
   },
   "kernel_timing": {
-    "tick_count": "2735",
+    "tick_count": "1521",
     "timer_irq": "enabled",
     "frequency_hz": "100"
   },
@@ -877,9 +949,9 @@
       "name": "kernel_shell",
       "state": "running",
       "priority": "3",
-      "ticks_run": "2735",
+      "ticks_run": "1522",
       "created_at_tick": "0",
-      "last_run_tick": "2735",
+      "last_run_tick": "1522",
       "flags": "1"
     },
     {
@@ -943,8 +1015,8 @@
   "apps_status": {
     "total_apps": "6",
     "userland_mode": "kernel_managed_builtin_apps",
-    "last_app": "tinyfs-demo",
-    "last_result": "ok",
+    "last_app": "none",
+    "last_result": "none",
     "blocked_attempts": "0"
   },
   "apps": [
@@ -974,9 +1046,9 @@
       "description": "Create write and read appdemo.txt through TinyFS",
       "version": "1.0",
       "type": "tinyfs_tool",
-      "status": "completed",
-      "run_count": "1",
-      "last_result": "ok"
+      "status": "available",
+      "run_count": "0",
+      "last_result": "never_run"
     },
     {
       "app_id": "4",
@@ -1009,22 +1081,7 @@
       "last_result": "never_run"
     }
   ],
-  "app_log": [
-    {
-      "seq": "1",
-      "name": "tinyfs-demo",
-      "result": "started",
-      "status": "running",
-      "message": "registered app entered"
-    },
-    {
-      "seq": "2",
-      "name": "tinyfs-demo",
-      "result": "ok",
-      "status": "completed",
-      "message": "app completed"
-    }
-  ],
+  "app_log": [],
   "package_policy": [
     "rule=unsigned_blocked",
     "rule=invalid_signature_blocked",

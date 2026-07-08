@@ -19,6 +19,7 @@
 #include "interrupts.h"
 #include "io.h"
 #include "keyboard.h"
+#include "memory.h"
 #include "panic.h"
 #include "recovery_actions.h"
 #include "recovery_memory.h"
@@ -157,7 +158,7 @@ static void cmd_help(void)
     vga_print("  help        show this list\n");
     vga_print("  clear       clear the screen\n");
     vga_print("  about       OS version, mission, CPU info\n");
-    vga_print("  system      integrated v2.0 system readiness summary\n");
+    vga_print("  system      integrated v2.1 system readiness summary\n");
     vga_print("  diagnose    compact full-system diagnostic summary\n");
     vga_print("  devices     GhostAttach device status table\n");
     vga_print("  drivers     GhostAttach driver registry table\n");
@@ -168,6 +169,9 @@ static void cmd_help(void)
     vga_print("  export-logs send full boot report to serial for AI analysis\n");
     vga_print("  interrupts  show IDT PIC IRQ and exception status\n");
     vga_print("  ticks       show the live PIT timer tick count\n");
+    vga_print("  mem         show physical memory totals and kernel bounds\n");
+    vga_print("  memmap      show Multiboot memory regions or fallback map\n");
+    vga_print("  pages       show 4 KiB physical page tracker summary\n");
     vga_print("  tasks       show the fixed kernel task table\n");
     vga_print("  task-current show the current logical kernel task\n");
     vga_print("  task-yield  cooperatively run one ready task step\n");
@@ -221,11 +225,11 @@ static void cmd_about(void)
     cpu_vendor(vendor);
 
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
-    vga_print("KamikazeOS v2.0.0 \"Real Kernel Demo\"\n");
+    vga_print("KamikazeOS v2.1.0 \"Memory Map\"\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     vga_print("Experimental OS research prototype for auditable recovery.\n");
-    vga_print("v2.0: integrated kernel demo across interrupts storage apps\n");
-    vga_print("recovery packages analyzer and dashboard. Not production-ready.\n\n");
+    vga_print("v2.1: Multiboot memory map parsing and fixed page tracking.\n");
+    vga_print("Still no virtual memory, heap allocator, or userspace isolation.\n\n");
     vga_print("  Architecture : x86 (i686), 32-bit protected mode\n");
     vga_print("  CPU vendor   : ");
     vga_print(vendor);
@@ -241,7 +245,11 @@ static void cmd_system(void)
     boot_snapshot_health_now(&hb);
 
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
-    vga_print("KamikazeOS v2.0 System Status:\n");
+    const struct memory_status *mem = memory_status();
+    struct page_status pages;
+    memory_pages(&pages);
+
+    vga_print("KamikazeOS v2.1 System Status:\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     vga_print("  Kernel version      : "); vga_print(module_version_of(MOD_KERNEL)); vga_print("\n");
     vga_print("  Interrupts          : IDT "); vga_print(idt_is_loaded() ? "yes" : "no");
@@ -249,6 +257,10 @@ static void cmd_system(void)
     vga_print("  Timer ticks         : "); vga_print_dec(timer_ticks()); vga_print("\n");
     vga_print("  Keyboard mode       : "); vga_print(keyboard_mode_name()); vga_print("\n");
     vga_print("  Task count          : "); vga_print_dec(task_count()); vga_print("\n");
+    vga_print("  Memory map          : "); vga_print(mem->map_available ? "multiboot" : "fallback");
+    vga_print(" usable="); vga_print_dec(mem->usable_kib); vga_print(" KiB\n");
+    vga_print("  Free pages          : "); vga_print_dec(pages.free_pages);
+    vga_print("/"); vga_print_dec(pages.total_pages); vga_print("\n");
     vga_print("  TinyFS              : ");
     vga_print(fs->available ? (fs->formatted ? "formatted" : "not_formatted") : "unavailable");
     vga_print(" files="); vga_print_dec(fs->file_count); vga_print("\n");
@@ -274,7 +286,7 @@ static void cmd_diagnose(void)
     boot_snapshot_health_now(&hb);
 
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
-    vga_print("KamikazeOS v2.0 Diagnostic Summary:\n");
+    vga_print("KamikazeOS v2.1 Diagnostic Summary:\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     vga_print("  Devices : total="); vga_print_dec(st.total);
     vga_print(" attached="); vga_print_dec(st.attached);
@@ -282,6 +294,12 @@ static void cmd_diagnose(void)
     vga_print(" missing="); vga_print_dec(st.missing);
     vga_print(" isolated="); vga_print_dec(st.isolated); vga_print("\n");
     vga_print("  Drivers : verified policy active, blocked_unverified path tested\n");
+    const struct memory_status *mem = memory_status();
+    struct page_status pages;
+    memory_pages(&pages);
+    vga_print("  Memory  : map="); vga_print(mem->map_available ? "multiboot" : "fallback");
+    vga_print(" usable_kib="); vga_print_dec(mem->usable_kib);
+    vga_print(" free_pages="); vga_print_dec(pages.free_pages); vga_print("\n");
     vga_print("  Tasks   : total="); vga_print_dec(task_count());
     vga_print(" ready="); vga_print_dec(task_count_state(TASK_READY));
     vga_print(" crashed="); vga_print_dec(task_count_state(TASK_CRASHED)); vga_print("\n");
@@ -297,6 +315,76 @@ static void cmd_diagnose(void)
     vga_print("\n  Health  : "); vga_print_dec((uint32_t)hb.score); vga_print("/100\n");
     vga_print("  Next    : "); vga_print(first_manual_command()); vga_print("\n");
     vga_print("No automatic repair was attempted.\n");
+}
+
+static void cmd_mem(void)
+{
+    const struct memory_status *m = memory_status();
+
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("Kernel Memory Status:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print("  memory map       : ");
+    vga_print(m->map_available ? "multiboot" : "fallback");
+    if (m->fallback_used)
+        vga_print(" (safe fallback)");
+    vga_print("\n  regions          : "); vga_print_dec(m->region_count);
+    vga_print("\n  total memory     : "); vga_print_dec(m->total_kib); vga_print(" KiB");
+    vga_print("\n  usable memory    : "); vga_print_dec(m->usable_kib); vga_print(" KiB");
+    vga_print("\n  reserved memory  : "); vga_print_dec(m->reserved_kib); vga_print(" KiB");
+    vga_print("\n  kernel start     : "); vga_print_hex(m->kernel_start);
+    vga_print("\n  kernel end       : "); vga_print_hex(m->kernel_end);
+    vga_print("\n  heap placeholder : "); vga_print_hex(m->heap_start);
+    vga_print(" - "); vga_print_hex(m->heap_end);
+    vga_print("\n  allocation mode  : "); vga_print(m->allocation_mode);
+    vga_print("\n");
+}
+
+static void cmd_memmap(void)
+{
+    const struct memory_status *m = memory_status();
+    struct memory_region r;
+
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("Physical Memory Map:\n");
+    vga_set_color(VGA_DARK_GREY, VGA_BLACK);
+    vga_print("Idx  Base        Length      KiB       Type\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+
+    if (!m->map_available)
+        vga_print("  note: Multiboot map unavailable; showing fallback map.\n");
+
+    for (uint32_t i = 0; memory_region_get(i, &r); i++) {
+        if (i < 10) vga_putc('0');
+        vga_print_dec(i);
+        vga_print("   ");
+        vga_print_hex(r.base);
+        vga_print("  ");
+        vga_print_hex(r.length);
+        vga_print("  ");
+        vga_print_dec(r.length / 1024u);
+        vga_print("  ");
+        vga_print(memory_region_type_name(r.type));
+        vga_print("\n");
+    }
+}
+
+static void cmd_pages(void)
+{
+    struct page_status p;
+    memory_pages(&p);
+
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("Physical Page Tracker:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print("  page size             : "); vga_print_dec(p.page_size); vga_print(" bytes\n");
+    vga_print("  tracked limit         : "); vga_print_dec(p.tracked_limit_kib); vga_print(" KiB\n");
+    vga_print("  total tracked pages   : "); vga_print_dec(p.total_pages); vga_print("\n");
+    vga_print("  free pages            : "); vga_print_dec(p.free_pages); vga_print("\n");
+    vga_print("  used/reserved pages   : "); vga_print_dec(p.used_pages); vga_print("\n");
+    vga_print("  low-memory reserved   : "); vga_print_dec(p.reserved_low_pages); vga_print("\n");
+    vga_print("  kernel reserved       : "); vga_print_dec(p.reserved_kernel_pages); vga_print("\n");
+    vga_print("No virtual memory, page allocation API, or heap is active yet.\n");
 }
 
 /*
@@ -1729,6 +1817,9 @@ static const struct command commands[] = {
     { "export-logs",cmd_export_logs},
     { "interrupts", cmd_interrupts },
     { "ticks",      cmd_ticks      },
+    { "mem",        cmd_mem        },
+    { "memmap",     cmd_memmap     },
+    { "pages",      cmd_pages      },
     { "tasks",      cmd_tasks      },
     { "task-current", cmd_task_current },
     { "task-yield", cmd_task_yield },

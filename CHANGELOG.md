@@ -1,5 +1,16 @@
 # Changelog
 
+## v2.1.0 - Memory Map
+
+- Added Multiboot v1 memory map parsing with a conservative fallback.
+- Added fixed 4 KiB physical page tracking for the demo memory range.
+- Reserved low memory and the linked kernel image in the page tracker.
+- Added `mem`, `memmap`, and `pages` shell commands.
+- Added `[MEMORY]`, `[MEMORY_MAP]`, and `[PAGES]` serial report sections.
+- Updated analyzer and Recovery Center with read-only memory visibility.
+- Added no virtual memory, heap allocator, userspace memory, process address
+  spaces, networking, auto-repair, arbitrary execution, or self-modification.
+
 ## v2.0.0 - Real Kernel Demo
 
 - Added `system` shell command for integrated readiness status.

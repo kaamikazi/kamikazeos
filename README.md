@@ -16,14 +16,14 @@ KamikazeOS is not production-ready and not a general-purpose operating system.
 It has no user isolation, no networking stack, no real driver loading, and no
 production security guarantees.
 
-Current release: v2.0.0 "Real Kernel Demo". It stabilizes KamikazeOS as an
-integrated experimental OS research prototype across kernel diagnostics,
-storage, apps, recovery, packages, analyzer, and dashboard.
+Current release: v2.1.0 "Memory Map". It adds the first kernel physical
+memory foundation on top of the integrated v2.0 milestone.
 
 ## Feature Overview
 
 - Bootable 32-bit x86 kernel in QEMU.
 - Real x86 IDT, CPU exception stubs, legacy PIC remap, and PIT timer ticks.
+- Multiboot memory map parsing and fixed 4 KiB physical page tracking.
 - Fixed kernel task records and cooperative built-in task steps.
 - Fixed-sector TinyFS with bounded checksummed text files.
 - Fixed kernel-managed app registry with policy-gated built-in app runs.
@@ -39,7 +39,7 @@ storage, apps, recovery, packages, analyzer, and dashboard.
 - A/B module slot metadata for simulated package application.
 - Offline package manifest tooling with real host-side Ed25519 signatures.
 - Analyzer and read-only Recovery Center dashboard.
-- Integrated `system` and `diagnose` status commands for v2.0 demos.
+- Integrated `system` and `diagnose` status commands for v2.x demos.
 
 ## Architecture
 
@@ -48,6 +48,7 @@ flowchart TD
   QEMU["QEMU i386"] --> Kernel["KamikazeOS kernel"]
   Kernel --> VGA["VGA text console"]
   Kernel --> IRQ["IDT + PIC + PIT"]
+  Kernel --> Memory["Memory map + page tracker"]
   IRQ --> Keyboard["PS/2 IRQ keyboard shell"]
   IRQ --> Tasks["Task table + tick accounting"]
   Kernel --> Apps["Kernel-managed app registry"]
@@ -193,6 +194,7 @@ Simulated:
 
 ## Version History
 
+- v2.1.0 "Memory Map": Multiboot memory map parsing and page tracking.
 - v2.0.0 "Real Kernel Demo": integrated milestone with system diagnostics.
 - v1.9.0 "Userland Spark": fixed built-in app registry and safe run command.
 - v1.8.0 "TinyFS": bounded fixed-sector text file abstraction.
