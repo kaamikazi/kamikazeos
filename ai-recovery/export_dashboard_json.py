@@ -97,7 +97,7 @@ def main():
      trust, pkg_manifests, pkg_states, mod_slots, pending,
      kernel_interrupts, kernel_timing, kernel_exceptions,
      kernel_tasks, task_rows, tinyfs, tinyfs_files,
-     apps, app_rows, app_log) = parse_report(lines)
+     apps, app_rows, app_log, system_status, diagnostics) = parse_report(lines)
 
     # Package recommendations: same catalog-only rule as actions.
     pkg_recs = []
@@ -139,6 +139,8 @@ def main():
     data = {
         "version": meta.get("version", "?"),
         "backend": store.get("backend", memory.get("persistence_mode", "?")),
+        "system_status": system_status,
+        "diagnostics": diagnostics,
         "store": store,
         "memory": memory,
         "health": health,

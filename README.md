@@ -16,9 +16,9 @@ KamikazeOS is not production-ready and not a general-purpose operating system.
 It has no user isolation, no networking stack, no real driver loading, and no
 production security guarantees.
 
-Current release: v1.9.0 "Userland Spark". It adds a fixed kernel-managed app
-registry and policy-gated `run <app>` command while preserving the constrained
-recovery, update, task, and TinyFS model from earlier releases.
+Current release: v2.0.0 "Real Kernel Demo". It stabilizes KamikazeOS as an
+integrated experimental OS research prototype across kernel diagnostics,
+storage, apps, recovery, packages, analyzer, and dashboard.
 
 ## Feature Overview
 
@@ -39,6 +39,7 @@ recovery, update, task, and TinyFS model from earlier releases.
 - A/B module slot metadata for simulated package application.
 - Offline package manifest tooling with real host-side Ed25519 signatures.
 - Analyzer and read-only Recovery Center dashboard.
+- Integrated `system` and `diagnose` status commands for v2.0 demos.
 
 ## Architecture
 
@@ -90,7 +91,7 @@ Run the OS:
 Prepare a demo checklist:
 
 ```powershell
-.\scripts\demo-v15.ps1
+.\scripts\demo-v20.ps1
 ```
 
 Analyze the captured serial report after running `export-logs` in the OS:
@@ -123,8 +124,14 @@ Inside KamikazeOS:
 
 ```text
 health
+system
+diagnose
 store
 snapshots
+tasks
+fs
+apps
+run tinyfs-demo
 packages
 manifests
 trust
@@ -186,6 +193,7 @@ Simulated:
 
 ## Version History
 
+- v2.0.0 "Real Kernel Demo": integrated milestone with system diagnostics.
 - v1.9.0 "Userland Spark": fixed built-in app registry and safe run command.
 - v1.8.0 "TinyFS": bounded fixed-sector text file abstraction.
 - v1.7.0 "Task Seed": fixed task table and cooperative scheduler skeleton.

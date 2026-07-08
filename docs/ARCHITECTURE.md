@@ -1,6 +1,6 @@
 # KamikazeOS Architecture
 
-Status: v1.9.0 "Userland Spark".
+Status: v2.0.0 "Real Kernel Demo".
 
 KamikazeOS is a small 32-bit x86 experimental OS research prototype that runs
 in QEMU. Its architecture is organized around observability, durable recovery

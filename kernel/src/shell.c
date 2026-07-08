@@ -116,6 +116,37 @@ static void print_entry(const struct kerror *e)
     vga_print("\n");
 }
 
+static int last_critical_issue(struct kerror *out)
+{
+    struct kerror e;
+    int found = 0;
+    for (uint32_t i = 0; error_get(i, &e); i++) {
+        if (e.severity >= SEV_ERROR) {
+            if (out)
+                *out = e;
+            found = 1;
+        }
+    }
+    return found;
+}
+
+static const char *first_manual_command(void)
+{
+    if (module_slots_pending_verify())
+        return "verify-pkg <id>";
+    for (uint32_t i = 0; i < recovery_action_count(); i++) {
+        const struct recovery_action *a = recovery_action(i);
+        if (a->status == ACTST_SUGGESTED) {
+            if (kstrcmp(a->action_id, "ACT-001") == 0)
+                return "approve ACT-001";
+            if (kstrcmp(a->action_id, "ACT-004") == 0)
+                return "approve ACT-004";
+            return "review suggestions";
+        }
+    }
+    return "none";
+}
+
 /* ------------------------------------------------------------------ */
 /* Commands                                                             */
 /* ------------------------------------------------------------------ */
@@ -126,6 +157,8 @@ static void cmd_help(void)
     vga_print("  help        show this list\n");
     vga_print("  clear       clear the screen\n");
     vga_print("  about       OS version, mission, CPU info\n");
+    vga_print("  system      integrated v2.0 system readiness summary\n");
+    vga_print("  diagnose    compact full-system diagnostic summary\n");
     vga_print("  devices     GhostAttach device status table\n");
     vga_print("  drivers     GhostAttach driver registry table\n");
     vga_print("  ghostattach explain the driver recovery layer + scan status\n");
@@ -188,16 +221,82 @@ static void cmd_about(void)
     cpu_vendor(vendor);
 
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
-    vga_print("KamikazeOS v1.9.0 \"Userland Spark\"\n");
+    vga_print("KamikazeOS v2.0.0 \"Real Kernel Demo\"\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     vga_print("Experimental OS research prototype for auditable recovery.\n");
-    vga_print("v1.9: fixed kernel-managed apps via compile-time registry.\n");
-    vga_print("This is not Ring 3 userspace or executable loading.\n\n");
+    vga_print("v2.0: integrated kernel demo across interrupts storage apps\n");
+    vga_print("recovery packages analyzer and dashboard. Not production-ready.\n\n");
     vga_print("  Architecture : x86 (i686), 32-bit protected mode\n");
     vga_print("  CPU vendor   : ");
     vga_print(vendor);
     vga_print("\n  Boot         : Multiboot v1 (QEMU -kernel)\n");
     vga_print("  AI core      : offline (logs are exported for later analysis)\n");
+}
+
+static void cmd_system(void)
+{
+    const struct tinyfs_status_info *fs = tinyfs_status();
+    struct health_breakdown hb;
+    struct kerror last;
+    boot_snapshot_health_now(&hb);
+
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("KamikazeOS v2.0 System Status:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print("  Kernel version      : "); vga_print(module_version_of(MOD_KERNEL)); vga_print("\n");
+    vga_print("  Interrupts          : IDT "); vga_print(idt_is_loaded() ? "yes" : "no");
+    vga_print(", PIC "); vga_print(pic_is_remapped() ? "yes" : "no"); vga_print("\n");
+    vga_print("  Timer ticks         : "); vga_print_dec(timer_ticks()); vga_print("\n");
+    vga_print("  Keyboard mode       : "); vga_print(keyboard_mode_name()); vga_print("\n");
+    vga_print("  Task count          : "); vga_print_dec(task_count()); vga_print("\n");
+    vga_print("  TinyFS              : ");
+    vga_print(fs->available ? (fs->formatted ? "formatted" : "not_formatted") : "unavailable");
+    vga_print(" files="); vga_print_dec(fs->file_count); vga_print("\n");
+    vga_print("  App registry        : "); vga_print_dec(app_count()); vga_print(" fixed built-ins\n");
+    vga_print("  RecoveryStore       : "); vga_print(recovery_memory_backend()); vga_print("\n");
+    vga_print("  Health score        : "); vga_print_dec((uint32_t)hb.score); vga_print("/100\n");
+    vga_print("  Package trust mode  : host Ed25519 real, kernel simulated\n");
+    vga_print("  Last critical issue : ");
+    if (last_critical_issue(&last)) {
+        vga_print(last.code); vga_print(" "); vga_print(last.component);
+    } else {
+        vga_print("none");
+    }
+    vga_print("\n");
+}
+
+static void cmd_diagnose(void)
+{
+    struct ghostattach_stats st;
+    struct health_breakdown hb;
+    const struct tinyfs_status_info *fs = tinyfs_status();
+    ghostattach_get_stats(&st);
+    boot_snapshot_health_now(&hb);
+
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("KamikazeOS v2.0 Diagnostic Summary:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print("  Devices : total="); vga_print_dec(st.total);
+    vga_print(" attached="); vga_print_dec(st.attached);
+    vga_print(" fallback="); vga_print_dec(st.fallback);
+    vga_print(" missing="); vga_print_dec(st.missing);
+    vga_print(" isolated="); vga_print_dec(st.isolated); vga_print("\n");
+    vga_print("  Drivers : verified policy active, blocked_unverified path tested\n");
+    vga_print("  Tasks   : total="); vga_print_dec(task_count());
+    vga_print(" ready="); vga_print_dec(task_count_state(TASK_READY));
+    vga_print(" crashed="); vga_print_dec(task_count_state(TASK_CRASHED)); vga_print("\n");
+    vga_print("  TinyFS  : "); vga_print(fs->formatted ? "formatted" : "not_ready");
+    vga_print(" files="); vga_print_dec(fs->file_count); vga_print(" last=");
+    vga_print(fs->last_error); vga_print("\n");
+    vga_print("  Apps    : fixed="); vga_print_dec(app_count());
+    vga_print(" blocked_runs="); vga_print_dec(app_blocked_attempts()); vga_print("\n");
+    vga_print("  Recovery: backend="); vga_print(recovery_memory_backend());
+    vga_print(" journal="); vga_print_dec(recovery_journal_count()); vga_print("\n");
+    vga_print("  Packages: manifests="); vga_print_dec(manifest_count());
+    vga_print(" pending_verify="); vga_print(module_slots_pending_verify() ? "yes" : "no");
+    vga_print("\n  Health  : "); vga_print_dec((uint32_t)hb.score); vga_print("/100\n");
+    vga_print("  Next    : "); vga_print(first_manual_command()); vga_print("\n");
+    vga_print("No automatic repair was attempted.\n");
 }
 
 /*
@@ -1619,6 +1718,8 @@ static const struct command commands[] = {
     { "help",       cmd_help       },
     { "clear",      vga_clear      },
     { "about",      cmd_about      },
+    { "system",     cmd_system     },
+    { "diagnose",   cmd_diagnose   },
     { "devices",    cmd_devices    },
     { "drivers",    cmd_drivers    },
     { "ghostattach",cmd_ghostattach},

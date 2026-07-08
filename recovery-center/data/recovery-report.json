@@ -1,17 +1,44 @@
 {
-  "version": "1.9.0",
+  "version": "2.0.0",
   "backend": "disk+CMOS",
+  "system_status": {
+    "kernel_version": "2.0",
+    "idt_loaded": "yes",
+    "pic_remapped": "yes",
+    "timer_ticks": "2734",
+    "keyboard_mode": "irq",
+    "task_count": "4",
+    "tinyfs_status": "formatted",
+    "tinyfs_files": "2",
+    "app_registry": "6",
+    "recovery_backend": "disk+CMOS",
+    "health_score": "27",
+    "package_trust_mode": "host_ed25519_real_kernel_simulated",
+    "last_critical": "GA-DRV-201:GhostAttach"
+  },
+  "diagnostics": {
+    "devices": "total:7,attached:3,fallback:1,missing:2,isolated:1",
+    "drivers": "verified_policy_active",
+    "tasks": "total:4,ready:3,crashed:0",
+    "tinyfs": "status:formatted,files:2,last_error:none",
+    "apps": "total:6,blocked_attempts:0",
+    "recovery": "backend:disk+CMOS,journal:82",
+    "packages": "manifests:1,pending_verify:no",
+    "health": "score:27",
+    "recommended_command": "approve ACT-001",
+    "auto_repair": "no"
+  },
   "store": {
     "backend": "disk+CMOS",
     "disk_available": "1",
     "state_valid": "1",
-    "journal_count": "76",
-    "durable_boot_count": "22",
+    "journal_count": "82",
+    "durable_boot_count": "24",
     "cmos_fallback_used": "0"
   },
   "memory": {
     "persistence_mode": "cmos_nvram_survives_reboot_not_qemu_restart",
-    "boot_count": "22",
+    "boot_count": "24",
     "safe_mode_next_boot": "0",
     "safe_mode_active": "0",
     "network_quarantined": "0",
@@ -21,29 +48,16 @@
     "last_action_id": "none"
   },
   "health": {
-    "score": "22",
+    "score": "27",
     "panic_penalty": "0",
     "missing_penalty": "20",
     "isolated_penalty": "8",
-    "warning_penalty": "25",
+    "warning_penalty": "20",
     "critical_penalty": "25",
     "prev_score": "27",
-    "health_delta": "-5"
+    "health_delta": "0"
   },
   "snapshots": [
-    {
-      "boot": "7",
-      "health": "27",
-      "safe_mode": "0",
-      "panic": "0",
-      "attached": "3",
-      "fallback": "1",
-      "missing": "2",
-      "isolated": "1",
-      "warnings": "4",
-      "criticals": "1",
-      "applied": "1"
-    },
     {
       "boot": "9",
       "health": "2",
@@ -225,16 +239,35 @@
       "warnings": "4",
       "criticals": "1",
       "applied": "1"
-    }
-  ],
-  "timeline": [
+    },
     {
-      "boot": "7",
+      "boot": "23",
       "health": "27",
       "safe_mode": "0",
       "panic": "0",
-      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
+      "attached": "3",
+      "fallback": "1",
+      "missing": "2",
+      "isolated": "1",
+      "warnings": "4",
+      "criticals": "1",
+      "applied": "1"
     },
+    {
+      "boot": "24",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "attached": "3",
+      "fallback": "1",
+      "missing": "2",
+      "isolated": "1",
+      "warnings": "4",
+      "criticals": "1",
+      "applied": "1"
+    }
+  ],
+  "timeline": [
     {
       "boot": "9",
       "health": "2",
@@ -328,6 +361,20 @@
     },
     {
       "boot": "22",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
+    },
+    {
+      "boot": "23",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
+    },
+    {
+      "boot": "24",
       "health": "27",
       "safe_mode": "0",
       "panic": "0",
@@ -497,60 +544,6 @@
   ],
   "journal": [
     {
-      "boot": "19",
-      "event": "SUGGESTED",
-      "action": "ACT-001",
-      "result": "ok",
-      "risk": "low",
-      "reversible": "yes",
-      "code": "REC001"
-    },
-    {
-      "boot": "19",
-      "event": "SUGGESTED",
-      "action": "ACT-004",
-      "result": "ok",
-      "risk": "medium",
-      "reversible": "yes",
-      "code": "REC001"
-    },
-    {
-      "boot": "19",
-      "event": "CLEAN_BOOT",
-      "action": "none",
-      "result": "ok",
-      "risk": "low",
-      "reversible": "yes",
-      "code": "CLEANB"
-    },
-    {
-      "boot": "20",
-      "event": "SUGGESTED",
-      "action": "ACT-001",
-      "result": "ok",
-      "risk": "low",
-      "reversible": "yes",
-      "code": "REC001"
-    },
-    {
-      "boot": "20",
-      "event": "SUGGESTED",
-      "action": "ACT-004",
-      "result": "ok",
-      "risk": "medium",
-      "reversible": "yes",
-      "code": "REC001"
-    },
-    {
-      "boot": "20",
-      "event": "CLEAN_BOOT",
-      "action": "none",
-      "result": "ok",
-      "risk": "low",
-      "reversible": "yes",
-      "code": "CLEANB"
-    },
-    {
       "boot": "21",
       "event": "SUGGESTED",
       "action": "ACT-001",
@@ -597,6 +590,60 @@
     },
     {
       "boot": "22",
+      "event": "CLEAN_BOOT",
+      "action": "none",
+      "result": "ok",
+      "risk": "low",
+      "reversible": "yes",
+      "code": "CLEANB"
+    },
+    {
+      "boot": "23",
+      "event": "SUGGESTED",
+      "action": "ACT-001",
+      "result": "ok",
+      "risk": "low",
+      "reversible": "yes",
+      "code": "REC001"
+    },
+    {
+      "boot": "23",
+      "event": "SUGGESTED",
+      "action": "ACT-004",
+      "result": "ok",
+      "risk": "medium",
+      "reversible": "yes",
+      "code": "REC001"
+    },
+    {
+      "boot": "23",
+      "event": "CLEAN_BOOT",
+      "action": "none",
+      "result": "ok",
+      "risk": "low",
+      "reversible": "yes",
+      "code": "CLEANB"
+    },
+    {
+      "boot": "24",
+      "event": "SUGGESTED",
+      "action": "ACT-001",
+      "result": "ok",
+      "risk": "low",
+      "reversible": "yes",
+      "code": "REC001"
+    },
+    {
+      "boot": "24",
+      "event": "SUGGESTED",
+      "action": "ACT-004",
+      "result": "ok",
+      "risk": "medium",
+      "reversible": "yes",
+      "code": "REC001"
+    },
+    {
+      "boot": "24",
       "event": "CLEAN_BOOT",
       "action": "none",
       "result": "ok",
@@ -640,20 +687,13 @@
       "component": "RecoveryPolicy",
       "message": "Blocked high-risk action ACT-999 install_unknown_driver",
       "hint": "unknown driver installation is not allowed"
-    },
-    {
-      "code": "APP-BLOCK-001",
-      "severity": "warning",
-      "component": "apps",
-      "message": "App run blocked by fixed registry policy",
-      "hint": "only compile-time built-in apps can run"
     }
   ],
   "modules": [
     {
       "module": "Kernel",
-      "version": "1.9",
-      "base": "1.9",
+      "version": "2.0",
+      "base": "2.0",
       "updated": "0"
     },
     {
@@ -807,11 +847,11 @@
     "timer_enabled": "yes",
     "keyboard_mode": "irq",
     "interrupts_enabled": "yes",
-    "interrupts_handled": "3495",
-    "last_vector": "33"
+    "interrupts_handled": "2894",
+    "last_vector": "32"
   },
   "kernel_timing": {
-    "tick_count": "3252",
+    "tick_count": "2735",
     "timer_irq": "enabled",
     "frequency_hz": "100"
   },
@@ -837,9 +877,9 @@
       "name": "kernel_shell",
       "state": "running",
       "priority": "3",
-      "ticks_run": "3252",
+      "ticks_run": "2735",
       "created_at_tick": "0",
-      "last_run_tick": "3252",
+      "last_run_tick": "2735",
       "flags": "1"
     },
     {
@@ -903,9 +943,9 @@
   "apps_status": {
     "total_apps": "6",
     "userland_mode": "kernel_managed_builtin_apps",
-    "last_app": "unknownapp",
-    "last_result": "blocked",
-    "blocked_attempts": "1"
+    "last_app": "tinyfs-demo",
+    "last_result": "ok",
+    "blocked_attempts": "0"
   },
   "apps": [
     {
@@ -914,9 +954,9 @@
       "description": "Print a friendly app-model greeting",
       "version": "1.0",
       "type": "demo",
-      "status": "completed",
-      "run_count": "1",
-      "last_result": "ok"
+      "status": "available",
+      "run_count": "0",
+      "last_result": "never_run"
     },
     {
       "app_id": "2",
@@ -924,9 +964,9 @@
       "description": "Show kernel timing and module version basics",
       "version": "1.0",
       "type": "diagnostic",
-      "status": "completed",
-      "run_count": "1",
-      "last_result": "ok"
+      "status": "available",
+      "run_count": "0",
+      "last_result": "never_run"
     },
     {
       "app_id": "3",
@@ -964,74 +1004,25 @@
       "description": "Show current deterministic health score",
       "version": "1.0",
       "type": "diagnostic",
-      "status": "completed",
-      "run_count": "1",
-      "last_result": "ok"
+      "status": "available",
+      "run_count": "0",
+      "last_result": "never_run"
     }
   ],
   "app_log": [
     {
       "seq": "1",
-      "name": "hello",
+      "name": "tinyfs-demo",
       "result": "started",
       "status": "running",
       "message": "registered app entered"
     },
     {
       "seq": "2",
-      "name": "hello",
-      "result": "ok",
-      "status": "completed",
-      "message": "app completed"
-    },
-    {
-      "seq": "3",
-      "name": "sysinfo",
-      "result": "started",
-      "status": "running",
-      "message": "registered app entered"
-    },
-    {
-      "seq": "4",
-      "name": "sysinfo",
-      "result": "ok",
-      "status": "completed",
-      "message": "app completed"
-    },
-    {
-      "seq": "5",
-      "name": "tinyfs-demo",
-      "result": "started",
-      "status": "running",
-      "message": "registered app entered"
-    },
-    {
-      "seq": "6",
       "name": "tinyfs-demo",
       "result": "ok",
       "status": "completed",
       "message": "app completed"
-    },
-    {
-      "seq": "7",
-      "name": "health-report",
-      "result": "started",
-      "status": "running",
-      "message": "registered app entered"
-    },
-    {
-      "seq": "8",
-      "name": "health-report",
-      "result": "ok",
-      "status": "completed",
-      "message": "app completed"
-    },
-    {
-      "seq": "9",
-      "name": "unknownapp",
-      "result": "blocked",
-      "status": "blocked",
-      "message": "unknown app - only fixed built-in apps can run"
     }
   ],
   "package_policy": [

@@ -24,6 +24,8 @@ real OS and tooling mechanics, but avoids dangerous update behavior.
 - Policy-gated `run <app>` command for compile-time built-in apps.
 - TinyFS-backed demo app using bounded filesystem APIs.
 - App run/block history in serial reports, analyzer, and dashboard.
+- Integrated v2.0 `system` and `diagnose` summaries.
+- v2.0 serial report overview sections for system status and diagnostics.
 - COM1 serial logs and boot reports.
 - Structured kernel error log.
 - GhostAttach policy decisions over fixed device/driver registries.
@@ -91,6 +93,13 @@ compile-time registered functions. Unknown app names are blocked and logged.
 This is not real userspace. Apps still execute in kernel context on the kernel
 stack. There is no Ring 3 transition, process isolation, ELF loader, syscall
 ABI, virtual memory, or arbitrary executable loading.
+
+## v2.0 Integrated Demo Boundary
+
+v2.0 is a stabilization and integration milestone. The new `system` and
+`diagnose` commands summarize existing real subsystems; they do not add
+automatic repair or new execution privileges. Analyzer and dashboard output
+remain read-only and may recommend or copy manual shell commands only.
 
 ## Why Simulate These Parts
 

@@ -4,7 +4,7 @@
 
 static struct module_version modules[MODULE_COUNT] = {
     /* name                       version  base   updated */
-    { "Kernel",                   "1.9",   "1.9", 0 },
+    { "Kernel",                   "2.0",   "2.0", 0 },
     { "GhostAttach",              "0.3",   "0.3", 0 },
     { "RecoveryEngine",           "0.5",   "0.5", 0 },
     { "RecoveryMemory",           "0.6",   "0.6", 0 },

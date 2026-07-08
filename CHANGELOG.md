@@ -1,5 +1,16 @@
 # Changelog
 
+## v2.0.0 - Real Kernel Demo
+
+- Added `system` shell command for integrated readiness status.
+- Added `diagnose` shell command for compact full-system diagnostics.
+- Added `[SYSTEM_STATUS]` and `[DIAGNOSTICS_SUMMARY]` serial report sections.
+- Updated analyzer with a v2.0 integrated system summary.
+- Added Recovery Center v2.0 overview panel.
+- Added v2.0 demo script and release/demo documentation.
+- Added no networking, auto-repair, binary patching, downloads, real Ring 3
+  userspace, virtual memory, arbitrary execution, or kernel self-modification.
+
 ## v1.9.0 - Userland Spark
 
 - Added a fixed kernel-managed app registry.

@@ -1,5 +1,14 @@
 # KamikazeOS Version History
 
+## v2.0.0 "Real Kernel Demo"
+
+Integrated milestone release. Added `system` and `diagnose` shell commands,
+`[SYSTEM_STATUS]` and `[DIAGNOSTICS_SUMMARY]` report sections, v2.0 analyzer
+summary output, Recovery Center overview panel, demo script, and release docs.
+No networking, auto-repair, binary patching, downloads, real Ring 3 userspace,
+virtual memory, arbitrary code execution, or kernel self-modification was
+added.
+
 ## v1.9.0 "Userland Spark"
 
 Added the first userland-style app model using a fixed compile-time registry,

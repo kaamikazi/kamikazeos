@@ -43,7 +43,7 @@ static void boot_banner(void)
     vga_print(" |_|\\_\\__,_|_| |_| |_|_|_|\\_\\__,_/___\\___|  \\___/|____/ \n");
     vga_print("\n");
     vga_set_color(VGA_DARK_GREY, VGA_BLACK);
-    vga_print("  v1.9.0 \"Userland Spark\"  --  kernel-managed apps\n\n");
+    vga_print("  v2.0.0 \"Real Kernel Demo\"  --  integrated milestone\n\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
 }
 
@@ -90,7 +90,7 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
      */
     serial_init();
     errors_init();
-    serial_print("\n=== KamikazeOS v1.9.0 serial log ===\n");
+    serial_print("\n=== KamikazeOS v2.0.0 serial log ===\n");
 
     error_log(SEV_INFO, "BOOT-000", "kernel",
               "Kernel booted successfully", "no action needed");

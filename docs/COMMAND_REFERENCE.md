@@ -1,6 +1,6 @@
 # Command Reference
 
-KamikazeOS shell commands in v1.9.0.
+KamikazeOS shell commands in v2.0.0.
 
 ## General
 
@@ -9,6 +9,8 @@ KamikazeOS shell commands in v1.9.0.
 | `help` | Show commands |
 | `clear` | Clear the screen |
 | `about` | Version and mission summary |
+| `system` | Integrated v2.0 system readiness summary |
+| `diagnose` | Compact full-system diagnostic and next manual command |
 | `reboot` | Restart the machine |
 | `panic-test` | Deliberately crash for panic-handler testing |
 

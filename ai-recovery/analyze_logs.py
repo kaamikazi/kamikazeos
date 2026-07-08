@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-KamikazeOS AI Recovery Core - host-side log analyzer (v1.9, offline/rule-based)
+KamikazeOS AI Recovery Core - host-side log analyzer (v2.0, offline/rule-based)
 
 This is the first working incarnation of the "maintenance brain". It runs on
 the HOST, outside the kernel, and its powers are deliberately limited:
@@ -8,7 +8,7 @@ the HOST, outside the kernel, and its powers are deliberately limited:
     READ logs  ->  EXPLAIN problems  ->  RANK risk  ->  SUGGEST next actions
 
 It never patches binaries, installs drivers, downloads code, or modifies the
-OS. Every suggestion is for a HUMAN to approve and perform. v1.9 is
+OS. Every suggestion is for a HUMAN to approve and perform. v2.0 is
 rule-based (no AI API yet) so the pipeline can be built and trusted first;
 see analyze_with_ai_later() at the bottom for where a real model plugs in.
 
@@ -229,6 +229,8 @@ def parse_report(lines):
     section = "meta"
     section_map = {
         "[DEVICES]": "devices",
+        "[SYSTEM_STATUS]": "system_status",
+        "[DIAGNOSTICS_SUMMARY]": "diagnostics",
         "[DRIVERS]": "drivers",
         "[RECOVERY_POLICY]": "policy",
         "[RECOVERY_ACTIONS]": "actions",
@@ -266,6 +268,7 @@ def parse_report(lines):
     kernel_tasks, task_rows = {}, []
     tinyfs, tinyfs_files = {}, []
     apps, app_rows, app_log = {}, [], []
+    system_status, diagnostics = {}, {}
     for line in lines:
         if line in section_map:
             section = section_map[line]
@@ -273,6 +276,10 @@ def parse_report(lines):
             meta.update(parse_kv_line(line))
         elif section == "devices":
             devices.append(parse_kv_line(line))
+        elif section == "system_status":
+            system_status.update(parse_kv_line(line))
+        elif section == "diagnostics":
+            diagnostics.update(parse_kv_line(line))
         elif section == "drivers":
             drivers.append(parse_kv_line(line))
         elif section == "policy":
@@ -344,7 +351,7 @@ def parse_report(lines):
             trust, pkg_manifests, pkg_states, mod_slots, pending,
             kernel_interrupts, kernel_timing, kernel_exceptions,
             kernel_tasks, task_rows, tinyfs, tinyfs_files,
-            apps, app_rows, app_log)
+            apps, app_rows, app_log, system_status, diagnostics)
 
 
 def classify(events):
@@ -383,7 +390,7 @@ def main():
     lines, after_lines, found = extract_last_boot_report(text)
 
     print("=" * 72)
-    print(" KamikazeOS AI RECOVERY CORE - recovery report (v1.9, rule-based)")
+    print(" KamikazeOS AI RECOVERY CORE - recovery report (v2.0, rule-based)")
     print("=" * 72)
 
     if not found:
@@ -401,6 +408,7 @@ def main():
         kernel_tasks, task_rows = {}, []
         tinyfs, tinyfs_files = {}, []
         apps, app_rows, app_log = {}, [], []
+        system_status, diagnostics = {}, {}
     else:
         (meta, devices, drivers, events, policy, actions, suggestions,
          memory, store, journal, snapshots, health, timeline,
@@ -408,7 +416,7 @@ def main():
          trust, pkg_manifests, pkg_states, mod_slots, pending,
          kernel_interrupts, kernel_timing, kernel_exceptions,
          kernel_tasks, task_rows, tinyfs, tinyfs_files,
-         apps, app_rows, app_log) = parse_report(lines)
+         apps, app_rows, app_log, system_status, diagnostics) = parse_report(lines)
         if after_lines:
             # Events streamed after the report (e.g. a panic) — merge them in.
             print(f"\nNote: {len(after_lines)} event(s) occurred AFTER the boot "
@@ -422,6 +430,24 @@ def main():
               f"{meta.get('scan_fallback', '?')} fallback, "
               f"{meta.get('scan_missing', '?')} missing, "
               f"{meta.get('scan_isolated', '?')} isolated")
+
+    if system_status:
+        print("\nv2.0 integrated system status:")
+        print(f"  * Kernel: {system_status.get('kernel_version', '?')}")
+        print(f"  * Interrupts: IDT={system_status.get('idt_loaded', '?')} "
+              f"PIC={system_status.get('pic_remapped', '?')} "
+              f"keyboard={system_status.get('keyboard_mode', '?')}")
+        print(f"  * Storage: {system_status.get('recovery_backend', '?')} "
+              f"TinyFS={system_status.get('tinyfs_status', '?')} "
+              f"files={system_status.get('tinyfs_files', '?')}")
+        print(f"  * Apps: {system_status.get('app_registry', '?')} fixed built-ins")
+        print(f"  * Health: {system_status.get('health_score', '?')}/100")
+        print(f"  * Package trust: {system_status.get('package_trust_mode', '?')}")
+        print(f"  * Last critical: {system_status.get('last_critical', 'none')}")
+        if diagnostics.get("recommended_command"):
+            print(f"  * Recommended manual command: "
+                  f"{diagnostics.get('recommended_command')}")
+        print("  * Automatic repair: no")
 
     if kernel_interrupts:
         print("\nKernel interrupt foundation:")
@@ -448,7 +474,7 @@ def main():
         print(f"  * Exception: {kernel_exceptions.get('last_exception', '?')}")
         print(f"  * Vector: {kernel_exceptions.get('last_vector', '?')}")
         print(f"  * Error code: {kernel_exceptions.get('last_error_code', '?')}")
-        print("  * Recovery attempted: no (intentional v1.9 safety policy)")
+        print("  * Recovery attempted: no (intentional v2.0 safety policy)")
 
     if kernel_tasks:
         print("\nKernel task foundation:")
@@ -879,7 +905,7 @@ def main():
 
 
 # --------------------------------------------------------------------------
-# FUTURE AI INTEGRATION POINT (deliberately not implemented in v1.9)
+# FUTURE AI INTEGRATION POINT (deliberately not implemented in v2.0)
 # --------------------------------------------------------------------------
 def analyze_with_ai_later(log_text: str):
     """
@@ -898,7 +924,7 @@ def analyze_with_ai_later(log_text: str):
         as this rule-based analyzer - the policy engine, not the model,
         decides what may ever be applied automatically.
 
-    Keeping this stub un-implemented in v1.9 is intentional: the transport,
+    Keeping this stub un-implemented in v2.0 is intentional: the transport,
     format, and approval workflow get built and trusted first.
     """
     raise NotImplementedError("AI analysis arrives in a later phase - see docstring")

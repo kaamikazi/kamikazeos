@@ -29,7 +29,7 @@
 #include "task.h"
 #include "tinyfs.h"
 
-#define KMZ_VERSION "1.9.0"
+#define KMZ_VERSION "2.0.0"
 
 /* serial_print for numbers: render via kitoa, then send. */
 static void serial_print_dec(uint32_t value)
@@ -56,6 +56,34 @@ static void emit_kv(const char *key, const char *value)
     serial_print(value);
 }
 
+static int report_last_critical(struct kerror *out)
+{
+    struct kerror e;
+    int found = 0;
+    for (uint32_t i = 0; error_get(i, &e); i++) {
+        if (e.severity >= SEV_ERROR) {
+            if (out)
+                *out = e;
+            found = 1;
+        }
+    }
+    return found;
+}
+
+static const char *report_next_command(void)
+{
+    if (module_slots_pending_verify())
+        return "verify-pkg <id>";
+    for (uint32_t i = 0; i < recovery_action_count(); i++) {
+        const struct recovery_action *a = recovery_action(i);
+        if (a->status != ACTST_SUGGESTED)
+            continue;
+        if (a->action_id[0])
+            return a->action_id;
+    }
+    return "none";
+}
+
 void report_send(void)
 {
     serial_print("[KAMIKAZEOS_BOOT_REPORT_START]\n");
@@ -71,6 +99,63 @@ void report_send(void)
     serial_print(";scan_missing="); serial_print_dec(st.missing);
     serial_print(";scan_isolated=");serial_print_dec(st.isolated);
     serial_print("\n");
+
+    struct health_breakdown system_health;
+    boot_snapshot_health_now(&system_health);
+    const struct tinyfs_status_info *fs_status = tinyfs_status();
+    struct kerror last_critical;
+
+    serial_print("[SYSTEM_STATUS]\n");
+    serial_print("kernel_version="); serial_print(module_version_of(MOD_KERNEL));
+    serial_print("\nidt_loaded="); serial_print(idt_is_loaded() ? "yes" : "no");
+    serial_print("\npic_remapped="); serial_print(pic_is_remapped() ? "yes" : "no");
+    serial_print("\ntimer_ticks="); serial_print_dec(timer_ticks());
+    serial_print("\nkeyboard_mode="); serial_print(keyboard_mode_name());
+    serial_print("\ntask_count="); serial_print_dec(task_count());
+    serial_print("\ntinyfs_status=");
+    serial_print(fs_status->available ? (fs_status->formatted ? "formatted" : "not_formatted") : "unavailable");
+    serial_print("\ntinyfs_files="); serial_print_dec(fs_status->file_count);
+    serial_print("\napp_registry="); serial_print_dec(app_count());
+    serial_print("\nrecovery_backend="); serial_print(recovery_memory_backend());
+    serial_print("\nhealth_score="); serial_print_dec((uint32_t)system_health.score);
+    serial_print("\npackage_trust_mode=host_ed25519_real_kernel_simulated");
+    serial_print("\nlast_critical=");
+    if (report_last_critical(&last_critical)) {
+        serial_print(last_critical.code);
+        serial_print(":");
+        serial_print(last_critical.component);
+    } else {
+        serial_print("none");
+    }
+    serial_print("\n");
+
+    serial_print("[DIAGNOSTICS_SUMMARY]\n");
+    serial_print("devices=total:"); serial_print_dec(st.total);
+    serial_print(",attached:"); serial_print_dec(st.attached);
+    serial_print(",fallback:"); serial_print_dec(st.fallback);
+    serial_print(",missing:"); serial_print_dec(st.missing);
+    serial_print(",isolated:"); serial_print_dec(st.isolated);
+    serial_print("\ndrivers=verified_policy_active");
+    serial_print("\ntasks=total:"); serial_print_dec(task_count());
+    serial_print(",ready:"); serial_print_dec(task_count_state(TASK_READY));
+    serial_print(",crashed:"); serial_print_dec(task_count_state(TASK_CRASHED));
+    serial_print("\ntinyfs=status:");
+    serial_print(fs_status->formatted ? "formatted" : "not_ready");
+    serial_print(",files:"); serial_print_dec(fs_status->file_count);
+    serial_print(",last_error:"); serial_print(fs_status->last_error);
+    serial_print("\napps=total:"); serial_print_dec(app_count());
+    serial_print(",blocked_attempts:"); serial_print_dec(app_blocked_attempts());
+    serial_print("\nrecovery=backend:"); serial_print(recovery_memory_backend());
+    serial_print(",journal:"); serial_print_dec(recovery_journal_count());
+    serial_print("\npackages=manifests:"); serial_print_dec(manifest_count());
+    serial_print(",pending_verify:"); serial_print(module_slots_pending_verify() ? "yes" : "no");
+    serial_print("\nhealth=score:"); serial_print_dec((uint32_t)system_health.score);
+    serial_print("\nrecommended_command=");
+    const char *next = report_next_command();
+    if (next[0] == 'A')
+        serial_print("approve ");
+    serial_print(next);
+    serial_print("\nauto_repair=no\n");
 
     serial_print("[KERNEL_INTERRUPTS]\n");
     serial_print("idt_loaded="); serial_print(idt_is_loaded() ? "yes" : "no");

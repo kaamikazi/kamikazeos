@@ -106,6 +106,29 @@ function renderHealth(data) {
   box.appendChild(metric("Delta", data.health?.health_delta));
 }
 
+function renderV20Overview(data) {
+  const status = data.system_status || {};
+  const diag = data.diagnostics || {};
+  const box = $("v20-overview");
+  box.innerHTML = "";
+  box.appendChild(metric("Kernel", status.kernel_version || data.version));
+  box.appendChild(metric("Interrupts", `IDT ${status.idt_loaded || "?"}, PIC ${status.pic_remapped || "?"}, keyboard ${status.keyboard_mode || "?"}`));
+  box.appendChild(metric("Storage", `${status.recovery_backend || data.backend || "?"}, TinyFS ${status.tinyfs_status || "?"}`));
+  box.appendChild(metric("Apps", `${status.app_registry || data.apps_status?.total_apps || "?"} fixed built-ins`));
+  box.appendChild(metric("Packages", status.package_trust_mode || data.trust?.signature_verification || "?"));
+  box.appendChild(metric("Health", `${status.health_score || data.health?.score || "?"}/100`));
+  box.appendChild(metric("Last critical", status.last_critical || "none"));
+  box.appendChild(metric("Demo next command", diag.recommended_command || "none"));
+  box.appendChild(metric("Auto repair", diag.auto_repair || "no"));
+  const ready = status.idt_loaded === "yes" &&
+    status.pic_remapped === "yes" &&
+    status.tinyfs_status === "formatted" &&
+    (status.recovery_backend || "").includes("disk") &&
+    parseInt(status.app_registry || "0", 10) > 0;
+  setBadge("v20-status", ready ? "integrated demo ready" : "review report",
+    ready ? "good" : "warn");
+}
+
 function renderBackend(data) {
   const store = data.store || {};
   setBadge("backend-status", data.backend || "unknown", store.disk_available === "1" ? "good" : "warn");
@@ -414,6 +437,7 @@ function render(data) {
   setBadge("system-badge", "read-only JSON view", "info");
   if (data.safety_notice) $("safety-banner").textContent = data.safety_notice;
 
+  renderV20Overview(data);
   renderHealth(data);
   renderBackend(data);
   renderBootWarnings(data);
