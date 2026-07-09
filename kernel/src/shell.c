@@ -18,6 +18,7 @@
 #include "idt.h"
 #include "interrupts.h"
 #include "io.h"
+#include "kheap.h"
 #include "keyboard.h"
 #include "memory.h"
 #include "panic.h"
@@ -148,6 +149,23 @@ static const char *first_manual_command(void)
     return "none";
 }
 
+static int parse_u32_dec(const char *s, uint32_t *out)
+{
+    uint32_t value = 0;
+    if (!s || s[0] == '\0' || !out)
+        return 0;
+    for (uint32_t i = 0; s[i] != '\0'; i++) {
+        if (s[i] < '0' || s[i] > '9')
+            return 0;
+        uint32_t digit = (uint32_t)(s[i] - '0');
+        if (value > (0xFFFFFFFFu - digit) / 10u)
+            return 0;
+        value = value * 10u + digit;
+    }
+    *out = value;
+    return 1;
+}
+
 /* ------------------------------------------------------------------ */
 /* Commands                                                             */
 /* ------------------------------------------------------------------ */
@@ -158,7 +176,7 @@ static void cmd_help(void)
     vga_print("  help        show this list\n");
     vga_print("  clear       clear the screen\n");
     vga_print("  about       OS version, mission, CPU info\n");
-    vga_print("  system      integrated v2.1 system readiness summary\n");
+    vga_print("  system      integrated v2.2 system readiness summary\n");
     vga_print("  diagnose    compact full-system diagnostic summary\n");
     vga_print("  devices     GhostAttach device status table\n");
     vga_print("  drivers     GhostAttach driver registry table\n");
@@ -172,6 +190,9 @@ static void cmd_help(void)
     vga_print("  mem         show physical memory totals and kernel bounds\n");
     vga_print("  memmap      show Multiboot memory regions or fallback map\n");
     vga_print("  pages       show 4 KiB physical page tracker summary\n");
+    vga_print("  heap        show fixed kernel heap allocator stats\n");
+    vga_print("  heap-test   run safe small bump allocator checks\n");
+    vga_print("  heap-alloc <bytes> allocate bytes from the bounded kernel heap\n");
     vga_print("  tasks       show the fixed kernel task table\n");
     vga_print("  task-current show the current logical kernel task\n");
     vga_print("  task-yield  cooperatively run one ready task step\n");
@@ -225,11 +246,11 @@ static void cmd_about(void)
     cpu_vendor(vendor);
 
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
-    vga_print("KamikazeOS v2.1.0 \"Memory Map\"\n");
+    vga_print("KamikazeOS v2.2.0 \"Heap Seed\"\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     vga_print("Experimental OS research prototype for auditable recovery.\n");
-    vga_print("v2.1: Multiboot memory map parsing and fixed page tracking.\n");
-    vga_print("Still no virtual memory, heap allocator, or userspace isolation.\n\n");
+    vga_print("v2.2: bounded kernel bump heap on top of memory map tracking.\n");
+    vga_print("Still no free(), virtual memory, or userspace isolation.\n\n");
     vga_print("  Architecture : x86 (i686), 32-bit protected mode\n");
     vga_print("  CPU vendor   : ");
     vga_print(vendor);
@@ -249,7 +270,10 @@ static void cmd_system(void)
     struct page_status pages;
     memory_pages(&pages);
 
-    vga_print("KamikazeOS v2.1 System Status:\n");
+    struct kheap_stats hs;
+    kheap_stats(&hs);
+
+    vga_print("KamikazeOS v2.2 System Status:\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     vga_print("  Kernel version      : "); vga_print(module_version_of(MOD_KERNEL)); vga_print("\n");
     vga_print("  Interrupts          : IDT "); vga_print(idt_is_loaded() ? "yes" : "no");
@@ -261,6 +285,9 @@ static void cmd_system(void)
     vga_print(" usable="); vga_print_dec(mem->usable_kib); vga_print(" KiB\n");
     vga_print("  Free pages          : "); vga_print_dec(pages.free_pages);
     vga_print("/"); vga_print_dec(pages.total_pages); vga_print("\n");
+    vga_print("  Kernel heap         : ");
+    vga_print(hs.available ? "available" : "unavailable");
+    vga_print(" remaining="); vga_print_dec(hs.remaining_bytes); vga_print(" bytes\n");
     vga_print("  TinyFS              : ");
     vga_print(fs->available ? (fs->formatted ? "formatted" : "not_formatted") : "unavailable");
     vga_print(" files="); vga_print_dec(fs->file_count); vga_print("\n");
@@ -286,7 +313,7 @@ static void cmd_diagnose(void)
     boot_snapshot_health_now(&hb);
 
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
-    vga_print("KamikazeOS v2.1 Diagnostic Summary:\n");
+    vga_print("KamikazeOS v2.2 Diagnostic Summary:\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     vga_print("  Devices : total="); vga_print_dec(st.total);
     vga_print(" attached="); vga_print_dec(st.attached);
@@ -297,9 +324,15 @@ static void cmd_diagnose(void)
     const struct memory_status *mem = memory_status();
     struct page_status pages;
     memory_pages(&pages);
+    struct kheap_stats hs;
+    kheap_stats(&hs);
     vga_print("  Memory  : map="); vga_print(mem->map_available ? "multiboot" : "fallback");
     vga_print(" usable_kib="); vga_print_dec(mem->usable_kib);
     vga_print(" free_pages="); vga_print_dec(pages.free_pages); vga_print("\n");
+    vga_print("  Heap    : available="); vga_print(hs.available ? "yes" : "no");
+    vga_print(" used="); vga_print_dec(hs.used_bytes);
+    vga_print(" remaining="); vga_print_dec(hs.remaining_bytes);
+    vga_print(" free_supported=no\n");
     vga_print("  Tasks   : total="); vga_print_dec(task_count());
     vga_print(" ready="); vga_print_dec(task_count_state(TASK_READY));
     vga_print(" crashed="); vga_print_dec(task_count_state(TASK_CRASHED)); vga_print("\n");
@@ -334,7 +367,7 @@ static void cmd_mem(void)
     vga_print("\n  reserved memory  : "); vga_print_dec(m->reserved_kib); vga_print(" KiB");
     vga_print("\n  kernel start     : "); vga_print_hex(m->kernel_start);
     vga_print("\n  kernel end       : "); vga_print_hex(m->kernel_end);
-    vga_print("\n  heap placeholder : "); vga_print_hex(m->heap_start);
+    vga_print("\n  heap region      : "); vga_print_hex(m->heap_start);
     vga_print(" - "); vga_print_hex(m->heap_end);
     vga_print("\n  allocation mode  : "); vga_print(m->allocation_mode);
     vga_print("\n");
@@ -384,7 +417,81 @@ static void cmd_pages(void)
     vga_print("  used/reserved pages   : "); vga_print_dec(p.used_pages); vga_print("\n");
     vga_print("  low-memory reserved   : "); vga_print_dec(p.reserved_low_pages); vga_print("\n");
     vga_print("  kernel reserved       : "); vga_print_dec(p.reserved_kernel_pages); vga_print("\n");
-    vga_print("No virtual memory, page allocation API, or heap is active yet.\n");
+    vga_print("  heap reserved         : "); vga_print_dec(p.reserved_heap_pages); vga_print("\n");
+    vga_print("No virtual memory or page allocation API is active yet.\n");
+}
+
+static void print_heap_stats(void)
+{
+    struct kheap_stats h;
+    kheap_stats(&h);
+    vga_print("  available         : "); vga_print(h.available ? "yes" : "no"); vga_print("\n");
+    vga_print("  heap start        : "); vga_print_hex(h.heap_start); vga_print("\n");
+    vga_print("  heap end          : "); vga_print_hex(h.heap_end); vga_print("\n");
+    vga_print("  total bytes       : "); vga_print_dec(h.total_bytes); vga_print("\n");
+    vga_print("  used bytes        : "); vga_print_dec(h.used_bytes); vga_print("\n");
+    vga_print("  remaining bytes   : "); vga_print_dec(h.remaining_bytes); vga_print("\n");
+    vga_print("  allocations       : "); vga_print_dec(h.allocation_count); vga_print("\n");
+    vga_print("  failed allocations: "); vga_print_dec(h.failed_count); vga_print("\n");
+    vga_print("  high water mark   : "); vga_print_dec(h.high_water_mark); vga_print("\n");
+    vga_print("  free_supported    : no\n");
+}
+
+static void cmd_heap(void)
+{
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("Kernel Heap Status:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    print_heap_stats();
+    vga_print("Design: fixed bounded bump allocator; no free(), no growth.\n");
+}
+
+static void cmd_heap_test(void)
+{
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("Kernel Heap Test:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    if (!kheap_available()) {
+        vga_print("  heap unavailable - cannot run allocation test\n");
+        return;
+    }
+
+    void *a = kheap_alloc(16);
+    void *b = kheap_alloc(33);
+    void *c = kheap_alloc(128);
+    vga_print("  alloc 16  -> "); vga_print(a ? "ok " : "fail ");
+    if (a) vga_print_hex((uint32_t)a); vga_print("\n");
+    vga_print("  alloc 33  -> "); vga_print(b ? "ok " : "fail ");
+    if (b) vga_print_hex((uint32_t)b); vga_print("\n");
+    vga_print("  alloc 128 -> "); vga_print(c ? "ok " : "fail ");
+    if (c) vga_print_hex((uint32_t)c); vga_print("\n");
+    print_heap_stats();
+}
+
+static void cmd_heap_alloc(const char *arg)
+{
+    uint32_t bytes = 0;
+    if (!parse_u32_dec(arg, &bytes)) {
+        vga_print("Usage: heap-alloc <decimal-bytes>\n");
+        return;
+    }
+    void *ptr = kheap_alloc(bytes);
+    if (!ptr) {
+        vga_set_color(VGA_LIGHT_RED, VGA_BLACK);
+        vga_print("Allocation refused.");
+        vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+        vga_print(" Size was zero, oversized, or outside heap bounds.\n");
+        print_heap_stats();
+        return;
+    }
+    vga_set_color(VGA_LIGHT_GREEN, VGA_BLACK);
+    vga_print("Allocated ");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print_dec(bytes);
+    vga_print(" bytes at ");
+    vga_print_hex((uint32_t)ptr);
+    vga_print(" (16-byte aligned bump allocation)\n");
+    print_heap_stats();
 }
 
 /*
@@ -1820,6 +1927,8 @@ static const struct command commands[] = {
     { "mem",        cmd_mem        },
     { "memmap",     cmd_memmap     },
     { "pages",      cmd_pages      },
+    { "heap",       cmd_heap       },
+    { "heap-test",  cmd_heap_test  },
     { "tasks",      cmd_tasks      },
     { "task-current", cmd_task_current },
     { "task-yield", cmd_task_yield },
@@ -1931,6 +2040,7 @@ void shell_run(void)
         if (kstrcmp(line, "write") == 0) { cmd_write(arg); continue; }
         if (kstrcmp(line, "cat") == 0) { cmd_cat(arg); continue; }
         if (kstrcmp(line, "rm") == 0) { cmd_rm(arg); continue; }
+        if (kstrcmp(line, "heap-alloc") == 0) { cmd_heap_alloc(arg); continue; }
 
         int found = 0;
         for (unsigned i = 0; i < sizeof(commands) / sizeof(commands[0]); i++) {

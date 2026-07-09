@@ -11,6 +11,7 @@
 #define PAGE_BITMAP_BYTES     (MAX_TRACKED_PAGES / 8u)
 #define LOW_MEMORY_LIMIT      0x00100000u
 #define FALLBACK_MEMORY_BYTES 0x01000000u /* conservative 16 MiB */
+#define KERNEL_HEAP_BYTES     0x00010000u /* 64 KiB fixed bump heap */
 
 struct multiboot_info_v1 {
     uint32_t flags;
@@ -43,6 +44,7 @@ static uint8_t page_bitmap[PAGE_BITMAP_BYTES]; /* bit=1 means used/reserved */
 static uint32_t page_limit;
 static uint32_t reserved_low_pages;
 static uint32_t reserved_kernel_pages;
+static uint32_t reserved_heap_pages;
 
 static uint32_t align_down(uint32_t value, uint32_t align)
 {
@@ -107,6 +109,24 @@ static void mark_range_free(uint32_t base, uint32_t length)
         bitmap_clear(p);
 }
 
+static int range_is_usable(uint32_t base, uint32_t length)
+{
+    uint32_t end = base + length;
+    if (end < base)
+        return 0;
+    for (uint32_t i = 0; i < status.region_count; i++) {
+        if (regions[i].type != MEM_REGION_USABLE)
+            continue;
+        uint32_t rbase = regions[i].base;
+        uint32_t rend = regions[i].base + regions[i].length;
+        if (rend < rbase)
+            continue;
+        if (base >= rbase && end <= rend)
+            return 1;
+    }
+    return 0;
+}
+
 static uint32_t mark_range_used(uint32_t base, uint32_t length)
 {
     uint32_t changed = 0;
@@ -136,6 +156,9 @@ static void init_bitmap(void)
         reserved_kernel_pages = mark_range_used((uint32_t)&_kernel_start,
                                                 (uint32_t)&_kernel_end - (uint32_t)&_kernel_start);
     }
+    if (status.heap_end > status.heap_start)
+        reserved_heap_pages = mark_range_used(status.heap_start,
+                                             status.heap_end - status.heap_start);
 }
 
 static void fallback_map(void)
@@ -154,8 +177,8 @@ void memory_init(uint32_t mb_magic, uint32_t mb_info)
     status.kernel_start = (uint32_t)&_kernel_start;
     status.kernel_end = (uint32_t)&_kernel_end;
     status.heap_start = align_up(status.kernel_end, MEMORY_PAGE_SIZE);
-    status.heap_end = status.heap_start;
-    status.allocation_mode = "physical_page_tracker_only";
+    status.heap_end = 0;
+    status.allocation_mode = "physical_page_tracker_plus_fixed_bump_heap";
 
     if (mb_magic == MULTIBOOT_BOOTLOADER_MAGIC && mb_info != 0) {
         const struct multiboot_info_v1 *mb = (const struct multiboot_info_v1 *)mb_info;
@@ -183,7 +206,17 @@ void memory_init(uint32_t mb_magic, uint32_t mb_info)
     if (status.region_count == 0)
         fallback_map();
 
+    if (range_is_usable(status.heap_start, KERNEL_HEAP_BYTES))
+        status.heap_end = status.heap_start + KERNEL_HEAP_BYTES;
+    else {
+        status.heap_start = 0;
+        status.allocation_mode = "physical_page_tracker_only";
+    }
+
     page_limit = min_u32(status.total_kib / 4u, MAX_TRACKED_PAGES);
+    reserved_low_pages = 0;
+    reserved_kernel_pages = 0;
+    reserved_heap_pages = 0;
     init_bitmap();
 
     if (status.map_available) {
@@ -216,6 +249,7 @@ void memory_pages(struct page_status *out)
     out->free_pages = page_limit - used;
     out->reserved_low_pages = reserved_low_pages;
     out->reserved_kernel_pages = reserved_kernel_pages;
+    out->reserved_heap_pages = reserved_heap_pages;
     out->tracked_limit_kib = MAX_TRACKED_PAGES * 4u;
 }
 

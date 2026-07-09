@@ -1,5 +1,17 @@
 # Changelog
 
+## v2.2.0 - Heap Seed
+
+- Added a fixed-region kernel bump heap initialized from the memory manager.
+- Added 16-byte aligned `kheap_alloc()` with zero-size and oversize rejection.
+- Added heap usage, remaining, allocation, failure, and high-water stats.
+- Added `heap`, `heap-test`, and `heap-alloc <bytes>` shell commands.
+- Added `[KERNEL_HEAP]` serial report section.
+- Updated analyzer and Recovery Center with read-only heap visibility.
+- Added no `free()`, heap growth, virtual memory, userspace heap,
+  malloc-compatible allocator, networking, auto-repair, arbitrary execution,
+  or self-modification.
+
 ## v2.1.0 - Memory Map
 
 - Added Multiboot v1 memory map parsing with a conservative fallback.

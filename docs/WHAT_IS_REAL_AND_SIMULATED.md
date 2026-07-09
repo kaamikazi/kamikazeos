@@ -30,6 +30,8 @@ real OS and tooling mechanics, but avoids dangerous update behavior.
 - Conservative memory-map fallback when Multiboot data is unavailable.
 - Fixed 4 KiB physical page tracking with low-memory and kernel reservations.
 - Memory status, memory map, and page reports in shell, analyzer, and dashboard.
+- Bounded fixed-region kernel bump heap.
+- Heap allocation bounds checks, stats, serial report, analyzer, and dashboard.
 - COM1 serial logs and boot reports.
 - Structured kernel error log.
 - GhostAttach policy decisions over fixed device/driver registries.
@@ -64,6 +66,9 @@ real OS and tooling mechanics, but avoids dangerous update behavior.
 - Virtual memory.
 - Paging isolation.
 - General-purpose `malloc/free` heap allocation.
+- `free()` in the kernel bump allocator.
+- Heap growth.
+- Userspace heap allocation.
 - Process address spaces.
 
 ## v1.6 Kernel Boundary
@@ -115,6 +120,13 @@ v2.1 parses real bootloader memory-map data when present and maintains a fixed
 physical page tracker. The page tracker is accounting only: there is no virtual
 memory, no paging isolation, no heap allocator, no userspace memory model, and
 no process address space management.
+
+## v2.2 Heap Boundary
+
+v2.2 adds a real bounded kernel bump heap. Allocations are checked, aligned, and
+kept inside the fixed heap range. The allocator does not support `free()`, heap
+growth, malloc-compatible semantics, virtual memory, userspace heaps, or
+per-process address spaces.
 
 ## Why Simulate These Parts
 

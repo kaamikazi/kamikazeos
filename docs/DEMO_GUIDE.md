@@ -1,4 +1,4 @@
-# KamikazeOS v2.1 Demo Guide
+# KamikazeOS v2.2 Demo Guide
 
 This guide is for a public, portfolio, or reviewer demo. It avoids claims that
 the project does not implement.
@@ -11,7 +11,7 @@ the project does not implement.
 
 This builds the kernel, validates the safe and unsafe package examples, and
 prints the exact QEMU, shell, analyzer, and dashboard steps for the integrated
-v2.1 demo.
+v2.2 demo.
 
 ## 1. Build
 
@@ -71,6 +71,9 @@ ticks
 mem
 memmap
 pages
+heap
+heap-test
+heap-alloc 64
 tasks
 task-current
 fs
@@ -94,10 +97,12 @@ Notes for narration:
 - `apply-pkg` is metadata-only. It does not patch a binary.
 - `verify-pkg` clears pending verification if health and slot metadata are OK.
 - `trust` labels host Ed25519 as real and kernel Ed25519 as simulated.
-- `system` and `diagnose` summarize integrated v2.1 readiness without applying
+- `system` and `diagnose` summarize integrated v2.2 readiness without applying
   repairs.
 - `mem`, `memmap`, and `pages` show physical memory discovery and accounting,
   not virtual memory or heap allocation.
+- `heap`, `heap-test`, and `heap-alloc` exercise a bounded kernel bump heap.
+  There is no `free()` or malloc-compatible allocator yet.
 - `run tinyfs-demo` runs a fixed built-in kernel-managed app. It does not load
   executable code from disk.
 

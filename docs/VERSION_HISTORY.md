@@ -1,5 +1,16 @@
 # KamikazeOS Version History
 
+## v2.2.0 "Heap Seed"
+
+Added the first bounded kernel heap allocator foundation: a fixed-size bump
+allocator region supplied by the memory manager, 16-byte aligned allocations,
+oversize/zero-size rejection, allocation/failure stats, `heap`, `heap-test`,
+and `heap-alloc <bytes>` shell commands, `[KERNEL_HEAP]` serial reporting,
+analyzer support, and read-only Recovery Center heap visibility. No `free()`,
+heap growth, virtual memory, userspace heap, malloc-compatible API, process
+address spaces, networking, auto-repair, arbitrary execution, or
+self-modification was added.
+
 ## v2.1.0 "Memory Map"
 
 Added the first kernel memory management foundation: Multiboot memory map

@@ -114,6 +114,7 @@ function renderV20Overview(data) {
   box.appendChild(metric("Kernel", status.kernel_version || data.version));
   box.appendChild(metric("Interrupts", `IDT ${status.idt_loaded || "?"}, PIC ${status.pic_remapped || "?"}, keyboard ${status.keyboard_mode || "?"}`));
   box.appendChild(metric("Memory", `map ${status.memory_map || data.kernel_memory?.map_available || "?"}, free pages ${status.free_pages || data.pages?.free_pages || "?"}`));
+  box.appendChild(metric("Heap", `${status.heap_available || data.kernel_heap?.available || "?"}, remaining ${status.heap_remaining || data.kernel_heap?.remaining_bytes || "?"} bytes`));
   box.appendChild(metric("Storage", `${status.recovery_backend || data.backend || "?"}, TinyFS ${status.tinyfs_status || "?"}`));
   box.appendChild(metric("Apps", `${status.app_registry || data.apps_status?.total_apps || "?"} fixed built-ins`));
   box.appendChild(metric("Packages", status.package_trust_mode || data.trust?.signature_verification || "?"));
@@ -124,11 +125,32 @@ function renderV20Overview(data) {
   const ready = status.idt_loaded === "yes" &&
     status.pic_remapped === "yes" &&
     parseInt(status.free_pages || data.pages?.free_pages || "0", 10) > 0 &&
+    (status.heap_available || data.kernel_heap?.available) === "yes" &&
     status.tinyfs_status === "formatted" &&
     (status.recovery_backend || "").includes("disk") &&
     parseInt(status.app_registry || "0", 10) > 0;
   setBadge("v20-status", ready ? "integrated demo ready" : "review report",
     ready ? "good" : "warn");
+}
+
+function renderHeap(data) {
+  const heap = data.kernel_heap || {};
+  const box = $("heap-panel");
+  box.innerHTML = "";
+  box.appendChild(metric("Available", heap.available || "?"));
+  box.appendChild(metric("Start", heap.heap_start || "?"));
+  box.appendChild(metric("End", heap.heap_end || "?"));
+  box.appendChild(metric("Total", heap.total_bytes ? `${heap.total_bytes} bytes` : "?"));
+  box.appendChild(metric("Used", heap.used_bytes ? `${heap.used_bytes} bytes` : "0 bytes"));
+  box.appendChild(metric("Remaining", heap.remaining_bytes ? `${heap.remaining_bytes} bytes` : "?"));
+  box.appendChild(metric("Allocations", heap.allocation_count || "0"));
+  box.appendChild(metric("Failures", heap.failed_count || "0"));
+  box.appendChild(metric("free()", heap.free_supported || "no"));
+  const low = parseInt(heap.total_bytes || "0", 10) > 0 &&
+    parseInt(heap.remaining_bytes || "0", 10) * 10 < parseInt(heap.total_bytes || "0", 10);
+  const failed = parseInt(heap.failed_count || "0", 10) > 0;
+  setBadge("heap-status", heap.available === "yes" ? (low ? "low remaining" : "bump heap") : "unavailable",
+    heap.available !== "yes" ? "bad" : failed || low ? "warn" : "good");
 }
 
 function renderMemory(data) {
@@ -473,6 +495,7 @@ function render(data) {
   renderBootWarnings(data);
   renderTrust(data);
   renderMemory(data);
+  renderHeap(data);
   renderKernelFoundation(data);
   renderTaskFoundation(data);
   renderTinyFS(data);

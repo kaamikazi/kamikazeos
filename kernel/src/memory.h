@@ -1,9 +1,9 @@
 /*
  * memory.h - v2.1 physical memory discovery and page accounting.
  *
- * This is not virtual memory and not a heap. It records the Multiboot memory
- * map when available and keeps a fixed-size 4 KiB physical page tracker so
- * the kernel can reason about usable versus reserved RAM.
+ * This is not virtual memory. It records the Multiboot memory map when
+ * available, keeps a fixed-size 4 KiB physical page tracker, and publishes a
+ * bounded kernel heap range for the bump allocator.
  */
 #ifndef KMZ_MEMORY_H
 #define KMZ_MEMORY_H
@@ -45,6 +45,7 @@ struct page_status {
     uint32_t used_pages;
     uint32_t reserved_low_pages;
     uint32_t reserved_kernel_pages;
+    uint32_t reserved_heap_pages;
     uint32_t tracked_limit_kib;
 };
 

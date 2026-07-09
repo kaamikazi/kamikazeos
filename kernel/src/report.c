@@ -13,6 +13,7 @@
 #include "ghostattach.h"
 #include "idt.h"
 #include "interrupts.h"
+#include "kheap.h"
 #include "keyboard.h"
 #include "memory.h"
 #include "module_slots.h"
@@ -30,7 +31,7 @@
 #include "task.h"
 #include "tinyfs.h"
 
-#define KMZ_VERSION "2.1.0"
+#define KMZ_VERSION "2.2.0"
 
 /* serial_print for numbers: render via kitoa, then send. */
 static void serial_print_dec(uint32_t value)
@@ -107,6 +108,8 @@ void report_send(void)
     const struct memory_status *mem_status = memory_status();
     struct page_status page_status;
     memory_pages(&page_status);
+    struct kheap_stats heap_status;
+    kheap_stats(&heap_status);
     struct kerror last_critical;
 
     serial_print("[SYSTEM_STATUS]\n");
@@ -117,6 +120,8 @@ void report_send(void)
     serial_print("\nkeyboard_mode="); serial_print(keyboard_mode_name());
     serial_print("\nmemory_map="); serial_print(mem_status->map_available ? "multiboot" : "fallback");
     serial_print("\nfree_pages="); serial_print_dec(page_status.free_pages);
+    serial_print("\nheap_available="); serial_print(heap_status.available ? "yes" : "no");
+    serial_print("\nheap_remaining="); serial_print_dec(heap_status.remaining_bytes);
     serial_print("\ntask_count="); serial_print_dec(task_count());
     serial_print("\ntinyfs_status=");
     serial_print(fs_status->available ? (fs_status->formatted ? "formatted" : "not_formatted") : "unavailable");
@@ -146,6 +151,11 @@ void report_send(void)
     serial_print(mem_status->map_available ? "multiboot" : "fallback");
     serial_print(",usable_kib:"); serial_print_dec(mem_status->usable_kib);
     serial_print(",free_pages:"); serial_print_dec(page_status.free_pages);
+    serial_print("\nheap=available:");
+    serial_print(heap_status.available ? "yes" : "no");
+    serial_print(",used:"); serial_print_dec(heap_status.used_bytes);
+    serial_print(",remaining:"); serial_print_dec(heap_status.remaining_bytes);
+    serial_print(",free_supported:no");
     serial_print("\ntasks=total:"); serial_print_dec(task_count());
     serial_print(",ready:"); serial_print_dec(task_count_state(TASK_READY));
     serial_print(",crashed:"); serial_print_dec(task_count_state(TASK_CRASHED));
@@ -179,7 +189,9 @@ void report_send(void)
     serial_print("\nheap_start="); serial_print_dec(mem_status->heap_start);
     serial_print("\nheap_end="); serial_print_dec(mem_status->heap_end);
     serial_print("\nallocation_mode="); serial_print(mem_status->allocation_mode);
-    serial_print("\nvirtual_memory=no\nheap_allocator=no\n");
+    serial_print("\nvirtual_memory=no\nheap_allocator=");
+    serial_print(heap_status.available ? "bounded_bump" : "no");
+    serial_print("\n");
 
     serial_print("[MEMORY_MAP]\n");
     for (uint32_t i = 0; i < memory_region_count(); i++) {
@@ -201,8 +213,21 @@ void report_send(void)
     serial_print("\nused_pages="); serial_print_dec(page_status.used_pages);
     serial_print("\nreserved_low_pages="); serial_print_dec(page_status.reserved_low_pages);
     serial_print("\nreserved_kernel_pages="); serial_print_dec(page_status.reserved_kernel_pages);
+    serial_print("\nreserved_heap_pages="); serial_print_dec(page_status.reserved_heap_pages);
     serial_print("\ntracked_limit_kib="); serial_print_dec(page_status.tracked_limit_kib);
     serial_print("\nvirtual_memory=no\n");
+
+    serial_print("[KERNEL_HEAP]\n");
+    serial_print("available="); serial_print(heap_status.available ? "yes" : "no");
+    serial_print("\nheap_start="); serial_print_dec(heap_status.heap_start);
+    serial_print("\nheap_end="); serial_print_dec(heap_status.heap_end);
+    serial_print("\ntotal_bytes="); serial_print_dec(heap_status.total_bytes);
+    serial_print("\nused_bytes="); serial_print_dec(heap_status.used_bytes);
+    serial_print("\nremaining_bytes="); serial_print_dec(heap_status.remaining_bytes);
+    serial_print("\nallocation_count="); serial_print_dec(heap_status.allocation_count);
+    serial_print("\nfailed_count="); serial_print_dec(heap_status.failed_count);
+    serial_print("\nhigh_water_mark="); serial_print_dec(heap_status.high_water_mark);
+    serial_print("\nfree_supported=no\n");
 
     serial_print("[KERNEL_INTERRUPTS]\n");
     serial_print("idt_loaded="); serial_print(idt_is_loaded() ? "yes" : "no");

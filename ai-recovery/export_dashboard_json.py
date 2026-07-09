@@ -95,7 +95,7 @@ def main():
      memory, store, journal, snapshots, health, timeline,
      modules, pkgs, pkg_policy, pkg_history,
      trust, pkg_manifests, pkg_states, mod_slots, pending,
-     kernel_memory, memory_map, pages,
+     kernel_memory, memory_map, pages, kernel_heap,
      kernel_interrupts, kernel_timing, kernel_exceptions,
      kernel_tasks, task_rows, tinyfs, tinyfs_files,
      apps, app_rows, app_log, system_status, diagnostics) = parse_report(lines)
@@ -145,6 +145,7 @@ def main():
         "kernel_memory": kernel_memory,
         "memory_map": memory_map,
         "pages": pages,
+        "kernel_heap": kernel_heap,
         "store": store,
         "memory": memory,
         "health": health,

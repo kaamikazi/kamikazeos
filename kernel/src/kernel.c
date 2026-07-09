@@ -13,6 +13,7 @@
 #include "ghostattach.h"
 #include "idt.h"
 #include "interrupts.h"
+#include "kheap.h"
 #include "keyboard.h"
 #include "memory.h"
 #include "panic.h"
@@ -44,7 +45,7 @@ static void boot_banner(void)
     vga_print(" |_|\\_\\__,_|_| |_| |_|_|_|\\_\\__,_/___\\___|  \\___/|____/ \n");
     vga_print("\n");
     vga_set_color(VGA_DARK_GREY, VGA_BLACK);
-    vga_print("  v2.1.0 \"Memory Map\"  --  physical memory foundation\n\n");
+    vga_print("  v2.2.0 \"Heap Seed\"  --  bounded kernel heap foundation\n\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
 }
 
@@ -88,7 +89,7 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
      */
     serial_init();
     errors_init();
-    serial_print("\n=== KamikazeOS v2.1.0 serial log ===\n");
+    serial_print("\n=== KamikazeOS v2.2.0 serial log ===\n");
 
     error_log(SEV_INFO, "BOOT-000", "kernel",
               "Kernel booted successfully", "no action needed");
@@ -151,6 +152,10 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
     memory_init(mb_magic, mb_info);
     report_ok(memory_map_available() ? "multiboot memory map parsed"
                                      : "memory map fallback active");
+
+    kheap_init();
+    report_ok(kheap_available() ? "fixed kernel bump heap initialized"
+                                : "kernel heap unavailable");
 
     tinyfs_init();
     if (tinyfs_status()->formatted)

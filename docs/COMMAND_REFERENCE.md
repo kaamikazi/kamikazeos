@@ -1,6 +1,6 @@
 # Command Reference
 
-KamikazeOS shell commands in v2.1.0.
+KamikazeOS shell commands in v2.2.0.
 
 ## General
 
@@ -9,7 +9,7 @@ KamikazeOS shell commands in v2.1.0.
 | `help` | Show commands |
 | `clear` | Clear the screen |
 | `about` | Version and mission summary |
-| `system` | Integrated v2.1 system readiness summary |
+| `system` | Integrated v2.2 system readiness summary |
 | `diagnose` | Compact full-system diagnostic and next manual command |
 | `reboot` | Restart the machine |
 | `panic-test` | Deliberately crash for panic-handler testing |
@@ -30,12 +30,15 @@ recovery and require the literal `confirm` argument.
 
 | Command | Purpose |
 |---|---|
-| `mem` | Show physical memory totals, kernel bounds, heap placeholder, and allocation mode |
+| `mem` | Show physical memory totals, kernel bounds, heap region, and allocation mode |
 | `memmap` | Show Multiboot memory regions or the conservative fallback map |
 | `pages` | Show 4 KiB physical page tracker totals and reserved page counts |
+| `heap` | Show fixed kernel heap allocator stats |
+| `heap-test` | Run small safe bump allocation checks |
+| `heap-alloc <bytes>` | Allocate bytes from the bounded kernel heap |
 
-These commands do not enable virtual memory, page isolation, `malloc/free`, or
-userspace address spaces. They expose physical memory discovery and accounting.
+These commands do not enable virtual memory, page isolation, `free()`,
+malloc-compatible behavior, or userspace address spaces.
 
 ## Kernel Tasks
 
