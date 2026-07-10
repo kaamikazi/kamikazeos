@@ -1,5 +1,18 @@
 # Changelog
 
+## v2.3.0 - Paging Gate
+
+- Added 32-bit x86 paging structures for a low-memory identity map.
+- Added identity map validation and paging status APIs.
+- Added `paging`, `page-map`, and guarded `pagefault-test confirm` commands.
+- Added `[PAGING]` and `[PAGE_MAP]` serial report sections.
+- Added page fault CR2 evidence recording through the existing exception path.
+- Updated analyzer and Recovery Center with read-only paging visibility.
+- Paging is prepared but not enabled in this release.
+- Added no userspace virtual memory, per-process address spaces, demand paging,
+  copy-on-write, memory protection between tasks, networking, auto-repair,
+  arbitrary execution, or self-modification.
+
 ## v2.2.0 - Heap Seed
 
 - Added a fixed-region kernel bump heap initialized from the memory manager.

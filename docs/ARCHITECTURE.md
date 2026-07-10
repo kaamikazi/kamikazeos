@@ -1,6 +1,6 @@
 # KamikazeOS Architecture
 
-Status: v2.2.0 "Heap Seed".
+Status: v2.3.0 "Paging Gate".
 
 KamikazeOS is a small 32-bit x86 experimental OS research prototype that runs
 in QEMU. Its architecture is organized around observability, durable recovery

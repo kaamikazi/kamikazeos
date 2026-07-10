@@ -1,7 +1,8 @@
 # KamikazeOS Memory Map
 
 KamikazeOS v2.1 added the first kernel memory management foundation. v2.2 uses
-that foundation to reserve a bounded kernel heap region.
+that foundation to reserve a bounded kernel heap region. v2.3 prepares paging
+structures without enabling paging.
 
 ## What Is Real
 
@@ -12,6 +13,7 @@ that foundation to reserve a bounded kernel heap region.
 - Kernel image reservation using linker-provided `_kernel_start` and
   `_kernel_end`.
 - Fixed heap region published to the kernel heap allocator.
+- Prepared identity paging structures and validation.
 - Shell commands: `mem`, `memmap`, and `pages`.
 - Serial report sections: `[MEMORY]`, `[MEMORY_MAP]`, and `[PAGES]`.
 - Analyzer and Recovery Center visibility.
@@ -19,6 +21,7 @@ that foundation to reserve a bounded kernel heap region.
 ## What Is Not Implemented
 
 - Virtual memory.
+- Enabled paging.
 - Paging isolation.
 - Ring 3 userspace memory.
 - malloc-compatible heap allocation.

@@ -16,8 +16,8 @@ KamikazeOS is not production-ready and not a general-purpose operating system.
 It has no user isolation, no networking stack, no real driver loading, and no
 production security guarantees.
 
-Current release: v2.2.0 "Heap Seed". It adds the first bounded kernel heap
-allocator foundation on top of the v2.1 memory map/page tracker.
+Current release: v2.3.0 "Paging Gate". It adds prepared and validated paging
+structures while keeping paging disabled by default.
 
 ## Feature Overview
 
@@ -25,6 +25,7 @@ allocator foundation on top of the v2.1 memory map/page tracker.
 - Real x86 IDT, CPU exception stubs, legacy PIC remap, and PIT timer ticks.
 - Multiboot memory map parsing and fixed 4 KiB physical page tracking.
 - Bounded fixed-region kernel bump heap with allocation stats.
+- Prepared 32-bit x86 paging structures with identity map validation.
 - Fixed kernel task records and cooperative built-in task steps.
 - Fixed-sector TinyFS with bounded checksummed text files.
 - Fixed kernel-managed app registry with policy-gated built-in app runs.
@@ -195,6 +196,7 @@ Simulated:
 
 ## Version History
 
+- v2.3.0 "Paging Gate": prepared identity paging structures and page reports.
 - v2.2.0 "Heap Seed": bounded kernel bump heap and heap reports.
 - v2.1.0 "Memory Map": Multiboot memory map parsing and page tracking.
 - v2.0.0 "Real Kernel Demo": integrated milestone with system diagnostics.

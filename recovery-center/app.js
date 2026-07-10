@@ -115,6 +115,7 @@ function renderV20Overview(data) {
   box.appendChild(metric("Interrupts", `IDT ${status.idt_loaded || "?"}, PIC ${status.pic_remapped || "?"}, keyboard ${status.keyboard_mode || "?"}`));
   box.appendChild(metric("Memory", `map ${status.memory_map || data.kernel_memory?.map_available || "?"}, free pages ${status.free_pages || data.pages?.free_pages || "?"}`));
   box.appendChild(metric("Heap", `${status.heap_available || data.kernel_heap?.available || "?"}, remaining ${status.heap_remaining || data.kernel_heap?.remaining_bytes || "?"} bytes`));
+  box.appendChild(metric("Paging", `${status.paging_mode || data.paging?.mode || "?"}`));
   box.appendChild(metric("Storage", `${status.recovery_backend || data.backend || "?"}, TinyFS ${status.tinyfs_status || "?"}`));
   box.appendChild(metric("Apps", `${status.app_registry || data.apps_status?.total_apps || "?"} fixed built-ins`));
   box.appendChild(metric("Packages", status.package_trust_mode || data.trust?.signature_verification || "?"));
@@ -126,11 +127,41 @@ function renderV20Overview(data) {
     status.pic_remapped === "yes" &&
     parseInt(status.free_pages || data.pages?.free_pages || "0", 10) > 0 &&
     (status.heap_available || data.kernel_heap?.available) === "yes" &&
+    (status.paging_prepared || data.paging?.prepared) === "yes" &&
+    (data.paging?.identity_map_valid || "yes") === "yes" &&
     status.tinyfs_status === "formatted" &&
     (status.recovery_backend || "").includes("disk") &&
     parseInt(status.app_registry || "0", 10) > 0;
   setBadge("v20-status", ready ? "integrated demo ready" : "review report",
     ready ? "good" : "warn");
+}
+
+function renderPaging(data) {
+  const paging = data.paging || {};
+  const box = $("paging-panel");
+  box.innerHTML = "";
+  box.appendChild(metric("Prepared", paging.prepared || "?"));
+  box.appendChild(metric("Enabled", paging.enabled || "?"));
+  box.appendChild(metric("Mode", paging.mode || "prepared_not_enabled"));
+  box.appendChild(metric("Identity valid", paging.identity_map_valid || "?"));
+  box.appendChild(metric("Directory", paging.page_directory || "?"));
+  box.appendChild(metric("Mapped range", `${paging.mapped_start || "?"} - ${paging.mapped_end || "?"}`));
+  box.appendChild(metric("Fault handler", paging.page_fault_handler || "?"));
+  box.appendChild(metric("Last fault", paging.last_fault_address || "none"));
+  const valid = paging.prepared === "yes" && paging.identity_map_valid === "yes";
+  setBadge("paging-status", paging.enabled === "yes" ? "enabled" :
+    valid ? "prepared" : "invalid",
+    valid ? (paging.enabled === "yes" ? "good" : "info") : "bad");
+
+  renderTable("page-map", data.page_map || [], [
+    { key: "type", label: "Type" },
+    { key: "virtual_start", label: "Virtual Start" },
+    { key: "virtual_end", label: "Virtual End" },
+    { key: "physical_start", label: "Physical Start" },
+    { key: "physical_end", label: "Physical End" },
+    { key: "flags", label: "Flags", wrap: true },
+    { key: "validated", label: "Validated", badge: true },
+  ]);
 }
 
 function renderHeap(data) {
@@ -496,6 +527,7 @@ function render(data) {
   renderTrust(data);
   renderMemory(data);
   renderHeap(data);
+  renderPaging(data);
   renderKernelFoundation(data);
   renderTaskFoundation(data);
   renderTinyFS(data);

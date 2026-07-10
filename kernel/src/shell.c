@@ -13,6 +13,7 @@
 #include "module_versions.h"
 #include "package_manifest.h"
 #include "package_state.h"
+#include "paging.h"
 #include "recovery_package.h"
 #include "ghostattach.h"
 #include "idt.h"
@@ -176,7 +177,7 @@ static void cmd_help(void)
     vga_print("  help        show this list\n");
     vga_print("  clear       clear the screen\n");
     vga_print("  about       OS version, mission, CPU info\n");
-    vga_print("  system      integrated v2.2 system readiness summary\n");
+    vga_print("  system      integrated v2.3 system readiness summary\n");
     vga_print("  diagnose    compact full-system diagnostic summary\n");
     vga_print("  devices     GhostAttach device status table\n");
     vga_print("  drivers     GhostAttach driver registry table\n");
@@ -193,6 +194,9 @@ static void cmd_help(void)
     vga_print("  heap        show fixed kernel heap allocator stats\n");
     vga_print("  heap-test   run safe small bump allocator checks\n");
     vga_print("  heap-alloc <bytes> allocate bytes from the bounded kernel heap\n");
+    vga_print("  paging      show paging preparation and enable status\n");
+    vga_print("  page-map    show compact identity map summary\n");
+    vga_print("  pagefault-test confirm  trigger a page fault only if paging is enabled\n");
     vga_print("  tasks       show the fixed kernel task table\n");
     vga_print("  task-current show the current logical kernel task\n");
     vga_print("  task-yield  cooperatively run one ready task step\n");
@@ -246,11 +250,11 @@ static void cmd_about(void)
     cpu_vendor(vendor);
 
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
-    vga_print("KamikazeOS v2.2.0 \"Heap Seed\"\n");
+    vga_print("KamikazeOS v2.3.0 \"Paging Gate\"\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     vga_print("Experimental OS research prototype for auditable recovery.\n");
-    vga_print("v2.2: bounded kernel bump heap on top of memory map tracking.\n");
-    vga_print("Still no free(), virtual memory, or userspace isolation.\n\n");
+    vga_print("v2.3: paging structures prepared and validated, not enabled.\n");
+    vga_print("Still no userspace VM, process address spaces, or demand paging.\n\n");
     vga_print("  Architecture : x86 (i686), 32-bit protected mode\n");
     vga_print("  CPU vendor   : ");
     vga_print(vendor);
@@ -273,7 +277,9 @@ static void cmd_system(void)
     struct kheap_stats hs;
     kheap_stats(&hs);
 
-    vga_print("KamikazeOS v2.2 System Status:\n");
+    const struct paging_status *pg = paging_status();
+
+    vga_print("KamikazeOS v2.3 System Status:\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     vga_print("  Kernel version      : "); vga_print(module_version_of(MOD_KERNEL)); vga_print("\n");
     vga_print("  Interrupts          : IDT "); vga_print(idt_is_loaded() ? "yes" : "no");
@@ -288,6 +294,11 @@ static void cmd_system(void)
     vga_print("  Kernel heap         : ");
     vga_print(hs.available ? "available" : "unavailable");
     vga_print(" remaining="); vga_print_dec(hs.remaining_bytes); vga_print(" bytes\n");
+    vga_print("  Paging              : ");
+    vga_print(pg->mode);
+    vga_print(" identity=");
+    vga_print(pg->identity_map_valid ? "yes" : "no");
+    vga_print("\n");
     vga_print("  TinyFS              : ");
     vga_print(fs->available ? (fs->formatted ? "formatted" : "not_formatted") : "unavailable");
     vga_print(" files="); vga_print_dec(fs->file_count); vga_print("\n");
@@ -313,7 +324,7 @@ static void cmd_diagnose(void)
     boot_snapshot_health_now(&hb);
 
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
-    vga_print("KamikazeOS v2.2 Diagnostic Summary:\n");
+    vga_print("KamikazeOS v2.3 Diagnostic Summary:\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     vga_print("  Devices : total="); vga_print_dec(st.total);
     vga_print(" attached="); vga_print_dec(st.attached);
@@ -333,6 +344,11 @@ static void cmd_diagnose(void)
     vga_print(" used="); vga_print_dec(hs.used_bytes);
     vga_print(" remaining="); vga_print_dec(hs.remaining_bytes);
     vga_print(" free_supported=no\n");
+    const struct paging_status *pg = paging_status();
+    vga_print("  Paging : prepared="); vga_print(pg->prepared ? "yes" : "no");
+    vga_print(" enabled="); vga_print(pg->enabled ? "yes" : "no");
+    vga_print(" identity="); vga_print(pg->identity_map_valid ? "yes" : "no");
+    vga_print("\n");
     vga_print("  Tasks   : total="); vga_print_dec(task_count());
     vga_print(" ready="); vga_print_dec(task_count_state(TASK_READY));
     vga_print(" crashed="); vga_print_dec(task_count_state(TASK_CRASHED)); vga_print("\n");
@@ -492,6 +508,58 @@ static void cmd_heap_alloc(const char *arg)
     vga_print_hex((uint32_t)ptr);
     vga_print(" (16-byte aligned bump allocation)\n");
     print_heap_stats();
+}
+
+static void cmd_paging(void)
+{
+    const struct paging_status *pg = paging_status();
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("Paging Status:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print("  prepared              : "); vga_print(pg->prepared ? "yes" : "no"); vga_print("\n");
+    vga_print("  enabled               : "); vga_print(pg->enabled ? "yes" : "no"); vga_print("\n");
+    vga_print("  mode                  : "); vga_print(pg->mode); vga_print("\n");
+    vga_print("  identity map validated: "); vga_print(pg->identity_map_valid ? "yes" : "no"); vga_print("\n");
+    vga_print("  page directory        : "); vga_print_hex(pg->page_directory); vga_print("\n");
+    vga_print("  mapped start          : "); vga_print_hex(pg->mapped_start); vga_print("\n");
+    vga_print("  mapped end            : "); vga_print_hex(pg->mapped_end); vga_print("\n");
+    vga_print("  page fault handler    : "); vga_print(pg->page_fault_handler); vga_print("\n");
+    vga_print("  last fault address    : ");
+    if (pg->last_fault_present) vga_print_hex(pg->last_fault_address);
+    else vga_print("none");
+    vga_print("\n");
+}
+
+static void cmd_page_map(void)
+{
+    const struct paging_status *pg = paging_status();
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("Page Map Summary:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print("  map type       : identity\n");
+    vga_print("  mode           : "); vga_print(pg->mode); vga_print("\n");
+    vga_print("  virtual start  : "); vga_print_hex(pg->mapped_start); vga_print("\n");
+    vga_print("  virtual end    : "); vga_print_hex(pg->mapped_end); vga_print("\n");
+    vga_print("  physical start : "); vga_print_hex(pg->mapped_start); vga_print("\n");
+    vga_print("  physical end   : "); vga_print_hex(pg->mapped_end); vga_print("\n");
+    vga_print("  flags          : present,writable,supervisor\n");
+    vga_print("  validated      : "); vga_print(pg->identity_map_valid ? "yes" : "no"); vga_print("\n");
+    vga_print("Paging is prepared but not enabled in v2.3.\n");
+}
+
+static void cmd_pagefault_test(const char *arg)
+{
+    if (kstrcmp(arg, "confirm") != 0) {
+        vga_print("This test intentionally triggers a page fault and halts.\n");
+        vga_print("It is disabled unless you type exactly: pagefault-test confirm\n");
+        return;
+    }
+    if (!paging_is_enabled()) {
+        vga_print("Page fault test refused: paging is not enabled in v2.3.\n");
+        vga_print("The paging module is prepared_not_enabled by design.\n");
+        return;
+    }
+    paging_trigger_pagefault_test();
 }
 
 /*
@@ -1929,6 +1997,8 @@ static const struct command commands[] = {
     { "pages",      cmd_pages      },
     { "heap",       cmd_heap       },
     { "heap-test",  cmd_heap_test  },
+    { "paging",     cmd_paging     },
+    { "page-map",   cmd_page_map   },
     { "tasks",      cmd_tasks      },
     { "task-current", cmd_task_current },
     { "task-yield", cmd_task_yield },
@@ -2041,6 +2111,7 @@ void shell_run(void)
         if (kstrcmp(line, "cat") == 0) { cmd_cat(arg); continue; }
         if (kstrcmp(line, "rm") == 0) { cmd_rm(arg); continue; }
         if (kstrcmp(line, "heap-alloc") == 0) { cmd_heap_alloc(arg); continue; }
+        if (kstrcmp(line, "pagefault-test") == 0) { cmd_pagefault_test(arg); continue; }
 
         int found = 0;
         for (unsigned i = 0; i < sizeof(commands) / sizeof(commands[0]); i++) {

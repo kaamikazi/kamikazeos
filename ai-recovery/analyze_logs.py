@@ -169,6 +169,12 @@ RULES = {
         "action": "Do not attempt automatic recovery. Preserve the serial log, "
                   "reboot, and investigate the recorded exception evidence.",
     },
+    "PAGE-FAULT": {
+        "cause":  "The CPU raised a page fault. KamikazeOS captured the CR2 "
+                  "fault address, error code, and instruction pointer.",
+        "action": "Do not attempt automatic recovery. Preserve the serial log, "
+                  "reboot, and inspect the paging report and PAGE-FAULT evidence.",
+    },
     "APP-BLOCK-001": {
         "cause":  "The app policy gate refused a requested app name that is not "
                   "in the fixed compile-time registry, or an app without a "
@@ -266,6 +272,8 @@ def parse_report(lines):
         "[MEMORY_MAP]": "memory_map",
         "[PAGES]": "pages",
         "[KERNEL_HEAP]": "kernel_heap",
+        "[PAGING]": "paging",
+        "[PAGE_MAP]": "page_map",
         "[KERNEL_INTERRUPTS]": "kernel_interrupts",
         "[KERNEL_TIMING]": "kernel_timing",
         "[KERNEL_EXCEPTIONS]": "kernel_exceptions",
@@ -282,6 +290,7 @@ def parse_report(lines):
     trust, pkg_manifests, pkg_states, mod_slots, pending = {}, [], [], [], {}
     kernel_interrupts, kernel_timing, kernel_exceptions = {}, {}, {}
     kernel_memory, memory_map, pages, kernel_heap = {}, [], {}, {}
+    paging, page_map = {}, []
     kernel_tasks, task_rows = {}, []
     tinyfs, tinyfs_files = {}, []
     apps, app_rows, app_log = {}, [], []
@@ -344,6 +353,10 @@ def parse_report(lines):
             pages.update(parse_kv_line(line))
         elif section == "kernel_heap":
             kernel_heap.update(parse_kv_line(line))
+        elif section == "paging":
+            paging.update(parse_kv_line(line))
+        elif section == "page_map":
+            page_map.append(parse_kv_line(line))
         elif section == "kernel_interrupts":
             kernel_interrupts.update(parse_kv_line(line))
         elif section == "kernel_timing":
@@ -375,6 +388,7 @@ def parse_report(lines):
             modules, pkgs, pkg_policy, pkg_history,
             trust, pkg_manifests, pkg_states, mod_slots, pending,
             kernel_memory, memory_map, pages, kernel_heap,
+            paging, page_map,
             kernel_interrupts, kernel_timing, kernel_exceptions,
             kernel_tasks, task_rows, tinyfs, tinyfs_files,
             apps, app_rows, app_log, system_status, diagnostics)
@@ -431,6 +445,7 @@ def main():
         modules, pkgs, pkg_policy, pkg_history = [], [], [], []
         trust, pkg_manifests, pkg_states, mod_slots, pending = {}, [], [], [], {}
         kernel_memory, memory_map, pages, kernel_heap = {}, [], {}, {}
+        paging, page_map = {}, []
         kernel_interrupts, kernel_timing, kernel_exceptions = {}, {}, {}
         kernel_tasks, task_rows = {}, []
         tinyfs, tinyfs_files = {}, []
@@ -442,6 +457,7 @@ def main():
          modules, pkgs, pkg_policy, pkg_history,
          trust, pkg_manifests, pkg_states, mod_slots, pending,
          kernel_memory, memory_map, pages, kernel_heap,
+         paging, page_map,
          kernel_interrupts, kernel_timing, kernel_exceptions,
          kernel_tasks, task_rows, tinyfs, tinyfs_files,
          apps, app_rows, app_log, system_status, diagnostics) = parse_report(lines)
@@ -460,7 +476,7 @@ def main():
               f"{meta.get('scan_isolated', '?')} isolated")
 
     if system_status:
-        print("\nv2.2 integrated system status:")
+        print("\nv2.3 integrated system status:")
         print(f"  * Kernel: {system_status.get('kernel_version', '?')}")
         print(f"  * Interrupts: IDT={system_status.get('idt_loaded', '?')} "
               f"PIC={system_status.get('pic_remapped', '?')} "
@@ -469,6 +485,9 @@ def main():
               f"free_pages={system_status.get('free_pages', '?')}")
         print(f"  * Heap: available={system_status.get('heap_available', '?')} "
               f"remaining={system_status.get('heap_remaining', '?')} bytes")
+        print(f"  * Paging: prepared={system_status.get('paging_prepared', '?')} "
+              f"enabled={system_status.get('paging_enabled', '?')} "
+              f"mode={system_status.get('paging_mode', '?')}")
         print(f"  * Storage: {system_status.get('recovery_backend', '?')} "
               f"TinyFS={system_status.get('tinyfs_status', '?')} "
               f"files={system_status.get('tinyfs_files', '?')}")
@@ -499,6 +518,25 @@ def main():
                 print("  !! WARNING: free physical pages are very low.")
         except ValueError:
             pass
+
+    if paging:
+        print("\nPaging foundation:")
+        print(f"  * Prepared: {paging.get('prepared', '?')}")
+        print(f"  * Enabled: {paging.get('enabled', '?')}")
+        print(f"  * Mode: {paging.get('mode', '?')}")
+        print(f"  * Identity map valid: {paging.get('identity_map_valid', '?')}")
+        print(f"  * Page directory: {paging.get('page_directory', '?')}")
+        print(f"  * Mapped range: {paging.get('mapped_start', '?')} - "
+              f"{paging.get('mapped_end', '?')}")
+        print(f"  * Page fault handler: {paging.get('page_fault_handler', '?')}")
+        if paging.get("enabled") != "yes":
+            print("  * Paging structures are prepared but CR0.PG is not enabled.")
+        if paging.get("identity_map_valid") != "yes":
+            print("  !! WARNING: identity map validation failed.")
+        if paging.get("last_fault_address", "none") != "none":
+            print(f"  !! Page fault evidence: address "
+                  f"{paging.get('last_fault_address')} error "
+                  f"{paging.get('last_fault_error', '?')}")
 
     if kernel_heap:
         print("\nKernel heap foundation:")

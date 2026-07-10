@@ -1,6 +1,6 @@
 # Command Reference
 
-KamikazeOS shell commands in v2.2.0.
+KamikazeOS shell commands in v2.3.0.
 
 ## General
 
@@ -9,7 +9,7 @@ KamikazeOS shell commands in v2.2.0.
 | `help` | Show commands |
 | `clear` | Clear the screen |
 | `about` | Version and mission summary |
-| `system` | Integrated v2.2 system readiness summary |
+| `system` | Integrated v2.3 system readiness summary |
 | `diagnose` | Compact full-system diagnostic and next manual command |
 | `reboot` | Restart the machine |
 | `panic-test` | Deliberately crash for panic-handler testing |
@@ -36,6 +36,9 @@ recovery and require the literal `confirm` argument.
 | `heap` | Show fixed kernel heap allocator stats |
 | `heap-test` | Run small safe bump allocation checks |
 | `heap-alloc <bytes>` | Allocate bytes from the bounded kernel heap |
+| `paging` | Show paging preparation and enable status |
+| `page-map` | Show compact identity mapping summary |
+| `pagefault-test confirm` | Refused unless paging is enabled; intended page fault test |
 
 These commands do not enable virtual memory, page isolation, `free()`,
 malloc-compatible behavior, or userspace address spaces.

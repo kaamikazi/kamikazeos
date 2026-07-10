@@ -32,6 +32,9 @@ real OS and tooling mechanics, but avoids dangerous update behavior.
 - Memory status, memory map, and page reports in shell, analyzer, and dashboard.
 - Bounded fixed-region kernel bump heap.
 - Heap allocation bounds checks, stats, serial report, analyzer, and dashboard.
+- Prepared 32-bit x86 paging structures.
+- Identity page-map validation and paging reports.
+- Page fault CR2 evidence path when a page fault occurs.
 - COM1 serial logs and boot reports.
 - Structured kernel error log.
 - GhostAttach policy decisions over fixed device/driver registries.
@@ -63,8 +66,11 @@ real OS and tooling mechanics, but avoids dangerous update behavior.
 - Process isolation.
 - Executable loading or ELF loading.
 - Per-process memory and syscalls.
-- Virtual memory.
+- Enabled virtual memory.
 - Paging isolation.
+- Per-process page tables.
+- Demand paging.
+- Copy-on-write.
 - General-purpose `malloc/free` heap allocation.
 - `free()` in the kernel bump allocator.
 - Heap growth.
@@ -127,6 +133,13 @@ v2.2 adds a real bounded kernel bump heap. Allocations are checked, aligned, and
 kept inside the fixed heap range. The allocator does not support `free()`, heap
 growth, malloc-compatible semantics, virtual memory, userspace heaps, or
 per-process address spaces.
+
+## v2.3 Paging Boundary
+
+v2.3 prepares and validates paging data structures, but does not enable paging.
+The kernel still runs with paging disabled. There are no userspace address
+spaces, per-process page tables, demand paging, copy-on-write, or memory
+protection between tasks.
 
 ## Why Simulate These Parts
 

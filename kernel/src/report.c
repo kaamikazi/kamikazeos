@@ -20,6 +20,7 @@
 #include "module_versions.h"
 #include "package_manifest.h"
 #include "package_state.h"
+#include "paging.h"
 #include "recovery_package.h"
 #include "recovery_actions.h"
 #include "recovery_memory.h"
@@ -31,7 +32,7 @@
 #include "task.h"
 #include "tinyfs.h"
 
-#define KMZ_VERSION "2.2.0"
+#define KMZ_VERSION "2.3.0"
 
 /* serial_print for numbers: render via kitoa, then send. */
 static void serial_print_dec(uint32_t value)
@@ -110,6 +111,7 @@ void report_send(void)
     memory_pages(&page_status);
     struct kheap_stats heap_status;
     kheap_stats(&heap_status);
+    const struct paging_status *pg_status = paging_status();
     struct kerror last_critical;
 
     serial_print("[SYSTEM_STATUS]\n");
@@ -122,6 +124,9 @@ void report_send(void)
     serial_print("\nfree_pages="); serial_print_dec(page_status.free_pages);
     serial_print("\nheap_available="); serial_print(heap_status.available ? "yes" : "no");
     serial_print("\nheap_remaining="); serial_print_dec(heap_status.remaining_bytes);
+    serial_print("\npaging_prepared="); serial_print(pg_status->prepared ? "yes" : "no");
+    serial_print("\npaging_enabled="); serial_print(pg_status->enabled ? "yes" : "no");
+    serial_print("\npaging_mode="); serial_print(pg_status->mode);
     serial_print("\ntask_count="); serial_print_dec(task_count());
     serial_print("\ntinyfs_status=");
     serial_print(fs_status->available ? (fs_status->formatted ? "formatted" : "not_formatted") : "unavailable");
@@ -156,6 +161,11 @@ void report_send(void)
     serial_print(",used:"); serial_print_dec(heap_status.used_bytes);
     serial_print(",remaining:"); serial_print_dec(heap_status.remaining_bytes);
     serial_print(",free_supported:no");
+    serial_print("\npaging=prepared:");
+    serial_print(pg_status->prepared ? "yes" : "no");
+    serial_print(",enabled:"); serial_print(pg_status->enabled ? "yes" : "no");
+    serial_print(",identity:"); serial_print(pg_status->identity_map_valid ? "yes" : "no");
+    serial_print(",mode:"); serial_print(pg_status->mode);
     serial_print("\ntasks=total:"); serial_print_dec(task_count());
     serial_print(",ready:"); serial_print_dec(task_count_state(TASK_READY));
     serial_print(",crashed:"); serial_print_dec(task_count_state(TASK_CRASHED));
@@ -228,6 +238,32 @@ void report_send(void)
     serial_print("\nfailed_count="); serial_print_dec(heap_status.failed_count);
     serial_print("\nhigh_water_mark="); serial_print_dec(heap_status.high_water_mark);
     serial_print("\nfree_supported=no\n");
+
+    serial_print("[PAGING]\n");
+    serial_print("prepared="); serial_print(pg_status->prepared ? "yes" : "no");
+    serial_print("\nenabled="); serial_print(pg_status->enabled ? "yes" : "no");
+    serial_print("\nmode="); serial_print(pg_status->mode);
+    serial_print("\nidentity_map_valid="); serial_print(pg_status->identity_map_valid ? "yes" : "no");
+    serial_print("\npage_directory="); serial_print_dec(pg_status->page_directory);
+    serial_print("\nmapped_start="); serial_print_dec(pg_status->mapped_start);
+    serial_print("\nmapped_end="); serial_print_dec(pg_status->mapped_end);
+    serial_print("\npage_fault_handler="); serial_print(pg_status->page_fault_handler);
+    serial_print("\nlast_fault_address=");
+    if (pg_status->last_fault_present) serial_print_dec(pg_status->last_fault_address);
+    else serial_print("none");
+    serial_print("\nlast_fault_error="); serial_print_dec(pg_status->last_fault_error);
+    serial_print("\nlast_fault_eip="); serial_print_dec(pg_status->last_fault_eip);
+    serial_print("\n");
+
+    serial_print("[PAGE_MAP]\n");
+    serial_print("type=identity");
+    serial_print(";virtual_start="); serial_print_dec(pg_status->mapped_start);
+    serial_print(";virtual_end="); serial_print_dec(pg_status->mapped_end);
+    serial_print(";physical_start="); serial_print_dec(pg_status->mapped_start);
+    serial_print(";physical_end="); serial_print_dec(pg_status->mapped_end);
+    serial_print(";flags=present,writable,supervisor");
+    serial_print(";validated="); serial_print(pg_status->identity_map_valid ? "yes" : "no");
+    serial_print("\n");
 
     serial_print("[KERNEL_INTERRUPTS]\n");
     serial_print("idt_loaded="); serial_print(idt_is_loaded() ? "yes" : "no");

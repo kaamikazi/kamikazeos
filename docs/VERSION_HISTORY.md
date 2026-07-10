@@ -1,5 +1,17 @@
 # KamikazeOS Version History
 
+## v2.3.0 "Paging Gate"
+
+Added the first safe paging foundation: 32-bit x86 page directory/table
+structures, low-memory identity map preparation, identity-map validation,
+`paging`, `page-map`, and guarded `pagefault-test confirm` shell commands,
+`[PAGING]` and `[PAGE_MAP]` serial report sections, page-fault evidence
+recording, analyzer support, and read-only Recovery Center paging visibility.
+Paging is prepared but not enabled in this release. No userspace virtual
+memory, per-process address spaces, demand paging, copy-on-write, memory
+protection between tasks, networking, auto-repair, arbitrary execution, or
+self-modification was added.
+
 ## v2.2.0 "Heap Seed"
 
 Added the first bounded kernel heap allocator foundation: a fixed-size bump

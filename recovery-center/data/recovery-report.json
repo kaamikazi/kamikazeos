@@ -1,36 +1,40 @@
 {
-  "version": "2.2.0",
+  "version": "2.3.0",
   "backend": "disk+CMOS",
   "system_status": {
-    "kernel_version": "2.2",
+    "kernel_version": "2.3",
     "idt_loaded": "yes",
     "pic_remapped": "yes",
-    "timer_ticks": "2417",
+    "timer_ticks": "1339",
     "keyboard_mode": "irq",
     "memory_map": "multiboot",
-    "free_pages": "16033",
+    "free_pages": "16027",
     "heap_available": "yes",
-    "heap_remaining": "61184",
+    "heap_remaining": "65536",
+    "paging_prepared": "yes",
+    "paging_enabled": "no",
+    "paging_mode": "prepared_not_enabled",
     "task_count": "4",
     "tinyfs_status": "formatted",
     "tinyfs_files": "2",
     "app_registry": "6",
     "recovery_backend": "disk+CMOS",
-    "health_score": "22",
+    "health_score": "27",
     "package_trust_mode": "host_ed25519_real_kernel_simulated",
     "last_critical": "GA-DRV-201:GhostAttach"
   },
   "diagnostics": {
     "devices": "total:7,attached:3,fallback:1,missing:2,isolated:1",
     "drivers": "verified_policy_active",
-    "memory": "map:multiboot,usable_kib:65023,free_pages:16033",
-    "heap": "available:yes,used:4352,remaining:61184,free_supported:no",
+    "memory": "map:multiboot,usable_kib:65023,free_pages:16027",
+    "heap": "available:yes,used:0,remaining:65536,free_supported:no",
+    "paging": "prepared:yes,enabled:no,identity:yes,mode:prepared_not_enabled",
     "tasks": "total:4,ready:3,crashed:0",
     "tinyfs": "status:formatted,files:2,last_error:none",
     "apps": "total:6,blocked_attempts:0",
-    "recovery": "backend:disk+CMOS,journal:88",
+    "recovery": "backend:disk+CMOS,journal:94",
     "packages": "manifests:1,pending_verify:no",
-    "health": "score:22",
+    "health": "score:27",
     "recommended_command": "approve ACT-001",
     "auto_repair": "no"
   },
@@ -42,9 +46,9 @@
     "usable_kib": "65023",
     "reserved_kib": "449",
     "kernel_start": "1048576",
-    "kernel_end": "1241088",
-    "heap_start": "1241088",
-    "heap_end": "1306624",
+    "kernel_end": "1265664",
+    "heap_start": "1265664",
+    "heap_end": "1331200",
     "allocation_mode": "physical_page_tracker_plus_fixed_bump_heap",
     "virtual_memory": "no",
     "heap_allocator": "bounded_bump"
@@ -96,37 +100,61 @@
   "pages": {
     "page_size": "4096",
     "total_pages": "16368",
-    "free_pages": "16033",
-    "used_pages": "335",
+    "free_pages": "16027",
+    "used_pages": "341",
     "reserved_low_pages": "159",
-    "reserved_kernel_pages": "47",
+    "reserved_kernel_pages": "53",
     "reserved_heap_pages": "16",
     "tracked_limit_kib": "131072",
     "virtual_memory": "no"
   },
   "kernel_heap": {
     "available": "yes",
-    "heap_start": "1241088",
-    "heap_end": "1306624",
+    "heap_start": "1265664",
+    "heap_end": "1331200",
     "total_bytes": "65536",
-    "used_bytes": "4352",
-    "remaining_bytes": "61184",
-    "allocation_count": "5",
-    "failed_count": "1",
-    "high_water_mark": "4352",
+    "used_bytes": "0",
+    "remaining_bytes": "65536",
+    "allocation_count": "0",
+    "failed_count": "0",
+    "high_water_mark": "0",
     "free_supported": "no"
   },
+  "paging": {
+    "prepared": "yes",
+    "enabled": "no",
+    "mode": "prepared_not_enabled",
+    "identity_map_valid": "yes",
+    "page_directory": "1232896",
+    "mapped_start": "0",
+    "mapped_end": "16777216",
+    "page_fault_handler": "diagnostic_halt",
+    "last_fault_address": "none",
+    "last_fault_error": "0",
+    "last_fault_eip": "0"
+  },
+  "page_map": [
+    {
+      "type": "identity",
+      "virtual_start": "0",
+      "virtual_end": "16777216",
+      "physical_start": "0",
+      "physical_end": "16777216",
+      "flags": "present,writable,supervisor",
+      "validated": "yes"
+    }
+  ],
   "store": {
     "backend": "disk+CMOS",
     "disk_available": "1",
     "state_valid": "1",
-    "journal_count": "88",
-    "durable_boot_count": "26",
+    "journal_count": "94",
+    "durable_boot_count": "28",
     "cmos_fallback_used": "0"
   },
   "memory": {
     "persistence_mode": "cmos_nvram_survives_reboot_not_qemu_restart",
-    "boot_count": "26",
+    "boot_count": "28",
     "safe_mode_next_boot": "0",
     "safe_mode_active": "0",
     "network_quarantined": "0",
@@ -136,42 +164,16 @@
     "last_action_id": "none"
   },
   "health": {
-    "score": "22",
+    "score": "27",
     "panic_penalty": "0",
     "missing_penalty": "20",
     "isolated_penalty": "8",
-    "warning_penalty": "25",
+    "warning_penalty": "20",
     "critical_penalty": "25",
     "prev_score": "27",
-    "health_delta": "-5"
+    "health_delta": "0"
   },
   "snapshots": [
-    {
-      "boot": "11",
-      "health": "2",
-      "safe_mode": "0",
-      "panic": "1",
-      "attached": "3",
-      "fallback": "1",
-      "missing": "2",
-      "isolated": "1",
-      "warnings": "6",
-      "criticals": "1",
-      "applied": "1"
-    },
-    {
-      "boot": "12",
-      "health": "27",
-      "safe_mode": "0",
-      "panic": "0",
-      "attached": "3",
-      "fallback": "1",
-      "missing": "2",
-      "isolated": "1",
-      "warnings": "4",
-      "criticals": "1",
-      "applied": "1"
-    },
     {
       "boot": "13",
       "health": "27",
@@ -343,6 +345,32 @@
     },
     {
       "boot": "26",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "attached": "3",
+      "fallback": "1",
+      "missing": "2",
+      "isolated": "1",
+      "warnings": "4",
+      "criticals": "1",
+      "applied": "1"
+    },
+    {
+      "boot": "27",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "attached": "3",
+      "fallback": "1",
+      "missing": "2",
+      "isolated": "1",
+      "warnings": "4",
+      "criticals": "1",
+      "applied": "1"
+    },
+    {
+      "boot": "28",
       "health": "27",
       "safe_mode": "0",
       "panic": "0",
@@ -357,20 +385,6 @@
   ],
   "timeline": [
     {
-      "boot": "11",
-      "health": "2",
-      "safe_mode": "0",
-      "panic": "1",
-      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
-    },
-    {
-      "boot": "12",
-      "health": "27",
-      "safe_mode": "0",
-      "panic": "0",
-      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
-    },
-    {
       "boot": "13",
       "health": "27",
       "safe_mode": "0",
@@ -463,6 +477,20 @@
     },
     {
       "boot": "26",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
+    },
+    {
+      "boot": "27",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
+    },
+    {
+      "boot": "28",
       "health": "27",
       "safe_mode": "0",
       "panic": "0",
@@ -632,60 +660,6 @@
   ],
   "journal": [
     {
-      "boot": "23",
-      "event": "SUGGESTED",
-      "action": "ACT-001",
-      "result": "ok",
-      "risk": "low",
-      "reversible": "yes",
-      "code": "REC001"
-    },
-    {
-      "boot": "23",
-      "event": "SUGGESTED",
-      "action": "ACT-004",
-      "result": "ok",
-      "risk": "medium",
-      "reversible": "yes",
-      "code": "REC001"
-    },
-    {
-      "boot": "23",
-      "event": "CLEAN_BOOT",
-      "action": "none",
-      "result": "ok",
-      "risk": "low",
-      "reversible": "yes",
-      "code": "CLEANB"
-    },
-    {
-      "boot": "24",
-      "event": "SUGGESTED",
-      "action": "ACT-001",
-      "result": "ok",
-      "risk": "low",
-      "reversible": "yes",
-      "code": "REC001"
-    },
-    {
-      "boot": "24",
-      "event": "SUGGESTED",
-      "action": "ACT-004",
-      "result": "ok",
-      "risk": "medium",
-      "reversible": "yes",
-      "code": "REC001"
-    },
-    {
-      "boot": "24",
-      "event": "CLEAN_BOOT",
-      "action": "none",
-      "result": "ok",
-      "risk": "low",
-      "reversible": "yes",
-      "code": "CLEANB"
-    },
-    {
       "boot": "25",
       "event": "SUGGESTED",
       "action": "ACT-001",
@@ -732,6 +706,60 @@
     },
     {
       "boot": "26",
+      "event": "CLEAN_BOOT",
+      "action": "none",
+      "result": "ok",
+      "risk": "low",
+      "reversible": "yes",
+      "code": "CLEANB"
+    },
+    {
+      "boot": "27",
+      "event": "SUGGESTED",
+      "action": "ACT-001",
+      "result": "ok",
+      "risk": "low",
+      "reversible": "yes",
+      "code": "REC001"
+    },
+    {
+      "boot": "27",
+      "event": "SUGGESTED",
+      "action": "ACT-004",
+      "result": "ok",
+      "risk": "medium",
+      "reversible": "yes",
+      "code": "REC001"
+    },
+    {
+      "boot": "27",
+      "event": "CLEAN_BOOT",
+      "action": "none",
+      "result": "ok",
+      "risk": "low",
+      "reversible": "yes",
+      "code": "CLEANB"
+    },
+    {
+      "boot": "28",
+      "event": "SUGGESTED",
+      "action": "ACT-001",
+      "result": "ok",
+      "risk": "low",
+      "reversible": "yes",
+      "code": "REC001"
+    },
+    {
+      "boot": "28",
+      "event": "SUGGESTED",
+      "action": "ACT-004",
+      "result": "ok",
+      "risk": "medium",
+      "reversible": "yes",
+      "code": "REC001"
+    },
+    {
+      "boot": "28",
       "event": "CLEAN_BOOT",
       "action": "none",
       "result": "ok",
@@ -775,20 +803,13 @@
       "component": "RecoveryPolicy",
       "message": "Blocked high-risk action ACT-999 install_unknown_driver",
       "hint": "unknown driver installation is not allowed"
-    },
-    {
-      "code": "HEAP-102",
-      "severity": "warning",
-      "component": "KernelHeap",
-      "message": "Allocation rejected outside heap bounds",
-      "hint": "request less memory"
     }
   ],
   "modules": [
     {
       "module": "Kernel",
-      "version": "2.2",
-      "base": "2.2",
+      "version": "2.3",
+      "base": "2.3",
       "updated": "0"
     },
     {
@@ -942,11 +963,11 @@
     "timer_enabled": "yes",
     "keyboard_mode": "irq",
     "interrupts_enabled": "yes",
-    "interrupts_handled": "2591",
-    "last_vector": "32"
+    "interrupts_handled": "1444",
+    "last_vector": "33"
   },
   "kernel_timing": {
-    "tick_count": "2418",
+    "tick_count": "1339",
     "timer_irq": "enabled",
     "frequency_hz": "100"
   },
@@ -972,9 +993,9 @@
       "name": "kernel_shell",
       "state": "running",
       "priority": "3",
-      "ticks_run": "2418",
+      "ticks_run": "1339",
       "created_at_tick": "0",
-      "last_run_tick": "2418",
+      "last_run_tick": "1339",
       "flags": "1"
     },
     {
@@ -1281,6 +1302,10 @@
     "CPU-EXCEPTION": {
       "cause": "The CPU raised a synchronous exception. KamikazeOS captured the vector, error code, and instruction pointer before halting.",
       "action": "Do not attempt automatic recovery. Preserve the serial log, reboot, and investigate the recorded exception evidence."
+    },
+    "PAGE-FAULT": {
+      "cause": "The CPU raised a page fault. KamikazeOS captured the CR2 fault address, error code, and instruction pointer.",
+      "action": "Do not attempt automatic recovery. Preserve the serial log, reboot, and inspect the paging report and PAGE-FAULT evidence."
     },
     "APP-BLOCK-001": {
       "cause": "The app policy gate refused a requested app name that is not in the fixed compile-time registry, or an app without a registered entry point.",

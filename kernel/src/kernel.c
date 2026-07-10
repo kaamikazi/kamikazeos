@@ -16,6 +16,7 @@
 #include "kheap.h"
 #include "keyboard.h"
 #include "memory.h"
+#include "paging.h"
 #include "panic.h"
 #include "recovery_actions.h"
 #include "module_slots.h"
@@ -45,7 +46,7 @@ static void boot_banner(void)
     vga_print(" |_|\\_\\__,_|_| |_| |_|_|_|\\_\\__,_/___\\___|  \\___/|____/ \n");
     vga_print("\n");
     vga_set_color(VGA_DARK_GREY, VGA_BLACK);
-    vga_print("  v2.2.0 \"Heap Seed\"  --  bounded kernel heap foundation\n\n");
+    vga_print("  v2.3.0 \"Paging Gate\"  --  paging structures prepared\n\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
 }
 
@@ -89,7 +90,7 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
      */
     serial_init();
     errors_init();
-    serial_print("\n=== KamikazeOS v2.2.0 serial log ===\n");
+    serial_print("\n=== KamikazeOS v2.3.0 serial log ===\n");
 
     error_log(SEV_INFO, "BOOT-000", "kernel",
               "Kernel booted successfully", "no action needed");
@@ -156,6 +157,10 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
     kheap_init();
     report_ok(kheap_available() ? "fixed kernel bump heap initialized"
                                 : "kernel heap unavailable");
+
+    paging_init_structures();
+    report_ok(paging_validate_identity_map() ? "paging structures prepared (not enabled)"
+                                             : "paging identity map invalid");
 
     tinyfs_init();
     if (tinyfs_status()->formatted)

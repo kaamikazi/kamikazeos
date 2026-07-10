@@ -33,7 +33,7 @@
   <main id="dashboard" class="dashboard">
     <section class="card wide">
       <div class="card-head">
-        <h2>v2.2 Heap Seed Overview</h2>
+        <h2>v2.3 Paging Gate Overview</h2>
         <span id="v20-status" class="badge neutral">unknown</span>
       </div>
       <div id="v20-overview" class="metric-list"></div>
@@ -99,6 +99,14 @@
 
       <article class="card">
         <div class="card-head">
+          <h2>Paging</h2>
+          <span id="paging-status" class="badge neutral">unknown</span>
+        </div>
+        <div id="paging-panel" class="metric-list"></div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
           <h2>PIT Timer</h2>
           <span id="timer-status" class="badge neutral">unknown</span>
         </div>
@@ -136,6 +144,14 @@
         <span class="hint">read-only Multiboot regions or fallback map</span>
       </div>
       <div class="table-wrap"><table id="memory-map"></table></div>
+    </section>
+
+    <section class="card wide">
+      <div class="card-head">
+        <h2>Page Map</h2>
+        <span class="hint">read-only identity mapping summary</span>
+      </div>
+      <div class="table-wrap"><table id="page-map"></table></div>
     </section>
 
     <section class="card wide">
