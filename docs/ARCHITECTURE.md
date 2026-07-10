@@ -79,6 +79,9 @@ to QEMU as an IDE disk. Current fixed LBA use:
 The layout is deliberately fixed and small so it can be audited by inspection.
 Host manifest tools write only the package manifest slot range.
 
+The ATA boundary retains the LBA28 capacity returned by IDENTIFY. Null buffers,
+out-of-range sectors, device faults, and failed cache flushes are rejected.
+
 ## Package Update Model
 
 Package application is metadata-only. The OS does not load package binaries and

@@ -7,6 +7,7 @@
  */
 #include "shell.h"
 #include "app.h"
+#include "ata.h"
 #include "boot_snapshot.h"
 #include "errors.h"
 #include "gdt.h"
@@ -1360,6 +1361,9 @@ static void cmd_store(void)
     vga_print("  disk available        : ");
     vga_print(recovery_store_available() ? "yes (ATA primary master, PIO)\n"
                                          : "NO - CMOS fallback only\n");
+    vga_print("  disk sectors          : ");
+    vga_print_dec(ata_capacity_sectors());
+    vga_print("\n");
     vga_print("  backend mode          : ");
     vga_print(recovery_memory_backend());
     vga_print("\n  state block valid     : ");

@@ -8,6 +8,7 @@
  */
 #include "report.h"
 #include "app.h"
+#include "ata.h"
 #include "boot_snapshot.h"
 #include "errors.h"
 #include "ghostattach.h"
@@ -417,6 +418,7 @@ void report_send(void)
     serial_print("[RECOVERY_STORE]\n");
     serial_print("backend=");            serial_print(recovery_memory_backend());
     serial_print("\ndisk_available=");   serial_print(recovery_store_available() ? "1" : "0");
+    serial_print("\ndisk_capacity_sectors="); serial_print_dec(ata_capacity_sectors());
     serial_print("\nstate_valid=");      serial_print(recovery_store_valid() ? "1" : "0");
     serial_print("\njournal_count=");    serial_print_dec(recovery_journal_count());
     serial_print("\ndurable_boot_count=");serial_print_dec(m->boot_count);
