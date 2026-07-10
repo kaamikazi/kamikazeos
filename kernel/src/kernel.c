@@ -92,6 +92,7 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
     serial_init();
     errors_init();
     gdt_init();
+    idt_init_exceptions();
     serial_print("\n=== KamikazeOS v2.3.0 serial log ===\n");
 
     error_log(SEV_INFO, "BOOT-000", "kernel",
@@ -102,6 +103,8 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
     report_ok("structured error log");
     report_ok(gdt_is_loaded() ? "kernel-owned GDT loaded"
                               : "kernel GDT unavailable");
+    report_ok(idt_is_loaded() ? "early CPU exception IDT loaded"
+                              : "early exception IDT unavailable");
 
     /*
      * RecoveryMemory: read what previous boots left in NVRAM, BEFORE any
@@ -175,8 +178,8 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
         report_warn("TinyFS unavailable - kernel continues without files");
 
     interrupts_init();
-    report_ok(idt_is_loaded() ? "interrupt descriptor table loaded"
-                              : "interrupt descriptor table unavailable");
+    report_ok(idt_irq_gates_installed() ? "hardware IRQ gates installed"
+                                        : "hardware IRQ gates unavailable");
     report_ok(pic_is_remapped() ? "8259 PIC remapped to IRQ vectors 32-47"
                                 : "8259 PIC remap failed");
     report_ok(timer_is_enabled() ? "PIT timer IRQ0 configured at 100 Hz"

@@ -112,7 +112,7 @@ function renderV20Overview(data) {
   const box = $("v20-overview");
   box.innerHTML = "";
   box.appendChild(metric("Kernel", status.kernel_version || data.version));
-  box.appendChild(metric("Interrupts", `IDT ${status.idt_loaded || "?"}, PIC ${status.pic_remapped || "?"}, keyboard ${status.keyboard_mode || "?"}`));
+  box.appendChild(metric("Interrupts", `GDT ${status.gdt_loaded || "?"}, IDT ${status.idt_loaded || "?"}, PIC ${status.pic_remapped || "?"}, keyboard ${status.keyboard_mode || "?"}`));
   box.appendChild(metric("Memory", `map ${status.memory_map || data.kernel_memory?.map_available || "?"}, free pages ${status.free_pages || data.pages?.free_pages || "?"}`));
   box.appendChild(metric("Heap", `${status.heap_available || data.kernel_heap?.available || "?"}, remaining ${status.heap_remaining || data.kernel_heap?.remaining_bytes || "?"} bytes`));
   box.appendChild(metric("Paging", `${status.paging_mode || data.paging?.mode || "?"}`));
@@ -123,7 +123,9 @@ function renderV20Overview(data) {
   box.appendChild(metric("Last critical", status.last_critical || "none"));
   box.appendChild(metric("Demo next command", diag.recommended_command || "none"));
   box.appendChild(metric("Auto repair", diag.auto_repair || "no"));
-  const ready = status.idt_loaded === "yes" &&
+  const ready = status.gdt_loaded === "yes" &&
+    status.idt_loaded === "yes" &&
+    status.irq_gates_installed === "yes" &&
     status.pic_remapped === "yes" &&
     parseInt(status.free_pages || data.pages?.free_pages || "0", 10) > 0 &&
     (status.heap_available || data.kernel_heap?.available) === "yes" &&

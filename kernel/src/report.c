@@ -11,6 +11,7 @@
 #include "boot_snapshot.h"
 #include "errors.h"
 #include "ghostattach.h"
+#include "gdt.h"
 #include "idt.h"
 #include "interrupts.h"
 #include "kheap.h"
@@ -116,7 +117,9 @@ void report_send(void)
 
     serial_print("[SYSTEM_STATUS]\n");
     serial_print("kernel_version="); serial_print(module_version_of(MOD_KERNEL));
+    serial_print("\ngdt_loaded="); serial_print(gdt_is_loaded() ? "yes" : "no");
     serial_print("\nidt_loaded="); serial_print(idt_is_loaded() ? "yes" : "no");
+    serial_print("\nirq_gates_installed="); serial_print(idt_irq_gates_installed() ? "yes" : "no");
     serial_print("\npic_remapped="); serial_print(pic_is_remapped() ? "yes" : "no");
     serial_print("\ntimer_ticks="); serial_print_dec(timer_ticks());
     serial_print("\nkeyboard_mode="); serial_print(keyboard_mode_name());
@@ -266,7 +269,9 @@ void report_send(void)
     serial_print("\n");
 
     serial_print("[KERNEL_INTERRUPTS]\n");
-    serial_print("idt_loaded="); serial_print(idt_is_loaded() ? "yes" : "no");
+    serial_print("gdt_loaded="); serial_print(gdt_is_loaded() ? "yes" : "no");
+    serial_print("\nidt_loaded="); serial_print(idt_is_loaded() ? "yes" : "no");
+    serial_print("\nirq_gates_installed="); serial_print(idt_irq_gates_installed() ? "yes" : "no");
     serial_print("\npic_remapped="); serial_print(pic_is_remapped() ? "yes" : "no");
     serial_print("\ntimer_enabled="); serial_print(timer_is_enabled() ? "yes" : "no");
     serial_print("\nkeyboard_mode="); serial_print(keyboard_mode_name());

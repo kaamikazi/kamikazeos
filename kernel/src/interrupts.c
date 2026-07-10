@@ -37,7 +37,7 @@ void interrupts_init(void)
     last_vector = 0xFFFFFFFFu;
     last_exception = 0xFFFFFFFFu;
     last_error = 0;
-    idt_init();
+    idt_install_irq_gates();
     pic_init();
     timer_init(100);
     error_log(SEV_INFO, "INT-000", "interrupts",

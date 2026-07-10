@@ -9,6 +9,7 @@
 #include "app.h"
 #include "boot_snapshot.h"
 #include "errors.h"
+#include "gdt.h"
 #include "module_slots.h"
 #include "module_versions.h"
 #include "package_manifest.h"
@@ -826,7 +827,9 @@ static void cmd_interrupts(void)
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
     vga_print("Kernel Interrupt Status:\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print("  GDT loaded          : "); vga_print(gdt_is_loaded() ? "yes\n" : "no\n");
     vga_print("  IDT loaded          : "); vga_print(idt_is_loaded() ? "yes\n" : "no\n");
+    vga_print("  IRQ gates installed : "); vga_print(idt_irq_gates_installed() ? "yes\n" : "no\n");
     vga_print("  PIC remapped        : "); vga_print(pic_is_remapped() ? "yes\n" : "no\n");
     vga_print("  Timer IRQ enabled   : "); vga_print(timer_is_enabled() ? "yes\n" : "no\n");
     vga_print("  Keyboard mode       : "); vga_print(keyboard_mode_name()); vga_print("\n");

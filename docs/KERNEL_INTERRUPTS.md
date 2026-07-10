@@ -5,13 +5,13 @@ exception foundation to the 32-bit x86 kernel.
 
 ## Boot Sequence
 
-The Multiboot entry disables maskable interrupts before entering C. The kernel
-installs its own flat ring-0 GDT before constructing interrupt gates, so later
-interrupt handling does not depend on the bootloader's selector layout. After the
-console, serial log, durable recovery state, and Multiboot checks are ready,
-the kernel:
+The Multiboot entry disables maskable interrupts before entering C. After VGA,
+serial, and the structured error ring are initialized, the kernel installs its
+own flat ring-0 GDT and an exception-only IDT. This gives memory and storage
+initialization a diagnostic exception path without enabling hardware IRQs.
+Later, after durable state and TinyFS initialization, the kernel:
 
-1. Builds and loads a 256-entry Interrupt Descriptor Table with `lidt`.
+1. Installs IRQ gates 32-47 into the already-loaded IDT.
 2. Remaps the two legacy 8259 PICs to vectors 32-47.
 3. Masks all PIC lines, configures PIT channel 0 for 100 Hz, and unmasks IRQ0.
 4. Probes the PS/2 controller and unmasks IRQ1 when the keyboard is present.

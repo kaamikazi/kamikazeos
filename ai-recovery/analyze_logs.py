@@ -560,13 +560,18 @@ def main():
 
     if kernel_interrupts:
         print("\nKernel interrupt foundation:")
+        print(f"  * GDT loaded: {kernel_interrupts.get('gdt_loaded', '?')}")
         print(f"  * IDT loaded: {kernel_interrupts.get('idt_loaded', '?')}")
+        print(f"  * IRQ gates installed: "
+              f"{kernel_interrupts.get('irq_gates_installed', '?')}")
         print(f"  * PIC remapped: {kernel_interrupts.get('pic_remapped', '?')}")
         print(f"  * Timer IRQ enabled: {kernel_interrupts.get('timer_enabled', '?')}")
         print(f"  * Keyboard mode: {kernel_interrupts.get('keyboard_mode', '?')}")
         print(f"  * Interrupts handled at export: "
               f"{kernel_interrupts.get('interrupts_handled', '?')}")
-        for key, label in (("idt_loaded", "IDT"), ("pic_remapped", "PIC remap"),
+        for key, label in (("gdt_loaded", "GDT"), ("idt_loaded", "IDT"),
+                           ("irq_gates_installed", "IRQ gates"),
+                           ("pic_remapped", "PIC remap"),
                            ("timer_enabled", "PIT timer IRQ")):
             if kernel_interrupts.get(key) != "yes":
                 print(f"  !! WARNING: {label} is not operational.")

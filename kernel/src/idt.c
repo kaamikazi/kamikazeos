@@ -24,6 +24,7 @@ extern void isr_unknown(void);
 static struct idt_entry idt[IDT_ENTRIES];
 static struct idt_pointer idt_ptr;
 static int loaded;
+static int irq_gates_installed;
 
 static void idt_set_gate(uint8_t vector, void (*handler)(void))
 {
@@ -35,11 +36,13 @@ static void idt_set_gate(uint8_t vector, void (*handler)(void))
     idt[vector].offset_high = (uint16_t)(address >> 16);
 }
 
-void idt_init(void)
+void idt_init_exceptions(void)
 {
+    loaded = 0;
+    irq_gates_installed = 0;
     for (uint32_t i = 0; i < IDT_ENTRIES; i++)
         idt_set_gate((uint8_t)i, isr_unknown);
-    for (uint32_t i = 0; i < 34; i++)
+    for (uint32_t i = 0; i < 32; i++)
         idt_set_gate((uint8_t)i, interrupt_stub_table[i]);
 
     idt_ptr.limit = (uint16_t)(sizeof(idt) - 1);
@@ -48,7 +51,21 @@ void idt_init(void)
     loaded = 1;
 }
 
+void idt_install_irq_gates(void)
+{
+    if (!loaded)
+        return;
+    for (uint32_t i = 32; i < 48; i++)
+        idt_set_gate((uint8_t)i, interrupt_stub_table[i]);
+    irq_gates_installed = 1;
+}
+
 int idt_is_loaded(void)
 {
     return loaded;
+}
+
+int idt_irq_gates_installed(void)
+{
+    return irq_gates_installed;
 }
