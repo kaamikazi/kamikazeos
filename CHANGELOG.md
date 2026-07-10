@@ -3,12 +3,15 @@
 ## v2.3.0 - Paging Gate
 
 - Added 32-bit x86 paging structures for a low-memory identity map.
-- Added identity map validation and paging status APIs.
+- Added strict validation for the GDT, early exception IDT, page-directory and
+  page-table alignment/flags, unused PDEs, and required runtime ranges.
+- Added CR3 loading and the gated CR0.PG enable path.
 - Added `paging`, `page-map`, and guarded `pagefault-test confirm` commands.
-- Added `[PAGING]` and `[PAGE_MAP]` serial report sections.
+- Added `[PAGING]`, `[PAGE_MAP]`, and `[PAGE_FAULT]` serial report sections.
 - Added page fault CR2 evidence recording through the existing exception path.
 - Updated analyzer and Recovery Center with read-only paging visibility.
-- Paging is prepared but not enabled in this release.
+- Paging is enabled with a supervisor-writable 0-16 MiB identity map after the
+  validation gate passes; validation failure leaves paging disabled.
 - Added no userspace virtual memory, per-process address spaces, demand paging,
   copy-on-write, memory protection between tasks, networking, auto-repair,
   arbitrary execution, or self-modification.

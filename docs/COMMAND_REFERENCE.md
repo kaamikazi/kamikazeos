@@ -37,11 +37,12 @@ recovery and require the literal `confirm` argument.
 | `heap-test` | Run small safe bump allocation checks |
 | `heap-alloc <bytes>` | Allocate bytes from the bounded kernel heap |
 | `paging` | Show paging preparation and enable status |
-| `page-map` | Show compact identity mapping summary |
-| `pagefault-test confirm` | Refused unless paging is enabled; intended page fault test |
+| `page-map` | Show the identity map and every required runtime range |
+| `pagefault-test confirm` | Intentionally fault on an unmapped address and halt; disposable sessions only |
 
-These commands do not enable virtual memory, page isolation, `free()`,
-malloc-compatible behavior, or userspace address spaces.
+Paging is enabled only through the boot-time validation gate. These commands
+do not add page isolation, `free()`, malloc-compatible behavior, or userspace
+address spaces.
 
 ## Kernel Tasks
 

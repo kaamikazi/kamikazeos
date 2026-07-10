@@ -105,8 +105,8 @@ Notes for narration:
   not virtual memory or heap allocation.
 - `heap`, `heap-test`, and `heap-alloc` exercise a bounded kernel bump heap.
   There is no `free()` or malloc-compatible allocator yet.
-- `paging` and `page-map` show prepared identity paging structures. Paging is
-  not enabled in v2.3.
+- `paging` and `page-map` show the enabled identity map, active CR3, strict
+  validation state, and required runtime ranges.
 - `run tinyfs-demo` runs a fixed built-in kernel-managed app. It does not load
   executable code from disk.
 

@@ -32,8 +32,8 @@ real OS and tooling mechanics, but avoids dangerous update behavior.
 - Memory status, memory map, and page reports in shell, analyzer, and dashboard.
 - Bounded fixed-region kernel bump heap.
 - Heap allocation bounds checks, stats, serial report, analyzer, and dashboard.
-- Prepared 32-bit x86 paging structures.
-- Identity page-map validation and paging reports.
+- Enabled 32-bit x86 paging with a 0-16 MiB supervisor identity map.
+- Strict identity-map/runtime-range validation and CR3 verification.
 - Page fault CR2 evidence path when a page fault occurs.
 - COM1 serial logs and boot reports.
 - Structured kernel error log.
@@ -138,10 +138,12 @@ per-process address spaces.
 
 ## v2.3 Paging Boundary
 
-v2.3 prepares and validates paging data structures, but does not enable paging.
-The kernel still runs with paging disabled. There are no userspace address
-spaces, per-process page tables, demand paging, copy-on-write, or memory
-protection between tasks.
+v2.3 loads CR3 and enables CR0.PG only after the kernel-owned GDT, early
+exception IDT, page structures, flags, and every required runtime range pass
+validation. The mapping is identity-only and supervisor-writable. There are no
+userspace address spaces, per-process page tables, demand paging,
+copy-on-write, or memory protection between tasks. Page faults are diagnosed
+and halt safely; they are not recovered.
 
 ## Package Transaction Boundary
 
