@@ -253,10 +253,14 @@ void report_send(void)
     serial_print("\nenabled="); serial_print(pg_status->enabled ? "yes" : "no");
     serial_print("\nmode="); serial_print(pg_status->mode);
     serial_print("\nidentity_map_valid="); serial_print(pg_status->identity_map_valid ? "yes" : "no");
+    serial_print("\nrequired_ranges_valid="); serial_print(pg_status->required_ranges_valid ? "yes" : "no");
+    serial_print("\nprerequisites_valid="); serial_print(pg_status->prerequisites_valid ? "yes" : "no");
     serial_print("\npage_directory="); serial_print_dec(pg_status->page_directory);
+    serial_print("\nactive_cr3="); serial_print_dec(pg_status->active_cr3);
     serial_print("\nmapped_start="); serial_print_dec(pg_status->mapped_start);
     serial_print("\nmapped_end="); serial_print_dec(pg_status->mapped_end);
     serial_print("\npage_fault_handler="); serial_print(pg_status->page_fault_handler);
+    serial_print("\nvalidation_error="); serial_print(pg_status->validation_error);
     serial_print("\nlast_fault_address=");
     if (pg_status->last_fault_present) serial_print_dec(pg_status->last_fault_address);
     else serial_print("none");
@@ -273,6 +277,28 @@ void report_send(void)
     serial_print(";flags=present,writable,supervisor");
     serial_print(";validated="); serial_print(pg_status->identity_map_valid ? "yes" : "no");
     serial_print("\n");
+    for (uint32_t i = 0; i < paging_range_count(); i++) {
+        struct paging_range range;
+        if (!paging_range_get(i, &range))
+            continue;
+        serial_print("type=required_identity;name="); serial_print_field(range.name);
+        serial_print(";virtual_start="); serial_print_dec(range.start);
+        serial_print(";virtual_end="); serial_print_dec(range.end);
+        serial_print(";physical_start="); serial_print_dec(range.start);
+        serial_print(";physical_end="); serial_print_dec(range.end);
+        serial_print(";flags=present,writable,supervisor");
+        serial_print(";validated="); serial_print(range.validated ? "yes" : "no");
+        serial_print("\n");
+    }
+
+    serial_print("[PAGE_FAULT]\n");
+    serial_print("present="); serial_print(pg_status->last_fault_present ? "yes" : "no");
+    serial_print("\nfault_address=");
+    if (pg_status->last_fault_present) serial_print_dec(pg_status->last_fault_address);
+    else serial_print("none");
+    serial_print("\nerror_code="); serial_print_dec(pg_status->last_fault_error);
+    serial_print("\neip="); serial_print_dec(pg_status->last_fault_eip);
+    serial_print("\nrecovery_attempted=no\n");
 
     serial_print("[KERNEL_INTERRUPTS]\n");
     serial_print("gdt_loaded="); serial_print(gdt_is_loaded() ? "yes" : "no");

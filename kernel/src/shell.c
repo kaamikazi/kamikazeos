@@ -522,10 +522,14 @@ static void cmd_paging(void)
     vga_print("  enabled               : "); vga_print(pg->enabled ? "yes" : "no"); vga_print("\n");
     vga_print("  mode                  : "); vga_print(pg->mode); vga_print("\n");
     vga_print("  identity map validated: "); vga_print(pg->identity_map_valid ? "yes" : "no"); vga_print("\n");
+    vga_print("  required ranges valid : "); vga_print(pg->required_ranges_valid ? "yes" : "no"); vga_print("\n");
+    vga_print("  GDT and exception IDT : "); vga_print(pg->prerequisites_valid ? "ready" : "missing"); vga_print("\n");
     vga_print("  page directory        : "); vga_print_hex(pg->page_directory); vga_print("\n");
+    vga_print("  active CR3            : "); vga_print_hex(pg->active_cr3); vga_print("\n");
     vga_print("  mapped start          : "); vga_print_hex(pg->mapped_start); vga_print("\n");
     vga_print("  mapped end            : "); vga_print_hex(pg->mapped_end); vga_print("\n");
     vga_print("  page fault handler    : "); vga_print(pg->page_fault_handler); vga_print("\n");
+    vga_print("  validation error      : "); vga_print(pg->validation_error); vga_print("\n");
     vga_print("  last fault address    : ");
     if (pg->last_fault_present) vga_print_hex(pg->last_fault_address);
     else vga_print("none");
@@ -538,7 +542,7 @@ static void cmd_page_map(void)
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
     vga_print("Page Map Summary:\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
-    vga_print("  map type       : identity\n");
+    vga_print("  map type       : supervisor identity\n");
     vga_print("  mode           : "); vga_print(pg->mode); vga_print("\n");
     vga_print("  virtual start  : "); vga_print_hex(pg->mapped_start); vga_print("\n");
     vga_print("  virtual end    : "); vga_print_hex(pg->mapped_end); vga_print("\n");
@@ -546,7 +550,17 @@ static void cmd_page_map(void)
     vga_print("  physical end   : "); vga_print_hex(pg->mapped_end); vga_print("\n");
     vga_print("  flags          : present,writable,supervisor\n");
     vga_print("  validated      : "); vga_print(pg->identity_map_valid ? "yes" : "no"); vga_print("\n");
-    vga_print("Paging is prepared but not enabled in v2.3.\n");
+    vga_print("\nRequired runtime ranges:\n");
+    for (uint32_t i = 0; i < paging_range_count(); i++) {
+        struct paging_range range;
+        if (!paging_range_get(i, &range))
+            continue;
+        vga_print("  "); vga_print(range.name); vga_print("  ");
+        vga_print_hex(range.start); vga_print("-"); vga_print_hex(range.end);
+        vga_print("  "); vga_print(range.validated ? "mapped" : "INVALID");
+        vga_print("\n");
+    }
+    vga_print("Paging is enabled only after every required range validates.\n");
 }
 
 static void cmd_pagefault_test(const char *arg)
@@ -557,10 +571,11 @@ static void cmd_pagefault_test(const char *arg)
         return;
     }
     if (!paging_is_enabled()) {
-        vga_print("Page fault test refused: paging is not enabled in v2.3.\n");
-        vga_print("The paging module is prepared_not_enabled by design.\n");
+        vga_print("Page fault test refused: paging is not enabled.\n");
+        vga_print("Inspect paging validation status before testing faults.\n");
         return;
     }
+    vga_print("Triggering an intentional unmapped access; the kernel will halt.\n");
     paging_trigger_pagefault_test();
 }
 

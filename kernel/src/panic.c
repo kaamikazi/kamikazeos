@@ -91,6 +91,13 @@ void kpanic_exception(uint32_t vector, uint32_t error_code,
         serial_print_hex32(fault_address);
     }
     serial_print("\n");
+    if (vector == 14) {
+        serial_print("[PAGE_FAULT]\npresent=yes\nfault_address=");
+        serial_print_hex32(fault_address);
+        serial_print("\nerror_code="); serial_print_hex32(error_code);
+        serial_print("\neip="); serial_print_hex32(eip);
+        serial_print("\nrecovery_attempted=no\n");
+    }
     record_panic();
 
     vga_set_color(VGA_WHITE, VGA_RED);
