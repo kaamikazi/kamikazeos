@@ -125,3 +125,10 @@ reported as such.
 The analyzer and dashboard consume serial reports. They do not talk back to the
 kernel, do not write the disk image, and do not apply repairs. Their strongest
 action is displaying or copying a command for a human to type into the shell.
+
+Report records use newline-delimited sections and semicolon-delimited
+`key=value` fields. Manifest validation rejects report delimiters and control
+bytes in imported fields. As defense in depth, dynamic serial field values are
+also sanitized by replacing `;`, `=`, and control bytes with `?`, preserving
+the existing parser grammar. Host recommendations fail closed when required
+policy or signature fields are missing.

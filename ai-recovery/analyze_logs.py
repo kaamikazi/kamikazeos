@@ -939,8 +939,8 @@ def main():
                 blocked_pkgs.append(p)
             elif p.get("status") == "failed":
                 failed_pkgs.append(p)
-            elif p.get("policy_result", "allowed") == "allowed" and \
-                    p.get("signature_valid", "yes") == "yes" and \
+            elif p.get("policy_result") == "allowed" and \
+                    p.get("signature_valid") == "yes" and \
                     p.get("status") in ("available", "suggested"):
                 running = mod_ver.get(target_to_module.get(p.get("target"), ""))
                 if running == p.get("from"):

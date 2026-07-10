@@ -141,9 +141,9 @@ void report_send(void)
     serial_print("\npackage_trust_mode=host_ed25519_real_kernel_simulated");
     serial_print("\nlast_critical=");
     if (report_last_critical(&last_critical)) {
-        serial_print(last_critical.code);
+        serial_print_field(last_critical.code);
         serial_print(":");
-        serial_print(last_critical.component);
+        serial_print_field(last_critical.component);
     } else {
         serial_print("none");
     }
@@ -456,7 +456,7 @@ void report_send(void)
             serial_print(e.risk_level == 0 ? "low" :
                          e.risk_level == 1 ? "medium" : "high");
             serial_print(";reversible="); serial_print(e.reversible ? "yes" : "no");
-            serial_print(";code=");       serial_print(e.short_code);
+            serial_print(";code=");       serial_print_field(e.short_code);
             serial_print("\n");
         }
     }
@@ -551,9 +551,9 @@ void report_send(void)
     serial_print("[MODULE_VERSIONS]\n");
     for (uint32_t i = 0; i < module_count(); i++) {
         const struct module_version *mv = module_get(i);
-        serial_print("module=");  serial_print(mv->name);
-        serial_print(";version=");serial_print(mv->version);
-        serial_print(";base=");   serial_print(mv->base_version);
+        serial_print("module=");  serial_print_field(mv->name);
+        serial_print(";version=");serial_print_field(mv->version);
+        serial_print(";base=");   serial_print_field(mv->base_version);
         serial_print(";updated=");serial_print(mv->updated ? "1" : "0");
         serial_print("\n");
     }
@@ -571,11 +571,11 @@ void report_send(void)
     serial_print("\n");
     for (uint32_t i = 0; i < manifest_count(); i++) {
         const struct pkg_manifest *p = manifest_get(i);
-        serial_print("id=");        serial_print(p->package_id);
-        serial_print(";name=");     serial_print(p->name);
-        serial_print(";target=");   serial_print(p->target_component);
-        serial_print(";from=");     serial_print(p->from_version);
-        serial_print(";to=");       serial_print(p->to_version);
+        serial_print("id=");        serial_print_field(p->package_id);
+        serial_print(";name=");     serial_print_field(p->name);
+        serial_print(";target=");   serial_print_field(p->target_component);
+        serial_print(";from=");     serial_print_field(p->from_version);
+        serial_print(";to=");       serial_print_field(p->to_version);
         serial_print(";risk=");     serial_print(risk_level_name(p->risk_level));
         serial_print(";reversible=");serial_print(p->reversible ? "yes" : "no");
         serial_print(";signature=");serial_print(signature_status_name(p->signature_status));
@@ -590,13 +590,13 @@ void report_send(void)
         serial_print(";signature_mode=");
         serial_print(manifest_signature_mode(p));
         serial_print(";signer_key=");
-        serial_print(p->signer_key_hash[0] ? p->signer_key_hash : "none");
+        serial_print_field(p->signer_key_hash[0] ? p->signer_key_hash : "none");
         serial_print(";signed_payload=");
-        serial_print(p->signed_payload_hash[0] ? p->signed_payload_hash : "none");
+        serial_print_field(p->signed_payload_hash[0] ? p->signed_payload_hash : "none");
         serial_print(";policy_result=");
         serial_print(manifest_policy_result(p));
         serial_print(";block_reason=");
-        serial_print(manifest_block_reason(p));
+        serial_print_field(manifest_block_reason(p));
         serial_print(";status=");
         serial_print(pkg_status_name(recovery_package_status(p)));
         serial_print("\n");
@@ -607,7 +607,7 @@ void report_send(void)
         const struct pkg_manifest *p = manifest_get(i);
         const char *reason;
         int ok = manifest_verify(p, &reason);
-        serial_print("id=");          serial_print(p->package_id);
+        serial_print("id=");          serial_print_field(p->package_id);
         serial_print(";payload=");    serial_print(payload_type_name(p->payload_type));
         serial_print(";trust_anchor=");
         serial_print(p->trust_anchor_id == TRUST_ANCHOR_ID ? TRUST_ANCHOR_NAME
@@ -622,29 +622,29 @@ void report_send(void)
         serial_print(";signature_mode=");
         serial_print(manifest_signature_mode(p));
         serial_print(";signer_key=");
-        serial_print(p->signer_key_hash[0] ? p->signer_key_hash : "none");
+        serial_print_field(p->signer_key_hash[0] ? p->signer_key_hash : "none");
         serial_print(";signed_payload=");
-        serial_print(p->signed_payload_hash[0] ? p->signed_payload_hash : "none");
+        serial_print_field(p->signed_payload_hash[0] ? p->signed_payload_hash : "none");
         serial_print(";verifies=");   serial_print(ok ? "yes" : "no");
         serial_print(";policy_result=");
         serial_print(manifest_policy_result(p));
-        serial_print(";reason=");     serial_print(reason);
+        serial_print(";reason=");     serial_print_field(reason);
         serial_print(";block_reason=");
-        serial_print(manifest_block_reason(p));
+        serial_print_field(manifest_block_reason(p));
         serial_print("\n");
     }
 
     serial_print("[PACKAGE_STATES]\n");
     for (uint32_t i = 0; i < package_state_count(); i++) {
         const struct pkg_pstate *s = package_state_get(i);
-        serial_print("id=");        serial_print(s->package_id);
+        serial_print("id=");        serial_print_field(s->package_id);
         serial_print(";approved="); serial_print(s->approved ? "1" : "0");
         serial_print(";applied=");  serial_print(s->applied ? "1" : "0");
         serial_print(";verified="); serial_print(s->verified ? "1" : "0");
         serial_print(";failed=");   serial_print(s->failed ? "1" : "0");
         serial_print(";rolled_back=");serial_print(s->rolled_back ? "1" : "0");
-        serial_print(";from=");     serial_print(s->from_version);
-        serial_print(";to=");       serial_print(s->to_version);
+        serial_print(";from=");     serial_print_field(s->from_version);
+        serial_print(";to=");       serial_print_field(s->to_version);
         serial_print(";manifest_identity="); serial_print_dec(s->manifest_identity);
         serial_print(";transaction_phase=");
         serial_print(package_transaction_phase_name(s->transaction_phase));
@@ -655,11 +655,11 @@ void report_send(void)
     serial_print("[MODULE_SLOTS]\n");
     for (uint32_t i = 0; i < module_slot_count(); i++) {
         const struct module_slot *s = module_slot_get(i);
-        serial_print("module=");    serial_print(module_get((uint32_t)s->module)->name);
+        serial_print("module=");    serial_print_field(module_get((uint32_t)s->module)->name);
         serial_print(";active=");   serial_print(s->active_slot == SLOT_A ? "A" : "B");
-        serial_print(";slot_a=");   serial_print(s->slot_a_version);
+        serial_print(";slot_a=");   serial_print_field(s->slot_a_version);
         serial_print(";slot_a_verified="); serial_print(s->slot_a_verified ? "1" : "0");
-        serial_print(";slot_b=");   serial_print(s->slot_b_version);
+        serial_print(";slot_b=");   serial_print_field(s->slot_b_version);
         serial_print(";slot_b_verified="); serial_print(s->slot_b_verified ? "1" : "0");
         serial_print(";rollback=");
         serial_print(s->rollback_slot == SLOT_NONE ? "none" :
@@ -712,11 +712,11 @@ void report_send(void)
     serial_print("[ERROR_LOG]\n");
     struct kerror e;
     for (uint32_t i = 0; error_get(i, &e); i++) {
-        serial_print("code=");       serial_print(e.code);
+        serial_print("code=");       serial_print_field(e.code);
         serial_print(";severity=");  serial_print(severity_name(e.severity));
-        serial_print(";component="); serial_print(e.component);
-        serial_print(";message=");   serial_print(e.message);
-        serial_print(";hint=");      serial_print(e.hint);
+        serial_print(";component="); serial_print_field(e.component);
+        serial_print(";message=");   serial_print_field(e.message);
+        serial_print(";hint=");      serial_print_field(e.hint);
         serial_print("\n");
     }
 

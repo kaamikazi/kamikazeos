@@ -112,8 +112,8 @@ def main():
         pid = p.get("id")
         if not pid:
             continue
-        if p.get("policy_result", "allowed") == "allowed" and \
-           p.get("signature_valid", "yes") == "yes" and \
+        if p.get("policy_result") == "allowed" and \
+           p.get("signature_valid") == "yes" and \
            p.get("status") in ("available", "suggested") and \
            mod_ver.get(target_to_module.get(p.get("target"), "")) == p.get("from"):
             pkg_recs.append({
