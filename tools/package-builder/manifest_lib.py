@@ -87,6 +87,18 @@ MODULES = {
     "Recovery Center Schema": 6,
 }
 MODULE_NAMES = {v: k for k, v in MODULES.items()}
+UPDATABLE_MODULES = {
+    "GhostAttach", "RecoveryEngine", "AI Recovery Core Rules",
+    "Recovery Center Schema",
+}
+
+MANIFEST_REQUIRED_FIELDS = {
+    "package_id", "name", "description", "target_component",
+    "target_module", "from_version", "to_version", "risk", "reversible",
+    "requires_approval", "signature_status", "trust_anchor_id",
+    "manifest_version", "payload_type",
+}
+MANIFEST_OPTIONAL_FIELDS = {"checksum", "signature"}
 
 
 @dataclass
@@ -110,6 +122,17 @@ class Manifest:
 
     @classmethod
     def from_json(cls, data: dict[str, Any]) -> "Manifest":
+        if not isinstance(data, dict):
+            raise ValueError("manifest root must be a JSON object")
+        missing = MANIFEST_REQUIRED_FIELDS - set(data)
+        extra = set(data) - MANIFEST_REQUIRED_FIELDS - MANIFEST_OPTIONAL_FIELDS
+        if missing:
+            raise ValueError(f"missing manifest fields: {', '.join(sorted(missing))}")
+        if extra:
+            raise ValueError(f"unknown manifest fields: {', '.join(sorted(extra))}")
+        if not isinstance(data["reversible"], bool) or \
+                not isinstance(data["requires_approval"], bool):
+            raise ValueError("reversible and requires_approval must be JSON booleans")
         return cls(
             package_id=str(data["package_id"]),
             name=str(data["name"]),
@@ -119,11 +142,11 @@ class Manifest:
             from_version=str(data["from_version"]),
             to_version=str(data["to_version"]),
             risk=str(data["risk"]),
-            reversible=bool(data["reversible"]),
-            requires_approval=bool(data.get("requires_approval", True)),
+            reversible=data["reversible"],
+            requires_approval=data["requires_approval"],
             signature_status=str(data["signature_status"]),
             trust_anchor_id=int(data["trust_anchor_id"]),
-            manifest_version=int(data.get("manifest_version", 1)),
+            manifest_version=int(data["manifest_version"]),
             payload_type=str(data["payload_type"]),
             checksum=(None if data.get("checksum") is None else int(data["checksum"])),
             signature=data.get("signature"),
@@ -221,6 +244,11 @@ def validate_manifest(m: Manifest) -> tuple[bool, list[str], list[str]]:
             return
         if len(raw) >= cap:
             errors.append(f"{label} too long: max {cap - 1} bytes")
+        if not raw:
+            errors.append(f"{label} must not be empty")
+        if any(byte < 0x20 or byte > 0x7E or byte in (ord(";"), ord("="))
+               for byte in raw):
+            errors.append(f"{label} contains a control character or report delimiter")
 
     check_ascii_len("package_id", m.package_id, PM_ID_MAX)
     check_ascii_len("name", m.name, PM_NAME_MAX)
@@ -241,11 +269,19 @@ def validate_manifest(m: Manifest) -> tuple[bool, list[str], list[str]]:
         errors.append(f"payload_type must be one of: {', '.join(PAYLOADS)}")
     if m.target_module not in MODULES:
         errors.append(f"target_module must be one of: {', '.join(MODULES)}")
+    elif m.target_module not in UPDATABLE_MODULES:
+        errors.append("target_module must have a managed A/B slot")
     if not 0 <= m.trust_anchor_id <= 255:
         errors.append("trust_anchor_id must fit in one byte")
-    if not 0 <= m.manifest_version <= 255:
-        errors.append("manifest_version must fit in one byte")
-    if m.checksum is not None and m.checksum != m.expected_checksum():
+    if m.manifest_version != 1:
+        errors.append("manifest_version must be 1")
+    if not m.requires_approval:
+        errors.append("unsafe: packages must require explicit human approval")
+    if m.from_version == m.to_version:
+        errors.append("from_version and to_version must differ")
+    enums_valid = m.risk in RISKS and m.signature_status in SIGNATURES and \
+        m.payload_type in PAYLOADS and m.target_module in MODULES
+    if m.checksum is not None and enums_valid and m.checksum != m.expected_checksum():
         errors.append(
             f"checksum mismatch: manifest has {m.checksum}, expected {m.expected_checksum()}"
         )
