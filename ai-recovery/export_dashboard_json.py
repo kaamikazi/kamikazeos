@@ -20,7 +20,8 @@ import sys
 from pathlib import Path
 
 # Reuse the analyzer's parsing — one parser, one format contract.
-from analyze_logs import RULES, extract_last_boot_report, parse_kv_line, parse_report
+from analyze_logs import (RULES, extract_last_boot_report,
+                          parse_page_fault_evidence, parse_kv_line, parse_report)
 
 
 def build_recommendations(memory, actions, suggestions):
@@ -86,7 +87,8 @@ def main():
         print(f"error: log file not found: {log_path} (boot the OS first)")
         return 2
 
-    lines, _after, found = extract_last_boot_report(log_path.read_text(errors="replace"))
+    raw_text = log_path.read_text(errors="replace")
+    lines, _after, found = extract_last_boot_report(raw_text)
     if not found:
         print("error: no complete boot report in the log - run export-logs in the OS")
         return 2
@@ -100,6 +102,9 @@ def main():
      kernel_interrupts, kernel_timing, kernel_exceptions,
      kernel_tasks, task_rows, tinyfs, tinyfs_files,
      apps, app_rows, app_log, system_status, diagnostics) = parse_report(lines)
+    page_fault = parse_page_fault_evidence(raw_text)
+    if page_fault:
+        paging.update(page_fault)
 
     # Package recommendations: same catalog-only rule as actions.
     pkg_recs = []
@@ -152,6 +157,7 @@ def main():
         "pages": pages,
         "kernel_heap": kernel_heap,
         "paging": paging,
+        "page_fault": page_fault,
         "page_map": page_map,
         "store": store,
         "memory": memory,

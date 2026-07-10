@@ -146,17 +146,21 @@ function renderPaging(data) {
   box.appendChild(metric("Enabled", paging.enabled || "?"));
   box.appendChild(metric("Mode", paging.mode || "prepared_not_enabled"));
   box.appendChild(metric("Identity valid", paging.identity_map_valid || "?"));
+  box.appendChild(metric("Required ranges", paging.required_ranges_valid || "?"));
   box.appendChild(metric("Directory", paging.page_directory || "?"));
+  box.appendChild(metric("Active CR3", paging.active_cr3 || "?"));
   box.appendChild(metric("Mapped range", `${paging.mapped_start || "?"} - ${paging.mapped_end || "?"}`));
   box.appendChild(metric("Fault handler", paging.page_fault_handler || "?"));
-  box.appendChild(metric("Last fault", paging.last_fault_address || "none"));
-  const valid = paging.prepared === "yes" && paging.identity_map_valid === "yes";
+  box.appendChild(metric("Validation error", paging.validation_error || "none"));
+  const valid = paging.prepared === "yes" && paging.identity_map_valid === "yes" &&
+    paging.required_ranges_valid === "yes";
   setBadge("paging-status", paging.enabled === "yes" ? "enabled" :
     valid ? "prepared" : "invalid",
     valid ? (paging.enabled === "yes" ? "good" : "info") : "bad");
 
   renderTable("page-map", data.page_map || [], [
     { key: "type", label: "Type" },
+    { key: "name", label: "Range", wrap: true },
     { key: "virtual_start", label: "Virtual Start" },
     { key: "virtual_end", label: "Virtual End" },
     { key: "physical_start", label: "Physical Start" },
@@ -164,6 +168,17 @@ function renderPaging(data) {
     { key: "flags", label: "Flags", wrap: true },
     { key: "validated", label: "Validated", badge: true },
   ]);
+
+  const fault = data.page_fault || {};
+  const fbox = $("page-fault-panel");
+  fbox.innerHTML = "";
+  fbox.appendChild(metric("Present", fault.present || "no"));
+  fbox.appendChild(metric("Fault address", fault.fault_address || "none"));
+  fbox.appendChild(metric("Error code", fault.error_code || "0"));
+  fbox.appendChild(metric("Instruction", fault.eip || "none"));
+  fbox.appendChild(metric("Recovery attempted", fault.recovery_attempted || "no"));
+  setBadge("page-fault-status", fault.present === "yes" ? "fault recorded" : "none recorded",
+    fault.present === "yes" ? "bad" : "good");
 }
 
 function renderHeap(data) {

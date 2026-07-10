@@ -181,6 +181,17 @@ RULES = {
         "action": "Do not attempt automatic recovery. Preserve the serial log, "
                   "reboot, and inspect the paging report and PAGE-FAULT evidence.",
     },
+    "PAGE-101": {
+        "cause":  "Strict paging validation rejected at least one required "
+                  "identity-mapped runtime range or prerequisite.",
+        "action": "Keep paging disabled. Inspect `paging` and `page-map`; do "
+                  "not bypass the enable gate.",
+    },
+    "PAGE-102": {
+        "cause":  "The CPU paging enable state or active CR3 did not match "
+                  "the validated page directory.",
+        "action": "Stop paging tests and inspect CR0/CR3 handling manually.",
+    },
     "APP-BLOCK-001": {
         "cause":  "The app policy gate refused a requested app name that is not "
                   "in the fixed compile-time registry, or an app without a "
@@ -245,6 +256,28 @@ def extract_last_boot_report(text: str):
     return report_lines, after_lines, True
 
 
+def parse_page_fault_evidence(text: str):
+    """Return the last PAGE_FAULT section, including panic evidence emitted
+    after a completed boot report."""
+    latest = {}
+    current = None
+    for raw in text.splitlines():
+        line = raw.strip()
+        if line == "[PAGE_FAULT]":
+            if current:
+                latest = current
+            current = {}
+        elif current is not None and line.startswith("["):
+            if current:
+                latest = current
+            current = None
+        elif current is not None and line:
+            current.update(parse_kv_line(line))
+    if current:
+        latest = current
+    return latest
+
+
 def parse_report(lines):
     """Split the report into its sections."""
     meta, devices, drivers, events = {}, [], [], []
@@ -280,6 +313,7 @@ def parse_report(lines):
         "[KERNEL_HEAP]": "kernel_heap",
         "[PAGING]": "paging",
         "[PAGE_MAP]": "page_map",
+        "[PAGE_FAULT]": "paging",
         "[KERNEL_INTERRUPTS]": "kernel_interrupts",
         "[KERNEL_TIMING]": "kernel_timing",
         "[KERNEL_EXCEPTIONS]": "kernel_exceptions",
@@ -478,6 +512,10 @@ def main():
                   "report was exported (merged below).")
             events.extend(parse_kv_line(l) for l in after_lines)
 
+    page_fault = parse_page_fault_evidence(text)
+    if page_fault:
+        paging.update(page_fault)
+
     if meta:
         print(f"\nKernel version : {meta.get('version', '?')}")
         print(f"GhostAttach    : {meta.get('scan_total', '?')} devices - "
@@ -537,18 +575,22 @@ def main():
         print(f"  * Enabled: {paging.get('enabled', '?')}")
         print(f"  * Mode: {paging.get('mode', '?')}")
         print(f"  * Identity map valid: {paging.get('identity_map_valid', '?')}")
+        print(f"  * Required ranges valid: {paging.get('required_ranges_valid', '?')}")
         print(f"  * Page directory: {paging.get('page_directory', '?')}")
+        print(f"  * Active CR3: {paging.get('active_cr3', '?')}")
         print(f"  * Mapped range: {paging.get('mapped_start', '?')} - "
               f"{paging.get('mapped_end', '?')}")
         print(f"  * Page fault handler: {paging.get('page_fault_handler', '?')}")
-        if paging.get("enabled") != "yes":
-            print("  * Paging structures are prepared but CR0.PG is not enabled.")
+        if paging.get("enabled") == "yes":
+            print("  * CR0.PG is enabled with the validated identity map.")
+        else:
+            print("  * Enable gate held; kernel continued with paging disabled.")
         if paging.get("identity_map_valid") != "yes":
             print("  !! WARNING: identity map validation failed.")
-        if paging.get("last_fault_address", "none") != "none":
+        if paging.get("present") == "yes":
             print(f"  !! Page fault evidence: address "
-                  f"{paging.get('last_fault_address')} error "
-                  f"{paging.get('last_fault_error', '?')}")
+                  f"{paging.get('fault_address')} error "
+                  f"{paging.get('error_code', '?')} eip {paging.get('eip', '?')}")
 
     if kernel_heap:
         print("\nKernel heap foundation:")
