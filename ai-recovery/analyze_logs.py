@@ -901,6 +901,17 @@ def main():
             print("   Run `slots` inside KamikazeOS to find it, then verify-pkg.")
         print()
 
+    staged_states = [s for s in pkg_states
+                     if s.get("transaction_phase", "committed") not in
+                     ("committed", "legacy_unbound")]
+    if staged_states:
+        print("!! Package transaction evidence remains staged:")
+        for state in staged_states:
+            print(f"  * {state.get('id', '?')}: "
+                  f"{state.get('transaction_phase', '?')}")
+        print("   No automatic slot change is recommended. Reboot once to let the")
+        print("   kernel reconcile metadata, then inspect `packages` and `slots`.\n")
+
     # ----- RecoveryPackage analysis ------------------------------------
     if modules:
         print("Module versions:")

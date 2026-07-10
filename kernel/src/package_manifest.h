@@ -94,6 +94,7 @@ int  manifest_verify(const struct pkg_manifest *m, const char **reason);
 int  manifest_checksum_valid(const struct pkg_manifest *m);
 int  manifest_trust_valid(const struct pkg_manifest *m);
 int  manifest_signature_valid(const struct pkg_manifest *m);
+uint32_t manifest_identity(const struct pkg_manifest *m);
 const char *manifest_signature_mode(const struct pkg_manifest *m);
 const char *manifest_policy_result(const struct pkg_manifest *m);
 const char *manifest_block_reason(const struct pkg_manifest *m);

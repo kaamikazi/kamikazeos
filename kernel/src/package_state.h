@@ -6,8 +6,10 @@
  * approved/applied/verified/failed/rolled_back survive a full restart,
  * along with the slot transition and health baseline needed to verify
  * or roll back an update applied BEFORE the reboot. That's the property
- * a real updater needs most: the machine can die mid-update and still
- * know exactly where it stood.
+ * Hardened builds retain that base format, add transaction metadata in its
+ * reserved tail, and mirror the sector at LBA 49. Logical transitions are
+ * staged before slot metadata changes and reconciled after interruption.
+ * This remains metadata-only and is not a general transactional filesystem.
  */
 #ifndef KMZ_PACKAGE_STATE_H
 #define KMZ_PACKAGE_STATE_H
@@ -16,6 +18,14 @@
 #include "package_manifest.h"     /* PM_ID_MAX, PM_VER_MAX */
 
 #define PSTATE_MAX 8
+
+enum package_tx_phase {
+    PST_TX_LEGACY = 0,
+    PST_TX_COMMITTED,
+    PST_TX_APPLY_STAGED,
+    PST_TX_VERIFY_STAGED,
+    PST_TX_ROLLBACK_STAGED,
+};
 
 struct pkg_pstate {
     char    package_id[PM_ID_MAX];
@@ -32,16 +42,22 @@ struct pkg_pstate {
     uint8_t last_result_code;     /* last lifecycle verb's return        */
     uint8_t criticals_at_apply;   /* verification baselines              */
     uint8_t health_at_apply;
+    uint32_t manifest_identity;
+    uint8_t target_module;
+    uint8_t transaction_phase;
+    uint8_t status_before_transaction;
+    uint8_t extension_valid;
 };
 
 void package_state_init(void);             /* load LBA 48 (or empty)    */
-void package_state_save(void);
-void package_state_clear(void);            /* wipe + save               */
+int package_state_save(void);
+int package_state_clear(void);             /* wipe + save               */
 
 uint32_t                 package_state_count(void);
 const struct pkg_pstate *package_state_get(uint32_t index);
 struct pkg_pstate       *package_state_find(const char *package_id);
 /* find-or-create (returns 0 only if the table is full) */
 struct pkg_pstate       *package_state_ensure(const char *package_id);
+const char *package_transaction_phase_name(uint8_t phase);
 
 #endif /* KMZ_PACKAGE_STATE_H */

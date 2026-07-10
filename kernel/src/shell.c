@@ -1901,8 +1901,15 @@ static void cmd_reset_packages(const char *arg)
         vga_print("To proceed, type exactly:  reset-packages confirm\n");
         return;
     }
-    package_state_clear();
-    module_slots_clear();
+    int states_cleared = package_state_clear();
+    int slots_cleared = module_slots_clear();
+    if (!states_cleared || !slots_cleared) {
+        error_log(SEV_ERROR, "PST-RESET-ERR", "PackageState",
+                  "Package reset was only partially persisted",
+                  "do not apply packages until store errors are resolved");
+        vga_print("Package reset persistence failed; inspect `errors` and reboot.\n");
+        return;
+    }
     error_log(SEV_INFO, "PST-100", "PackageState",
               "Package states and module slots reset by user",
               "journal history preserved");
@@ -1935,6 +1942,13 @@ static void report_pkg_result(int r, const char *ok_msg)
     case -3:
         vga_print("Version mismatch: the running module is not this package's\n");
         vga_print("from_version. Nothing was changed.\n");
+        break;
+    case -4:
+        vga_set_color(VGA_LIGHT_RED, VGA_BLACK);
+        vga_print("Persistence failure.");
+        vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+        vga_print(" The transaction was not reported as committed.\n");
+        vga_print("Inspect `errors`; a staged transition is reconciled on reboot.\n");
         break;
     }
 }

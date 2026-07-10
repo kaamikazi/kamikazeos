@@ -98,6 +98,33 @@ static uint8_t manifest_checksum(const struct pkg_manifest *m)
     return sum;
 }
 
+uint32_t manifest_identity(const struct pkg_manifest *m)
+{
+    uint32_t hash = 2166136261u;
+    const char *strs[6] = { m->package_id, m->name, m->description,
+                            m->target_component, m->from_version,
+                            m->to_version };
+    for (int s = 0; s < 6; s++) {
+        for (const char *c = strs[s]; *c; c++) {
+            hash ^= (uint8_t)*c;
+            hash *= 16777619u;
+        }
+        hash ^= 0xFFu;
+        hash *= 16777619u;
+    }
+    const uint8_t fields[] = {
+        (uint8_t)m->risk_level, m->reversible, m->requires_approval,
+        (uint8_t)m->signature_status, m->trust_anchor_id,
+        m->manifest_version, (uint8_t)m->payload_type,
+        (uint8_t)m->target_module, m->checksum
+    };
+    for (uint32_t i = 0; i < sizeof(fields); i++) {
+        hash ^= fields[i];
+        hash *= 16777619u;
+    }
+    return hash;
+}
+
 /* ------------------------------------------------------------------ */
 /* Disk (de)serialization                                               */
 /* ------------------------------------------------------------------ */

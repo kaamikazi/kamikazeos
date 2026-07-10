@@ -28,7 +28,7 @@ function scoreClass(score) {
 function classify(value) {
   const v = String(value ?? "").toLowerCase();
   if (["yes", "1", "ok", "allowed", "verified", "attached", "loaded", "trusted", "enabled", "irq", "none", "running", "completed"].includes(v)) return "good";
-  if (["fallback", "suggested", "available", "medium", "pending", "applied", "sleeping", "kernel_managed_builtin_apps"].includes(v)) return "warn";
+  if (["fallback", "suggested", "available", "medium", "pending", "applied", "sleeping", "apply_staged", "verify_staged", "rollback_staged", "kernel_managed_builtin_apps"].includes(v)) return "warn";
   if (["no", "0", "blocked", "failed", "invalid", "unsigned", "isolated", "missing_driver", "high", "error", "panic", "crashed"].includes(v)) return "bad";
   if (["low", "disk_imported", "builtin_seed", "ready", "cooperative"].includes(v)) return "info";
   return "neutral";
@@ -586,6 +586,8 @@ function render(data) {
     { key: "rolled_back", label: "Rolled Back", badge: true },
     { key: "from", label: "From" },
     { key: "to", label: "To" },
+    { key: "transaction_phase", label: "Transaction" },
+    { key: "binding_valid", label: "Bound", badge: true },
   ]);
   setBadge("pending-verification",
     data.pending_verification ? "verification pending" : "no pending verification",

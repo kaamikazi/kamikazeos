@@ -645,6 +645,10 @@ void report_send(void)
         serial_print(";rolled_back=");serial_print(s->rolled_back ? "1" : "0");
         serial_print(";from=");     serial_print(s->from_version);
         serial_print(";to=");       serial_print(s->to_version);
+        serial_print(";manifest_identity="); serial_print_dec(s->manifest_identity);
+        serial_print(";transaction_phase=");
+        serial_print(package_transaction_phase_name(s->transaction_phase));
+        serial_print(";binding_valid="); serial_print(s->extension_valid ? "1" : "0");
         serial_print("\n");
     }
 

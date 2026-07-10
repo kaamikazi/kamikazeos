@@ -70,7 +70,9 @@ to QEMU as an IDE disk. Current fixed LBA use:
 | 16-31 | Boot snapshots |
 | 32-39 | Package manifest slots |
 | 40-47 | Currently unused/reserved gap |
-| 48-55 | Persistent package lifecycle state |
+| 48 | Persistent package lifecycle primary state |
+| 49 | Mirrored package transaction state |
+| 50-55 | Currently unused/reserved gap |
 | 56-63 | A/B module slot metadata |
 | 64 | TinyFS superblock |
 | 65-72 | TinyFS file table |
@@ -87,6 +89,14 @@ out-of-range sectors, device faults, and failed cache flushes are rejected.
 Package application is metadata-only. The OS does not load package binaries and
 does not patch kernel memory. Applying a package switches simulated module
 version metadata and A/B slot metadata, then requires `verify-pkg`.
+
+Package state at LBA 48 keeps its v1 base record and checksum. Hardened builds
+use previously reserved bytes 320 onward for a separately checksummed manifest
+identity, generation, and transaction sidecar, and mirror the sector at LBA 49.
+The newest valid copy is selected after an interrupted write. Existing images
+remain readable because a legacy LBA 48 record is still accepted. Legacy
+approval-only records require fresh approval; active legacy slot transitions
+are bound only when their versions reconcile with current slot metadata.
 
 The safe flow is:
 

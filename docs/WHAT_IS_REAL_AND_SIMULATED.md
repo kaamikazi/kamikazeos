@@ -141,6 +141,13 @@ The kernel still runs with paging disabled. There are no userspace address
 spaces, per-process page tables, demand paging, copy-on-write, or memory
 protection between tasks.
 
+## Package Transaction Boundary
+
+Package lifecycle hardening uses staged metadata, manifest identity binding,
+and mirrored LBA 48-49 state copies to reconcile interrupted metadata writes.
+This is real bounded update-state recovery, not a claim of general filesystem
+transactions, atomic hardware writes, or actual module replacement.
+
 ## Why Simulate These Parts
 
 The project is about building a safe recovery/update control plane before
