@@ -140,6 +140,10 @@ def main():
 
     data = {
         "version": meta.get("version", "?"),
+        "ghostattach": {
+            "expected_self_test_failures":
+                meta.get("scan_expected_self_tests", "0"),
+        },
         "backend": store.get("backend", memory.get("persistence_mode", "?")),
         "system_status": system_status,
         "diagnostics": diagnostics,

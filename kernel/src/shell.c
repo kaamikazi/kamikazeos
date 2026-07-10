@@ -608,6 +608,7 @@ static void cmd_devices(void)
     vga_print("   fallback: ");    vga_print_dec(st.fallback);
     vga_print("   missing: ");     vga_print_dec(st.missing);
     vga_print("   isolated: ");    vga_print_dec(st.isolated);
+    vga_print("   expected tests: "); vga_print_dec(st.expected_test_failures);
     vga_print("\n");
 }
 
@@ -675,6 +676,9 @@ static void cmd_ghostattach(void)
     vga_print_dec(st.fallback);  vga_print(" fallback, ");
     vga_print_dec(st.missing);   vga_print(" missing, ");
     vga_print_dec(st.isolated);  vga_print(" isolated\n\n");
+    vga_print("Expected self-test canary failures: ");
+    vga_print_dec(st.expected_test_failures);
+    vga_print(" (not production health faults)\n\n");
 
     vga_set_color(VGA_DARK_GREY, VGA_BLACK);
     vga_print("v0.3 honesty: devices 4-7 are simulated registry entries; the PS/2\n");

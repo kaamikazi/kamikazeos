@@ -541,7 +541,9 @@ function render(data) {
 
   const attached = (data.devices || []).filter(d => d.status === "attached").length;
   const total = (data.devices || []).length;
-  $("device-summary").textContent = `${attached}/${total} attached`;
+  const expectedTests = data.ghostattach?.expected_self_test_failures || "0";
+  $("device-summary").textContent =
+    `${attached}/${total} attached | ${expectedTests} expected canary failure`;
 
   renderTable("devices", data.devices || [], [
     { key: "id", label: "ID" },

@@ -38,6 +38,8 @@ real OS and tooling mechanics, but avoids dangerous update behavior.
 - COM1 serial logs and boot reports.
 - Structured kernel error log.
 - GhostAttach policy decisions over fixed device/driver registries.
+- GhostAttach's virtual failure canary is reported separately from production
+  attach failures and does not reduce the production health score.
 - CMOS recovery memory fallback.
 - ATA PIO access to a raw recovery disk image.
 - Durable RecoveryStore journal.

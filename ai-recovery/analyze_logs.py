@@ -48,6 +48,12 @@ RULES = {
         "action": "Check device/driver compatibility. The quarantine is "
                   "correct behavior - lift it only after fixing the driver.",
     },
+    "GA-TEST-201": {
+        "cause":  "The compiled-in virtual GhostAttach canary failed its "
+                  "attach probe as designed.",
+        "action": "No repair is required. This is expected self-test "
+                  "evidence, not a production device failure.",
+    },
     "KBD-001": {
         "cause":  "The PS/2 keyboard controller did not respond to the boot "
                   "probe. The interactive shell has no input.",
@@ -398,7 +404,12 @@ def classify(events):
     """Bucket events into info / warning / critical."""
     buckets = {"info": [], "warning": [], "critical": []}
     for e in events:
-        cls = SEVERITY_CLASS.get(e.get("severity", ""), "warning")
+        expected_canary = e.get("code") == "GA-TEST-201" or (
+            e.get("code") == "GA-DRV-201" and
+            e.get("message", "").startswith("Self-Test Device ")
+        )
+        cls = "info" if expected_canary else \
+            SEVERITY_CLASS.get(e.get("severity", ""), "warning")
         buckets[cls].append(e)
     return buckets
 
@@ -473,7 +484,8 @@ def main():
               f"{meta.get('scan_attached', '?')} attached, "
               f"{meta.get('scan_fallback', '?')} fallback, "
               f"{meta.get('scan_missing', '?')} missing, "
-              f"{meta.get('scan_isolated', '?')} isolated")
+              f"{meta.get('scan_isolated', '?')} isolated "
+              f"({meta.get('scan_expected_self_tests', '0')} expected test)")
 
     if system_status:
         print("\nv2.3 integrated system status:")

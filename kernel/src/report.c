@@ -103,6 +103,8 @@ void report_send(void)
     serial_print(";scan_fallback=");serial_print_dec(st.fallback);
     serial_print(";scan_missing="); serial_print_dec(st.missing);
     serial_print(";scan_isolated=");serial_print_dec(st.isolated);
+    serial_print(";scan_expected_self_tests=");
+    serial_print_dec(st.expected_test_failures);
     serial_print("\n");
 
     struct health_breakdown system_health;
@@ -138,6 +140,8 @@ void report_send(void)
     serial_print("\napp_registry="); serial_print_dec(app_count());
     serial_print("\nrecovery_backend="); serial_print(recovery_memory_backend());
     serial_print("\nhealth_score="); serial_print_dec((uint32_t)system_health.score);
+    serial_print("\nexpected_self_test_failures=");
+    serial_print_dec(st.expected_test_failures);
     serial_print("\npackage_trust_mode=host_ed25519_real_kernel_simulated");
     serial_print("\nlast_critical=");
     if (report_last_critical(&last_critical)) {
@@ -155,6 +159,7 @@ void report_send(void)
     serial_print(",fallback:"); serial_print_dec(st.fallback);
     serial_print(",missing:"); serial_print_dec(st.missing);
     serial_print(",isolated:"); serial_print_dec(st.isolated);
+    serial_print(",expected_test:"); serial_print_dec(st.expected_test_failures);
     serial_print("\ndrivers=verified_policy_active");
     serial_print("\nmemory=map:");
     serial_print(mem_status->map_available ? "multiboot" : "fallback");

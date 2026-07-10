@@ -132,3 +132,9 @@ bytes in imported fields. As defense in depth, dynamic serial field values are
 also sanitized by replacing `;`, `=`, and control bytes with `?`, preserving
 the existing parser grammar. Host recommendations fail closed when required
 policy or signature fields are missing.
+
+The fixed GhostAttach registry includes one virtual attach-failure canary to
+exercise isolation. It remains visible as `GA-TEST-201` and an expected-test
+counter, but it is not classified as a production critical event and is
+excluded from health penalties. A failure from any non-canary device retains
+the `GA-DRV-201` critical path.
