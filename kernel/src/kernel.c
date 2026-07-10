@@ -166,8 +166,10 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
                                 : "kernel heap unavailable");
 
     paging_init_structures();
-    report_ok(paging_validate_identity_map() ? "paging structures prepared (not enabled)"
-                                             : "paging identity map invalid");
+    if (paging_enable())
+        report_ok("identity paging enabled after strict validation");
+    else
+        report_warn("paging prepared but not enabled (validation gate held)");
 
     tinyfs_init();
     if (tinyfs_status()->formatted)
