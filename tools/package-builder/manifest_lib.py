@@ -14,6 +14,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from trust_anchor import (
+    TRUST_ANCHOR_FINGERPRINT,
+    TRUST_ANCHOR_ID,
+    TRUST_ANCHOR_NAME,
+    TRUSTED_PUBLIC_KEY_RAW_HEX,
+    TRUSTED_PUBLIC_KEY_SHA256,
+)
+
 SECTOR_SIZE = 512
 LBA_MANIFESTS = 32
 MANIFEST_MAX = 8
@@ -52,10 +60,6 @@ O_SIG_PAYLOAD_HASH = O_SIG_KEY_HASH + 17
 
 SIG_ALGORITHMS = {"none": 0, "ed25519": 1}
 SIG_ALGORITHM_NAMES = {v: k for k, v in SIG_ALGORITHMS.items()}
-
-TRUST_ANCHOR_ID = 1
-TRUST_ANCHOR_NAME = "KMZ-ROOT-1"
-TRUST_ANCHOR_FINGERPRINT = "SIM:4B5A:1000:C0DE:FACE:2026"
 
 RISKS = {"low": 0, "medium": 1, "high": 2}
 RISK_NAMES = {v: k for k, v in RISKS.items()}
@@ -271,6 +275,12 @@ def verify_manifest_signature(m: Manifest, public_key_pem: bytes | None = None) 
         return False, "missing ed25519 signature"
     try:
         signature = bytes.fromhex(str(sig["signature"]))
+        embedded_key = bytes.fromhex(str(sig["public_key"]))
+        pinned_key = bytes.fromhex(TRUSTED_PUBLIC_KEY_RAW_HEX)
+        if embedded_key != pinned_key:
+            return False, "signer key does not match pinned KMZ-ROOT-1"
+        if sig.get("key_id") != TRUST_ANCHOR_NAME:
+            return False, "signature key_id does not match KMZ-ROOT-1"
         expected_payload_hash = m.payload_sha256()
         if sig.get("payload_sha256") != expected_payload_hash:
             return False, "payload hash mismatch"
@@ -278,8 +288,14 @@ def verify_manifest_signature(m: Manifest, public_key_pem: bytes | None = None) 
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
         if public_key_pem:
             pub = serialization.load_pem_public_key(public_key_pem)
+            supplied_raw = pub.public_bytes(
+                encoding=serialization.Encoding.Raw,
+                format=serialization.PublicFormat.Raw,
+            )
+            if supplied_raw != pinned_key:
+                return False, "supplied public key is not the pinned trust anchor"
         else:
-            pub = Ed25519PublicKey.from_public_bytes(bytes.fromhex(str(sig["public_key"])))
+            pub = Ed25519PublicKey.from_public_bytes(pinned_key)
         pub.verify(signature, m.signed_payload())
         actual_key_hash = hashlib.sha256(
             pub.public_bytes(
@@ -287,7 +303,8 @@ def verify_manifest_signature(m: Manifest, public_key_pem: bytes | None = None) 
                 format=serialization.PublicFormat.Raw,
             )
         ).hexdigest()
-        if sig.get("public_key_sha256") != actual_key_hash:
+        if actual_key_hash != TRUSTED_PUBLIC_KEY_SHA256 or \
+                sig.get("public_key_sha256") != TRUSTED_PUBLIC_KEY_SHA256:
             return False, "public key fingerprint mismatch"
         return True, "ok"
     except Exception as exc:

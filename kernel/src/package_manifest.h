@@ -33,7 +33,7 @@
 /* The built-in trust anchor (v1.1: simulated identity, real enforcement). */
 #define TRUST_ANCHOR_ID          1
 #define TRUST_ANCHOR_NAME        "KMZ-ROOT-1"
-#define TRUST_ANCHOR_FINGERPRINT "SIM:4B5A:1000:C0DE:FACE:2026"
+#define TRUST_ANCHOR_FINGERPRINT "ED25519-SHA256:90aff55a4edb8ed5ded40271dfdd4c404862a68c91925c77db650b0bf776ee84"
 
 enum payload_type {
     PAYLOAD_METADATA_ONLY = 0,
