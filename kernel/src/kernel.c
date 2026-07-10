@@ -10,6 +10,7 @@
 #include "app.h"
 #include "boot_snapshot.h"
 #include "errors.h"
+#include "gdt.h"
 #include "ghostattach.h"
 #include "idt.h"
 #include "interrupts.h"
@@ -90,6 +91,7 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
      */
     serial_init();
     errors_init();
+    gdt_init();
     serial_print("\n=== KamikazeOS v2.3.0 serial log ===\n");
 
     error_log(SEV_INFO, "BOOT-000", "kernel",
@@ -98,6 +100,8 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
     report_ok(serial_present() ? "com1 serial (AI log export)"
                                : "com1 serial NOT detected");
     report_ok("structured error log");
+    report_ok(gdt_is_loaded() ? "kernel-owned GDT loaded"
+                              : "kernel GDT unavailable");
 
     /*
      * RecoveryMemory: read what previous boots left in NVRAM, BEFORE any

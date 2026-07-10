@@ -5,7 +5,9 @@ exception foundation to the 32-bit x86 kernel.
 
 ## Boot Sequence
 
-The Multiboot entry disables maskable interrupts before entering C. After the
+The Multiboot entry disables maskable interrupts before entering C. The kernel
+installs its own flat ring-0 GDT before constructing interrupt gates, so later
+interrupt handling does not depend on the bootloader's selector layout. After the
 console, serial log, durable recovery state, and Multiboot checks are ready,
 the kernel:
 
