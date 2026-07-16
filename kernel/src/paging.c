@@ -5,6 +5,7 @@
 #include "idt.h"
 #include "memory.h"
 #include "string.h"
+#include "tss.h"
 
 #define PAGE_ENTRIES 1024u
 #define IDENTITY_TABLES 4u
@@ -96,6 +97,8 @@ static void define_required_ranges(void)
               (uint32_t)&_kernel_end, 1);
     add_range("bootstrap_stack", (uint32_t)&stack_bottom,
               (uint32_t)&stack_top, 1);
+    add_range("privilege_transition_stack", tss_privilege_stack_bottom(),
+              tss_privilege_stack_top(), 1);
     if (memory->heap_end > memory->heap_start)
         add_range("kernel_heap", memory->heap_start, memory->heap_end, 1);
     add_range("page_directory", (uint32_t)&page_directory[0],

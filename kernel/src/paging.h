@@ -15,7 +15,7 @@
 #define PAGING_USER      0x004u
 #define PAGING_PWT       0x008u
 #define PAGING_PCD       0x010u
-#define PAGING_MAX_RANGES 7u
+#define PAGING_MAX_RANGES 8u
 
 struct paging_range {
     const char *name;

@@ -32,6 +32,7 @@
 #include "task.h"
 #include "syscall.h"
 #include "tinyfs.h"
+#include "tss.h"
 #include "vga.h"
 
 /* The value a Multiboot loader leaves in EAX to prove it booted us. */
@@ -93,6 +94,7 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
     serial_init();
     errors_init();
     gdt_init();
+    tss_init();
     idt_init_exceptions();
     serial_print("\n=== KamikazeOS v2.4.0 serial log ===\n");
 
@@ -104,6 +106,8 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
     report_ok("structured error log");
     report_ok(gdt_is_loaded() ? "kernel-owned GDT loaded"
                               : "kernel GDT unavailable");
+    report_ok(tss_is_loaded() ? "32-bit TSS and privilege stack loaded"
+                              : "TSS unavailable; user gate must stay disabled");
     report_ok(idt_is_loaded() ? "early CPU exception IDT loaded"
                               : "early exception IDT unavailable");
 
