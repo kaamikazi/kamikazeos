@@ -29,5 +29,24 @@ SECTIONS
     .data   : ALIGN(4K) { *(.data) }            /* initialised globals */
     .bss    : ALIGN(4K) { *(COMMON) *(.bss) }   /* zeroed globals + stack */
     . = ALIGN(4K);
+    _kernel_privileged_end = .;
+
+    /* v2.6 exposes only these page-isolated, build-time sections to CPL3. */
+    .usertext : ALIGN(4K)
+    {
+        _user_code_start = .;
+        KEEP(*(.usertext))
+        . = ALIGN(4K);
+        _user_code_end = .;
+    }
+
+    .userstack (NOLOAD) : ALIGN(4K)
+    {
+        _user_stack_start = .;
+        KEEP(*(.userstack))
+        . = ALIGN(4K);
+        _user_stack_end = .;
+    }
+
     _kernel_end = .;
 }

@@ -15,7 +15,7 @@
 #define PAGING_USER      0x004u
 #define PAGING_PWT       0x008u
 #define PAGING_PCD       0x010u
-#define PAGING_MAX_RANGES 8u
+#define PAGING_MAX_RANGES 10u
 
 struct paging_range {
     const char *name;
@@ -23,6 +23,24 @@ struct paging_range {
     uint32_t end;
     int required;
     int validated;
+    int user_accessible;
+    int writable;
+};
+
+struct user_memory_status {
+    uint32_t code_start;
+    uint32_t code_end;
+    uint32_t stack_start;
+    uint32_t stack_end;
+    int code_user_accessible;
+    int code_read_only;
+    int stack_user_accessible;
+    int stack_writable;
+    int kernel_supervisor_only;
+    int page_structures_supervisor_only;
+    int no_broad_user_exposure;
+    int validated;
+    const char *validation_error;
 };
 
 struct paging_status {
@@ -51,6 +69,8 @@ const struct paging_status *paging_status(void);
 int paging_is_enabled(void);
 uint32_t paging_range_count(void);
 int paging_range_get(uint32_t index, struct paging_range *out);
+void paging_user_memory_status(struct user_memory_status *out);
+int paging_user_memory_valid(void);
 void paging_record_page_fault(uint32_t address, uint32_t error_code, uint32_t eip);
 void paging_trigger_pagefault_test(void);
 
