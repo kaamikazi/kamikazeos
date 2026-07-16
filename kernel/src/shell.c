@@ -34,9 +34,11 @@
 #include "string.h"
 #include "syscall.h"
 #include "pic.h"
+#include "privilege.h"
 #include "timer.h"
 #include "task.h"
 #include "tinyfs.h"
+#include "tss.h"
 #include "vga.h"
 
 /*
@@ -203,6 +205,10 @@ static void cmd_help(void)
     vga_print("  syscalls    show the fixed kernel-internal syscall registry\n");
     vga_print("  syscall-test exercise safe syscalls with kernel-owned arguments\n");
     vga_print("  syscall <id> invoke one syscall with controlled arguments\n");
+    vga_print("  privilege   show privilege-boundary status and current CPL\n");
+    vga_print("  gdt         show kernel, user, and TSS selectors\n");
+    vga_print("  tss         show TSS, esp0, and transition stack status\n");
+    vga_print("  ring3-readiness show foundation checklist; execution stays off\n");
     vga_print("  tasks       show the fixed kernel task table\n");
     vga_print("  task-current show the current logical kernel task\n");
     vga_print("  task-yield  cooperatively run one ready task step\n");
@@ -638,6 +644,8 @@ static void cmd_syscalls(void)
     vga_print(stats.last_id == 0xFFFFFFFFu ? "none" : syscall_result_name(stats.last_result));
     vga_print("\n");
     vga_print("  user mode available: no\n");
+    vga_print("  gate DPL           : "); vga_print_dec(stats.gate_dpl); vga_print("\n");
+    vga_print("  syscall user gate  : "); vga_print(stats.syscall_user_gate ? "enabled" : "disabled"); vga_print("\n");
     vga_print("  pointer arguments  : no\n\n");
     vga_print("ID  Name             Arguments\n");
     for (uint32_t i = 0; i < syscall_table_count(); i++) {
@@ -646,6 +654,84 @@ static void cmd_syscalls(void)
         print_col(entry->name, 16);
         vga_print(entry->argument_mode); vga_print("\n");
     }
+}
+
+static void cmd_gdt(void)
+{
+    struct gdt_status status;
+    gdt_status(&status);
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("Global Descriptor Table:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print("  loaded              : "); vga_print(status.loaded ? "yes" : "no"); vga_print("\n");
+    vga_print("  kernel code selector: "); vga_print_hex(status.kernel_code_selector); vga_print(" DPL 0\n");
+    vga_print("  kernel data selector: "); vga_print_hex(status.kernel_data_selector); vga_print(" DPL 0\n");
+    vga_print("  user code selector  : "); vga_print_hex(status.user_code_selector); vga_print(" DPL 3\n");
+    vga_print("  user data selector  : "); vga_print_hex(status.user_data_selector); vga_print(" DPL 3\n");
+    vga_print("  TSS selector        : "); vga_print_hex(status.tss_selector); vga_print("\n");
+    vga_print("  user segments valid : "); vga_print(status.user_segments_valid ? "yes" : "no"); vga_print("\n");
+    vga_print("  TSS descriptor valid: "); vga_print(status.tss_descriptor_valid ? "yes" : "no"); vga_print("\n");
+}
+
+static void cmd_tss(void)
+{
+    struct tss_status status;
+    tss_status(&status);
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("32-bit Task State Segment:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print("  initialized       : "); vga_print(status.initialized ? "yes" : "no"); vga_print("\n");
+    vga_print("  descriptor valid  : "); vga_print(status.descriptor_valid ? "yes" : "no"); vga_print("\n");
+    vga_print("  task register     : "); vga_print(status.loaded ? "loaded" : "not_loaded"); vga_print("\n");
+    vga_print("  selector          : "); vga_print_hex(status.selector); vga_print("\n");
+    vga_print("  SS0               : "); vga_print_hex(status.ss0); vga_print("\n");
+    vga_print("  ESP0              : "); vga_print_hex(status.esp0); vga_print("\n");
+    vga_print("  transition stack  : "); vga_print_hex(status.stack_bottom); vga_print("-"); vga_print_hex(status.stack_top); vga_print("\n");
+    vga_print("  stack bytes       : "); vga_print_dec(status.stack_size); vga_print("\n");
+    vga_print("  stack valid       : "); vga_print(status.kernel_stack_valid ? "yes" : "no"); vga_print("\n");
+    vga_print("  guard policy      : "); vga_print(status.guard_policy); vga_print("\n");
+    vga_print("  hardware switching: no\n");
+}
+
+static void print_privilege_check(const char *name, int ready)
+{
+    vga_print("  "); print_col(name, 25); vga_print(ready ? "ready" : "MISSING"); vga_print("\n");
+}
+
+static void cmd_privilege(void)
+{
+    struct privilege_status status;
+    privilege_status(&status);
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("Privilege Boundary:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print("  current CPL        : "); vga_print_dec(status.current_cpl); vga_print(" (kernel shell remains Ring 0)\n");
+    vga_print("  syscall gate DPL   : "); vga_print_dec(status.syscall_gate_dpl); vga_print("\n");
+    vga_print("  syscall user gate  : "); vga_print(status.syscall_gate_dpl == 3u ? "enabled" : "disabled"); vga_print("\n");
+    vga_print("  foundation ready   : "); vga_print(status.foundation_ready ? "yes" : "no"); vga_print("\n");
+    vga_print("  execution enabled  : no\n");
+    vga_print("  bootstrap stack    : "); vga_print_hex(status.bootstrap_stack_bottom); vga_print("-"); vga_print_hex(status.bootstrap_stack_top); vga_print("\n");
+    vga_print("  transition stack   : "); vga_print_hex(status.transition_stack_bottom); vga_print("-"); vga_print_hex(status.transition_stack_top); vga_print("\n");
+    vga_print("  ESP0               : "); vga_print_hex(status.esp0); vga_print("\n");
+    vga_print("  guard policy       : "); vga_print(status.guard_policy); vga_print("\n");
+}
+
+static void cmd_ring3_readiness(void)
+{
+    struct privilege_status status;
+    privilege_status(&status);
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("Ring 3 Foundation Readiness:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    print_privilege_check("kernel GDT", status.gdt_loaded);
+    print_privilege_check("user DPL3 segments", status.user_segments_valid);
+    print_privilege_check("TSS loaded", status.tss_loaded);
+    print_privilege_check("SS0:ESP0 kernel stack", status.kernel_stack_valid);
+    print_privilege_check("paging enabled", status.paging_enabled);
+    print_privilege_check("syscall gate DPL3", status.syscall_gate_installed && status.syscall_gate_dpl == 3u);
+    vga_print("  readiness               : "); vga_print(status.foundation_ready ? "foundation_ready" : "not_ready"); vga_print("\n");
+    vga_print("  ring3_execution_enabled : no\n");
+    vga_print("Missing by design: user stack, user pages, ELF loader, isolation.\n");
 }
 
 static void cmd_syscall_test(void)
@@ -2136,6 +2222,10 @@ static const struct command commands[] = {
     { "page-map",   cmd_page_map   },
     { "syscalls",   cmd_syscalls   },
     { "syscall-test", cmd_syscall_test },
+    { "privilege",   cmd_privilege   },
+    { "gdt",         cmd_gdt         },
+    { "tss",         cmd_tss         },
+    { "ring3-readiness", cmd_ring3_readiness },
     { "tasks",      cmd_tasks      },
     { "task-current", cmd_task_current },
     { "task-yield", cmd_task_yield },

@@ -31,9 +31,11 @@
 #include "string.h"
 #include "syscall.h"
 #include "pic.h"
+#include "privilege.h"
 #include "timer.h"
 #include "task.h"
 #include "tinyfs.h"
+#include "tss.h"
 
 #define KMZ_VERSION "2.4.0"
 
@@ -119,6 +121,12 @@ void report_send(void)
     const struct paging_status *pg_status = paging_status();
     struct syscall_stats syscall_status;
     syscall_stats(&syscall_status);
+    struct privilege_status privilege_state;
+    privilege_status(&privilege_state);
+    struct gdt_status gdt_state;
+    gdt_status(&gdt_state);
+    struct tss_status tss_state;
+    tss_status(&tss_state);
     struct kerror last_critical;
 
     serial_print("[SYSTEM_STATUS]\n");
@@ -140,6 +148,9 @@ void report_send(void)
     serial_print("\nsyscall_vector="); serial_print_dec(syscall_status.vector);
     serial_print("\nsyscall_total_calls="); serial_print_dec(syscall_status.total_calls);
     serial_print("\nsyscall_failed_calls="); serial_print_dec(syscall_status.failed_calls);
+    serial_print("\nsyscall_gate_dpl="); serial_print_dec(syscall_status.gate_dpl);
+    serial_print("\nprivilege_foundation="); serial_print(privilege_state.foundation_ready ? "ready" : "not_ready");
+    serial_print("\nring3_execution_enabled=no");
     serial_print("\ntask_count="); serial_print_dec(task_count());
     serial_print("\ntinyfs_status=");
     serial_print(fs_status->available ? (fs_status->formatted ? "formatted" : "not_formatted") : "unavailable");
@@ -325,9 +336,69 @@ void report_send(void)
     if (syscall_status.last_id == 0xFFFFFFFFu) serial_print("none");
     else serial_print(syscall_result_name(syscall_status.last_result));
     serial_print("\nlast_value="); serial_print_dec(syscall_status.last_value);
+    serial_print("\nsyscall_gate_dpl="); serial_print_dec(syscall_status.gate_dpl);
+    serial_print("\nsyscall_user_gate="); serial_print(syscall_status.syscall_user_gate ? "enabled" : "disabled");
     serial_print("\nuser_mode_available=no");
     serial_print("\nargument_model=bounded_scalars_and_kernel_owned_buffers");
     serial_print("\npointer_arguments=no\n");
+
+    serial_print("[PRIVILEGE]\n");
+    serial_print("gdt_loaded="); serial_print(privilege_state.gdt_loaded ? "yes" : "no");
+    serial_print("\nuser_segments_valid="); serial_print(privilege_state.user_segments_valid ? "yes" : "no");
+    serial_print("\ntss_loaded="); serial_print(privilege_state.tss_loaded ? "yes" : "no");
+    serial_print("\nkernel_stack_valid="); serial_print(privilege_state.kernel_stack_valid ? "yes" : "no");
+    serial_print("\npaging_enabled="); serial_print(privilege_state.paging_enabled ? "yes" : "no");
+    serial_print("\nsyscall_gate_installed="); serial_print(privilege_state.syscall_gate_installed ? "yes" : "no");
+    serial_print("\nsyscall_gate_dpl="); serial_print_dec(privilege_state.syscall_gate_dpl);
+    serial_print("\ncurrent_cpl="); serial_print_dec(privilege_state.current_cpl);
+    serial_print("\nbootstrap_stack_bottom="); serial_print_dec(privilege_state.bootstrap_stack_bottom);
+    serial_print("\nbootstrap_stack_top="); serial_print_dec(privilege_state.bootstrap_stack_top);
+    serial_print("\ntransition_stack_bottom="); serial_print_dec(privilege_state.transition_stack_bottom);
+    serial_print("\ntransition_stack_top="); serial_print_dec(privilege_state.transition_stack_top);
+    serial_print("\nesp0="); serial_print_dec(privilege_state.esp0);
+    serial_print("\nguard_policy="); serial_print(privilege_state.guard_policy);
+    serial_print("\nreadiness="); serial_print(privilege_state.foundation_ready ? "foundation_ready" : "not_ready");
+    serial_print("\nexecution_enabled=no\n");
+
+    serial_print("[GDT]\n");
+    serial_print("loaded="); serial_print(gdt_state.loaded ? "yes" : "no");
+    serial_print("\nkernel_code_selector="); serial_print_dec(gdt_state.kernel_code_selector);
+    serial_print("\nkernel_code_dpl="); serial_print_dec(gdt_state.kernel_code_dpl);
+    serial_print("\nkernel_data_selector="); serial_print_dec(gdt_state.kernel_data_selector);
+    serial_print("\nkernel_data_dpl="); serial_print_dec(gdt_state.kernel_data_dpl);
+    serial_print("\nuser_code_selector="); serial_print_dec(gdt_state.user_code_selector);
+    serial_print("\nuser_code_dpl="); serial_print_dec(gdt_state.user_code_dpl);
+    serial_print("\nuser_data_selector="); serial_print_dec(gdt_state.user_data_selector);
+    serial_print("\nuser_data_dpl="); serial_print_dec(gdt_state.user_data_dpl);
+    serial_print("\ntss_selector="); serial_print_dec(gdt_state.tss_selector);
+    serial_print("\nuser_segments_valid="); serial_print(gdt_state.user_segments_valid ? "yes" : "no");
+    serial_print("\ntss_descriptor_valid="); serial_print(gdt_state.tss_descriptor_valid ? "yes" : "no");
+    serial_print("\n");
+
+    serial_print("[TSS]\n");
+    serial_print("initialized="); serial_print(tss_state.initialized ? "yes" : "no");
+    serial_print("\nselector="); serial_print_dec(tss_state.selector);
+    serial_print("\ndescriptor_valid="); serial_print(tss_state.descriptor_valid ? "yes" : "no");
+    serial_print("\ntss_loaded="); serial_print(tss_state.loaded ? "yes" : "no");
+    serial_print("\nss0="); serial_print_dec(tss_state.ss0);
+    serial_print("\nesp0="); serial_print_dec(tss_state.esp0);
+    serial_print("\nstack_bottom="); serial_print_dec(tss_state.stack_bottom);
+    serial_print("\nstack_top="); serial_print_dec(tss_state.stack_top);
+    serial_print("\nstack_size="); serial_print_dec(tss_state.stack_size);
+    serial_print("\nkernel_stack_valid="); serial_print(tss_state.kernel_stack_valid ? "yes" : "no");
+    serial_print("\nguard_policy="); serial_print(tss_state.guard_policy);
+    serial_print("\nhardware_task_switching=no\n");
+
+    serial_print("[RING3_READINESS]\n");
+    serial_print("gdt_ready="); serial_print(privilege_state.gdt_loaded ? "yes" : "no");
+    serial_print("\nuser_segments_ready="); serial_print(privilege_state.user_segments_valid ? "yes" : "no");
+    serial_print("\ntss_ready="); serial_print(privilege_state.tss_loaded ? "yes" : "no");
+    serial_print("\nesp0_ready="); serial_print(privilege_state.kernel_stack_valid ? "yes" : "no");
+    serial_print("\npaging_ready="); serial_print(privilege_state.paging_enabled ? "yes" : "no");
+    serial_print("\nsyscall_gate_dpl="); serial_print_dec(privilege_state.syscall_gate_dpl);
+    serial_print("\nreadiness="); serial_print(privilege_state.foundation_ready ? "foundation_ready" : "not_ready");
+    serial_print("\nexecution_enabled=no");
+    serial_print("\nuser_stack=no\nuser_page_mappings=no\nelf_loader=no\nprocess_isolation=no\n");
 
     serial_print("[SYSCALL_TABLE]\n");
     for (uint32_t i = 0; i < syscall_table_count(); i++) {
