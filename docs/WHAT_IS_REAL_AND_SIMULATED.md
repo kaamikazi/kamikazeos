@@ -35,8 +35,11 @@ real OS and tooling mechanics, but avoids dangerous update behavior.
 - Enabled 32-bit x86 paging with a 0-16 MiB supervisor identity map.
 - Strict identity-map/runtime-range validation and CR3 verification.
 - Page fault CR2 evidence path when a page fault occurs.
-- DPL0 `int 0x80` gate and normalized kernel syscall entry stub.
+- Readiness-gated DPL3 `int 0x80` gate and normalized syscall entry stub.
 - Fixed eight-entry syscall registry, dispatcher, validation, and reporting.
+- Flat DPL3 user code/data descriptors in the kernel-owned GDT.
+- Loaded 32-bit TSS with SS0 and bounded ESP0 kernel-stack configuration.
+- Privilege prerequisite checks and read-only readiness reporting.
 - COM1 serial logs and boot reports.
 - Structured kernel error log.
 - GhostAttach policy decisions over fixed device/driver registries.
@@ -71,7 +74,6 @@ real OS and tooling mechanics, but avoids dangerous update behavior.
 - Executable loading or ELF loading.
 - Ring 3 syscall callers and userspace pointer validation.
 - Per-process syscall permissions and stable userspace ABI.
-- Enabled virtual memory.
 - Paging isolation.
 - Per-process page tables.
 - Demand paging.
@@ -159,6 +161,22 @@ This is not a userspace ABI. There are no Ring 3 callers, user/kernel address
 checks, process credentials, per-process permissions, ELF programs, or ABI
 stability guarantees. The syscall layer cannot write arbitrary sectors,
 approve packages, change recovery policy, or execute unknown apps.
+
+## v2.5 Privilege Boundary
+
+v2.5 adds real DPL3 user segment descriptors, loads one 32-bit TSS with `ltr`,
+and configures SS0/ESP0 to a dedicated bounded kernel stack. The syscall gate
+is installed at DPL3 only after the GDT descriptors, TSS, ESP0 bounds, and
+paging validate; it falls back to DPL0 if a prerequisite fails. Shell commands,
+serial reports, analyzer output, and the Recovery Center expose this state.
+
+`privilege_ready_for_ring3()` means that the architectural foundation is
+internally ready for a future controlled transition. It does not enable that
+transition. The shell and syscall tests remain Ring 0. There is no user stack,
+user-accessible page mapping, transition trampoline, ELF loader, process
+isolation, per-process address space, or stable userspace ABI. The TSS is not
+used for hardware task switching, and the transition stack has bounds checks
+rather than a paging guard page.
 
 ## Package Transaction Boundary
 

@@ -1,5 +1,16 @@
 # KamikazeOS Version History
 
+## v2.5.0 "Privilege Boundary"
+
+Added flat DPL3 user code/data descriptors, an available 32-bit TSS descriptor,
+`ltr` loading, bounded SS0/ESP0 configuration on a dedicated 16 KiB kernel
+stack, privilege prerequisite validation, and a gated DPL3 `int 0x80` entry.
+Added `gdt`, `tss`, `privilege`, and `ring3-readiness` commands, four serial
+report sections, analyzer interpretation, and read-only Recovery Center views.
+The kernel shell and all callers remain Ring 0. No user stack, user-accessible
+page mapping, Ring 3 transition, ELF loading, process isolation, per-process
+address space, or stable userspace ABI was added.
+
 ## v2.4.0 "Syscall Door"
 
 Added a dedicated DPL0 `int 0x80` gate, normalized assembly stub, fixed

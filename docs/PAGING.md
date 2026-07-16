@@ -15,7 +15,8 @@ The gate verifies:
 - mapped PDE/PTE addresses and flags are exact
 - unused page-directory entries remain absent
 - low memory, VGA text memory, kernel image/static buffers, bootstrap stack,
-  fixed heap, page directory, and page tables are identity mapped
+  fixed heap, bootstrap stack, privilege-transition stack, page directory, and
+  page tables are identity mapped
 
 If validation fails, boot continues in `prepared_not_enabled` mode and logs
 the validation reason. The gate is not bypassable through the shell.
@@ -37,6 +38,8 @@ only be run last in a disposable QEMU session using a copied recovery image.
 
 ## Boundaries
 
-The enabled identity map does not provide userspace, process isolation,
+Every present mapping remains supervisor-only; the DPL3 GDT descriptors do not
+make these pages user-accessible. The enabled identity map does not provide
+userspace, process isolation,
 per-process address spaces, demand paging, copy-on-write, swapping, or memory
 protection between cooperative tasks.

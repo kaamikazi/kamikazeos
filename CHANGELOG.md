@@ -1,5 +1,18 @@
 # Changelog
 
+## v2.5.0 - Privilege Boundary
+
+- Added flat DPL3 user code and data descriptors with explicit selectors.
+- Added a loaded 32-bit TSS with SS0 and a bounded 16 KiB ESP0 kernel stack.
+- Added privilege readiness validation and DPL0 fallback for the syscall gate.
+- Made `int 0x80` DPL3-capable only after GDT, TSS, ESP0, and paging validate.
+- Preserved segment registers correctly across the syscall assembly path.
+- Added `gdt`, `tss`, `privilege`, and `ring3-readiness` shell commands.
+- Added `[GDT]`, `[TSS]`, `[PRIVILEGE]`, and `[RING3_READINESS]` reports.
+- Updated the analyzer, JSON exporter, and read-only Recovery Center.
+- Added no Ring 3 execution, user stack/pages, ELF loading, process isolation,
+  per-process address spaces, arbitrary execution, networking, or auto-repair.
+
 ## v2.4.0 - Syscall Door
 
 - Added a DPL0 `int 0x80` IDT gate with a normalized assembly entry stub.

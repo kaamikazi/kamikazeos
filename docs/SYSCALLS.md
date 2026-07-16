@@ -1,12 +1,13 @@
 # Kernel Syscalls
 
-KamikazeOS v2.4 "Syscall Door" introduces a controlled kernel-internal system
-call interface. It is foundation work for a possible future privilege boundary,
-not a claim of Ring 3 userspace.
+KamikazeOS v2.4 "Syscall Door" introduced a controlled kernel-internal system
+call interface. v2.5 "Privilege Boundary" makes its IDT gate DPL3-capable after
+strict privilege prerequisites pass. No Ring 3 caller exists yet.
 
 ## ABI
 
-- Entry: `int 0x80` through a DPL0 interrupt gate.
+- Entry: `int 0x80` through a DPL3 interrupt gate when privilege readiness
+  validates; DPL0 fallback otherwise.
 - Input: EAX call ID; EBX, ECX, and EDX bounded scalar/index arguments.
 - Output: EAX signed result code; EDX scalar result value.
 - Text: fixed kernel-owned output buffer, visible only through kernel APIs.
@@ -35,16 +36,20 @@ arbitrary disk sector, run an unknown app, or access arbitrary memory.
 
 ## Initialization And Reports
 
-The exception IDT is loaded early. Paging and core services initialize before
-the syscall subsystem installs vector `0x80`; IRQ setup remains separate. The
+The exception IDT and TSS are loaded early. Paging and core services initialize
+before the syscall subsystem installs vector `0x80`; IRQ setup remains
+separate. DPL3 is selected only when user descriptors, TSS loading, bounded
+ESP0, and paging all validate. The
 `[SYSCALLS]` report records gate state and counters, while `[SYSCALL_TABLE]`
 describes the fixed registry. The analyzer and Recovery Center only read these
 records.
 
 ## Current Boundary
 
-Real: the IDT gate, assembly stub, register ABI, fixed dispatcher, validation,
-statistics, shell tests, reports, analyzer, and dashboard.
+Real: the DPL3-capable IDT gate, assembly stub with segment/register
+preservation, register ABI, fixed dispatcher, validation, statistics, shell
+tests, reports, analyzer, and dashboard. Current test calls still originate in
+Ring 0.
 
 Not implemented: Ring 3 callers, userspace pointers, process isolation,
 per-process permissions, executable loading, ELF, syscalls from apps, or ABI
