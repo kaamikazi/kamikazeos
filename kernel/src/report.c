@@ -406,7 +406,10 @@ void report_send(void)
         serial_print("id="); serial_print_dec(entry->id);
         serial_print(";name="); serial_print_field(entry->name);
         serial_print(";argument_mode="); serial_print_field(entry->argument_mode);
-        serial_print(";caller_mode=kernel_only;pointer_arguments=no\n");
+        serial_print(";caller_mode=kernel_only_current");
+        serial_print(";gate_access=");
+        serial_print(syscall_status.gate_dpl == 3u ? "dpl3" : "dpl0");
+        serial_print(";pointer_arguments=no\n");
     }
 
     serial_print("[KERNEL_INTERRUPTS]\n");

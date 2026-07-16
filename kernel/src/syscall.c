@@ -186,7 +186,8 @@ void syscall_init(void)
     stats.user_mode_available = 0;
     uint8_t requested_dpl = (gdt_user_segments_valid() &&
                              tss_is_loaded() &&
-                             tss_kernel_stack_valid()) ? 3u : 0u;
+                             tss_kernel_stack_valid() &&
+                             paging_is_enabled()) ? 3u : 0u;
     idt_install_syscall_gate(requested_dpl);
     stats.initialized = idt_syscall_gate_installed();
     stats.gate_dpl = idt_syscall_gate_dpl();

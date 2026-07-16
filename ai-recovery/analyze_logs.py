@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-KamikazeOS AI Recovery Core - host-side log analyzer (v2.4, offline/rule-based)
+KamikazeOS AI Recovery Core - host-side log analyzer (v2.5, offline/rule-based)
 
 This is the first working incarnation of the "maintenance brain". It runs on
 the HOST, outside the kernel, and its powers are deliberately limited:
@@ -8,7 +8,7 @@ the HOST, outside the kernel, and its powers are deliberately limited:
     READ logs  ->  EXPLAIN problems  ->  RANK risk  ->  SUGGEST next actions
 
 It never patches binaries, installs drivers, downloads code, or modifies the
-OS. Every suggestion is for a HUMAN to approve and perform. v2.4 is
+OS. Every suggestion is for a HUMAN to approve and perform. v2.5 is
 rule-based (no AI API yet) so the pipeline can be built and trusted first;
 see analyze_with_ai_later() at the bottom for where a real model plugs in.
 
@@ -201,12 +201,30 @@ RULES = {
         "cause":  "A syscall rejected an invalid bounded argument or an "
                   "unavailable kernel service.",
         "action": "Inspect `syscalls` and the target subsystem. Do not pass "
-                  "raw addresses; v2.4 exposes no pointer ABI.",
+                  "raw addresses; v2.5 exposes no pointer ABI.",
     },
     "SYS-ERR-003": {
         "cause":  "The kernel could not install its dedicated syscall IDT gate.",
         "action": "Keep syscall use disabled and inspect IDT initialization. "
                   "Do not bypass the gate check.",
+    },
+    "TSS-101": {
+        "cause":  "The TSS descriptor or bounded SS0:ESP0 stack failed "
+                  "validation.",
+        "action": "Keep the syscall gate at DPL0. Inspect `gdt`, `tss`, and "
+                  "`ring3-readiness`; do not enable Ring 3 execution.",
+    },
+    "TSS-102": {
+        "cause":  "The CPU task register did not retain the expected TSS "
+                  "selector after ltr.",
+        "action": "Keep the user syscall gate disabled and inspect the TSS "
+                  "descriptor and selector manually.",
+    },
+    "PRIV-101": {
+        "cause":  "One or more privilege-boundary prerequisites failed, so "
+                  "the Ring 3 foundation is incomplete.",
+        "action": "Inspect GDT, TSS, ESP0, paging, and syscall DPL evidence. "
+                  "Do not bypass the readiness gate.",
     },
     "APP-BLOCK-001": {
         "cause":  "The app policy gate refused a requested app name that is not "
@@ -332,6 +350,10 @@ def parse_report(lines):
         "[PAGE_FAULT]": "paging",
         "[SYSCALLS]": "syscalls",
         "[SYSCALL_TABLE]": "syscall_table",
+        "[PRIVILEGE]": "privilege",
+        "[GDT]": "gdt",
+        "[TSS]": "tss",
+        "[RING3_READINESS]": "ring3_readiness",
         "[KERNEL_INTERRUPTS]": "kernel_interrupts",
         "[KERNEL_TIMING]": "kernel_timing",
         "[KERNEL_EXCEPTIONS]": "kernel_exceptions",
@@ -350,6 +372,7 @@ def parse_report(lines):
     kernel_memory, memory_map, pages, kernel_heap = {}, [], {}, {}
     paging, page_map = {}, []
     syscalls, syscall_rows = {}, []
+    privilege, gdt, tss, ring3_readiness = {}, {}, {}, {}
     kernel_tasks, task_rows = {}, []
     tinyfs, tinyfs_files = {}, []
     apps, app_rows, app_log = {}, [], []
@@ -420,6 +443,14 @@ def parse_report(lines):
             syscalls.update(parse_kv_line(line))
         elif section == "syscall_table":
             syscall_rows.append(parse_kv_line(line))
+        elif section == "privilege":
+            privilege.update(parse_kv_line(line))
+        elif section == "gdt":
+            gdt.update(parse_kv_line(line))
+        elif section == "tss":
+            tss.update(parse_kv_line(line))
+        elif section == "ring3_readiness":
+            ring3_readiness.update(parse_kv_line(line))
         elif section == "kernel_interrupts":
             kernel_interrupts.update(parse_kv_line(line))
         elif section == "kernel_timing":
@@ -452,6 +483,7 @@ def parse_report(lines):
             trust, pkg_manifests, pkg_states, mod_slots, pending,
             kernel_memory, memory_map, pages, kernel_heap,
             paging, page_map, syscalls, syscall_rows,
+            privilege, gdt, tss, ring3_readiness,
             kernel_interrupts, kernel_timing, kernel_exceptions,
             kernel_tasks, task_rows, tinyfs, tinyfs_files,
             apps, app_rows, app_log, system_status, diagnostics)
@@ -498,7 +530,7 @@ def main():
     lines, after_lines, found = extract_last_boot_report(text)
 
     print("=" * 72)
-    print(" KamikazeOS AI RECOVERY CORE - recovery report (v2.4, rule-based)")
+    print(" KamikazeOS AI RECOVERY CORE - recovery report (v2.5, rule-based)")
     print("=" * 72)
 
     if not found:
@@ -515,6 +547,7 @@ def main():
         kernel_memory, memory_map, pages, kernel_heap = {}, [], {}, {}
         paging, page_map = {}, []
         syscalls, syscall_rows = {}, []
+        privilege, gdt, tss, ring3_readiness = {}, {}, {}, {}
         kernel_interrupts, kernel_timing, kernel_exceptions = {}, {}, {}
         kernel_tasks, task_rows = {}, []
         tinyfs, tinyfs_files = {}, []
@@ -527,6 +560,7 @@ def main():
          trust, pkg_manifests, pkg_states, mod_slots, pending,
          kernel_memory, memory_map, pages, kernel_heap,
          paging, page_map, syscalls, syscall_rows,
+         privilege, gdt, tss, ring3_readiness,
          kernel_interrupts, kernel_timing, kernel_exceptions,
          kernel_tasks, task_rows, tinyfs, tinyfs_files,
          apps, app_rows, app_log, system_status, diagnostics) = parse_report(lines)
@@ -550,7 +584,7 @@ def main():
               f"({meta.get('scan_expected_self_tests', '0')} expected test)")
 
     if system_status:
-        print("\nv2.4 integrated system status:")
+        print("\nv2.5 integrated system status:")
         print(f"  * Kernel: {system_status.get('kernel_version', '?')}")
         print(f"  * Interrupts: IDT={system_status.get('idt_loaded', '?')} "
               f"PIC={system_status.get('pic_remapped', '?')} "
@@ -629,8 +663,10 @@ def main():
         print(f"  * Argument model: {syscalls.get('argument_model', '?')}")
         print(f"  * User mode available: "
               f"{syscalls.get('user_mode_available', 'no')}")
-        print("  * Boundary: kernel-internal preparation only; no Ring 3 "
-              "callers, userspace pointers, or ABI stability guarantee.")
+        print(f"  * Gate DPL: {syscalls.get('syscall_gate_dpl', '?')}")
+        print(f"  * User-callable gate: {syscalls.get('syscall_user_gate', 'disabled')}")
+        print("  * Boundary: the gate may be DPL3, but no Ring 3 execution, "
+              "userspace pointers, or ABI stability exists.")
         if syscalls.get("initialized") != "yes":
             print("  !! WARNING: syscall gate is not initialized.")
         try:
@@ -643,6 +679,34 @@ def main():
                   f"{row.get('name', '?'):<16} "
                   f"args={row.get('argument_mode', '?')} "
                   f"caller={row.get('caller_mode', '?')}")
+
+    if privilege or tss or ring3_readiness:
+        print("\nPrivilege and TSS foundation:")
+        print(f"  * Current CPL: {privilege.get('current_cpl', '?')} "
+              "(kernel shell must remain 0)")
+        print(f"  * User segments valid: "
+              f"{privilege.get('user_segments_valid', '?')}")
+        print(f"  * TSS loaded: {tss.get('tss_loaded', '?')}")
+        print(f"  * TSS selector: {tss.get('selector', '?')}")
+        print(f"  * SS0:ESP0: {tss.get('ss0', '?')}:{tss.get('esp0', '?')}")
+        print(f"  * Transition stack: {tss.get('stack_bottom', '?')} - "
+              f"{tss.get('stack_top', '?')}")
+        print(f"  * Guard policy: {tss.get('guard_policy', '?')}")
+        print(f"  * Syscall gate DPL: "
+              f"{privilege.get('syscall_gate_dpl', '?')}")
+        print(f"  * Foundation readiness: "
+              f"{ring3_readiness.get('readiness', '?')}")
+        print(f"  * Ring 3 execution enabled: "
+              f"{ring3_readiness.get('execution_enabled', 'no')}")
+        print("  * Missing by design: user stack, user page mappings, ELF "
+              "loading, process isolation, and stable userspace ABI.")
+        if tss.get("tss_loaded") != "yes" or \
+                tss.get("kernel_stack_valid") != "yes":
+            print("  !! WARNING: TSS or ESP0 kernel stack is invalid.")
+        if privilege.get("current_cpl") not in (None, "0"):
+            print("  !! WARNING: exported kernel shell CPL is not Ring 0.")
+        if ring3_readiness.get("readiness") != "foundation_ready":
+            print("  !! WARNING: Ring 3 architectural foundation is incomplete.")
 
     if kernel_heap:
         print("\nKernel heap foundation:")
@@ -1136,7 +1200,7 @@ def main():
 
 
 # --------------------------------------------------------------------------
-# FUTURE AI INTEGRATION POINT (deliberately not implemented in v2.4)
+# FUTURE AI INTEGRATION POINT (deliberately not implemented in v2.5)
 # --------------------------------------------------------------------------
 def analyze_with_ai_later(log_text: str):
     """
@@ -1155,7 +1219,7 @@ def analyze_with_ai_later(log_text: str):
         as this rule-based analyzer - the policy engine, not the model,
         decides what may ever be applied automatically.
 
-    Keeping this stub un-implemented in v2.4 is intentional: the transport,
+    Keeping this stub un-implemented in v2.5 is intentional: the transport,
     format, and approval workflow get built and trusted first.
     """
     raise NotImplementedError("AI analysis arrives in a later phase - see docstring")

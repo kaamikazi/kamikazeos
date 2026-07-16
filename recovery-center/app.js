@@ -116,6 +116,7 @@ function renderV20Overview(data) {
   box.appendChild(metric("Memory", `map ${status.memory_map || data.kernel_memory?.map_available || "?"}, free pages ${status.free_pages || data.pages?.free_pages || "?"}`));
   box.appendChild(metric("Heap", `${status.heap_available || data.kernel_heap?.available || "?"}, remaining ${status.heap_remaining || data.kernel_heap?.remaining_bytes || "?"} bytes`));
   box.appendChild(metric("Paging", `${status.paging_mode || data.paging?.mode || "?"}`));
+  box.appendChild(metric("Privilege", `${status.privilege_foundation || data.ring3_readiness?.readiness || "?"}, Ring 3 execution no`));
   box.appendChild(metric("Storage", `${status.recovery_backend || data.backend || "?"}, TinyFS ${status.tinyfs_status || "?"}`));
   box.appendChild(metric("Apps", `${status.app_registry || data.apps_status?.total_apps || "?"} fixed built-ins`));
   box.appendChild(metric("Packages", status.package_trust_mode || data.trust?.signature_verification || "?"));
@@ -123,6 +124,8 @@ function renderV20Overview(data) {
   box.appendChild(metric("Last critical", status.last_critical || "none"));
   box.appendChild(metric("Demo next command", diag.recommended_command || "none"));
   box.appendChild(metric("Auto repair", diag.auto_repair || "no"));
+  const privilegeFoundation = status.privilege_foundation ||
+    data.ring3_readiness?.readiness;
   const ready = status.gdt_loaded === "yes" &&
     status.idt_loaded === "yes" &&
     status.irq_gates_installed === "yes" &&
@@ -131,6 +134,7 @@ function renderV20Overview(data) {
     (status.heap_available || data.kernel_heap?.available) === "yes" &&
     (status.paging_prepared || data.paging?.prepared) === "yes" &&
     (data.paging?.identity_map_valid || "yes") === "yes" &&
+    (privilegeFoundation === "ready" || privilegeFoundation === "foundation_ready") &&
     status.tinyfs_status === "formatted" &&
     (status.recovery_backend || "").includes("disk") &&
     parseInt(status.app_registry || "0", 10) > 0;
@@ -193,10 +197,12 @@ function renderSyscalls(data) {
   box.appendChild(metric("Last syscall", `${syscalls.last_id || "none"} ${syscalls.last_name || ""}`.trim()));
   box.appendChild(metric("Last result", syscalls.last_result || "?"));
   box.appendChild(metric("User mode", syscalls.user_mode_available || "no"));
+  box.appendChild(metric("Gate DPL", syscalls.syscall_gate_dpl || "?"));
+  box.appendChild(metric("User gate", syscalls.syscall_user_gate || "disabled"));
   box.appendChild(metric("Pointer arguments", syscalls.pointer_arguments || "no"));
   const failed = parseInt(syscalls.failed_calls || "0", 10) > 0;
   const ready = syscalls.initialized === "yes";
-  setBadge("syscall-status", ready ? (failed ? "failures recorded" : "kernel only") : "unavailable",
+  setBadge("syscall-status", ready ? (failed ? "failures recorded" : `DPL${syscalls.syscall_gate_dpl || "?"}`) : "unavailable",
     ready ? (failed ? "warn" : "info") : "bad");
 
   renderTable("syscall-table", data.syscall_table || [], [
@@ -206,6 +212,51 @@ function renderSyscalls(data) {
     { key: "caller_mode", label: "Caller", badge: true },
     { key: "pointer_arguments", label: "Pointers", badge: true },
   ]);
+}
+
+function renderPrivilege(data) {
+  const gdt = data.gdt || {};
+  const tss = data.tss || {};
+  const privilege = data.privilege || {};
+  const readiness = data.ring3_readiness || {};
+
+  const gbox = $("gdt-panel");
+  gbox.innerHTML = "";
+  gbox.appendChild(metric("Kernel code", `${gdt.kernel_code_selector || "?"} / DPL ${gdt.kernel_code_dpl || "0"}`));
+  gbox.appendChild(metric("Kernel data", `${gdt.kernel_data_selector || "?"} / DPL ${gdt.kernel_data_dpl || "0"}`));
+  gbox.appendChild(metric("User code", `${gdt.user_code_selector || "?"} / DPL ${gdt.user_code_dpl || "3"}`));
+  gbox.appendChild(metric("User data", `${gdt.user_data_selector || "?"} / DPL ${gdt.user_data_dpl || "3"}`));
+  gbox.appendChild(metric("TSS selector", gdt.tss_selector || "?"));
+  gbox.appendChild(metric("User segments", gdt.user_segments_valid || "?"));
+  setBadge("gdt-status", gdt.loaded === "yes" && gdt.user_segments_valid === "yes" ? "segments valid" : "review",
+    gdt.loaded === "yes" && gdt.user_segments_valid === "yes" ? "good" : "bad");
+
+  const tbox = $("tss-panel");
+  tbox.innerHTML = "";
+  tbox.appendChild(metric("Loaded", tss.tss_loaded || "?"));
+  tbox.appendChild(metric("Selector", tss.selector || "?"));
+  tbox.appendChild(metric("SS0", tss.ss0 || "?"));
+  tbox.appendChild(metric("ESP0", tss.esp0 || "?"));
+  tbox.appendChild(metric("Kernel stack", `${tss.stack_bottom || "?"} - ${tss.stack_top || "?"}`));
+  tbox.appendChild(metric("Stack bytes", tss.stack_size || "?"));
+  tbox.appendChild(metric("Guard policy", tss.guard_policy || "none"));
+  tbox.appendChild(metric("Hardware switching", tss.hardware_task_switching || "no"));
+  const tssReady = tss.tss_loaded === "yes" && tss.kernel_stack_valid === "yes";
+  setBadge("tss-status", tssReady ? "esp0 ready" : "invalid", tssReady ? "good" : "bad");
+
+  const pbox = $("privilege-panel");
+  pbox.innerHTML = "";
+  pbox.appendChild(metric("Current CPL", privilege.current_cpl || "0"));
+  pbox.appendChild(metric("Foundation", readiness.readiness || "?"));
+  pbox.appendChild(metric("Syscall gate DPL", readiness.syscall_gate_dpl || "?"));
+  pbox.appendChild(metric("User stack", readiness.user_stack || "no"));
+  pbox.appendChild(metric("User page mappings", readiness.user_page_mappings || "no"));
+  pbox.appendChild(metric("ELF loader", readiness.elf_loader || "no"));
+  pbox.appendChild(metric("Process isolation", readiness.process_isolation || "no"));
+  pbox.appendChild(metric("Ring 3 execution", readiness.execution_enabled || "no"));
+  const foundationReady = readiness.readiness === "foundation_ready";
+  setBadge("privilege-status", foundationReady ? "foundation ready / execution off" : "not ready",
+    foundationReady ? "info" : "warn");
 }
 
 function renderHeap(data) {
@@ -573,6 +624,7 @@ function render(data) {
   renderHeap(data);
   renderPaging(data);
   renderSyscalls(data);
+  renderPrivilege(data);
   renderKernelFoundation(data);
   renderTaskFoundation(data);
   renderTinyFS(data);

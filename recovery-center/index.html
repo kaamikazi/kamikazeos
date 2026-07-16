@@ -33,7 +33,7 @@
   <main id="dashboard" class="dashboard">
     <section class="card wide">
       <div class="card-head">
-        <h2>v2.4 Syscall Door Overview</h2>
+        <h2>v2.5 Privilege Boundary Overview</h2>
         <span id="v20-status" class="badge neutral">unknown</span>
       </div>
       <div id="v20-overview" class="metric-list"></div>
@@ -119,6 +119,30 @@
           <span id="syscall-status" class="badge neutral">unknown</span>
         </div>
         <div id="syscall-panel" class="metric-list"></div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h2>GDT Segments</h2>
+          <span id="gdt-status" class="badge neutral">unknown</span>
+        </div>
+        <div id="gdt-panel" class="metric-list"></div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h2>Task State Segment</h2>
+          <span id="tss-status" class="badge neutral">unknown</span>
+        </div>
+        <div id="tss-panel" class="metric-list"></div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h2>Privilege Readiness</h2>
+          <span id="privilege-status" class="badge neutral">unknown</span>
+        </div>
+        <div id="privilege-panel" class="metric-list"></div>
       </article>
 
       <article class="card">
