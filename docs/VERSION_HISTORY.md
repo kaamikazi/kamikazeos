@@ -1,5 +1,15 @@
 # KamikazeOS Version History
 
+## v2.4.0 "Syscall Door"
+
+Added a dedicated DPL0 `int 0x80` gate, normalized assembly stub, fixed
+eight-entry syscall registry, validated dispatcher, result codes, counters,
+shell commands, serial reports, analyzer interpretation, and read-only
+Recovery Center visibility. Arguments are bounded scalar values and registry
+indexes; text results use kernel-owned buffers. No Ring 3 callers, userspace
+pointers, process isolation, ELF loading, arbitrary execution, networking,
+downloads, automatic repair, or ABI stability guarantee was added.
+
 ## v2.3.0 "Paging Gate"
 
 Added the first safe paging foundation: 32-bit x86 page directory/table

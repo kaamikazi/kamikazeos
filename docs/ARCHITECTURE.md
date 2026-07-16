@@ -1,6 +1,6 @@
 # KamikazeOS Architecture
 
-Status: v2.3.0 "Paging Gate".
+Status: v2.4.0 "Syscall Door".
 
 KamikazeOS is a small 32-bit x86 experimental OS research prototype that runs
 in QEMU. Its architecture is organized around observability, durable recovery
@@ -18,6 +18,7 @@ flowchart TD
   Kernel --> Ghost["GhostAttach device/driver policy"]
   Kernel --> Recovery["RecoveryEngine action catalog"]
   Kernel --> Apps["Kernel-managed app registry"]
+  Kernel --> Syscalls["DPL0 int 0x80 gate + fixed dispatcher"]
   Kernel --> Memory["RecoveryMemory: disk plus CMOS fallback"]
   Kernel --> Store["RecoveryStore: ATA PIO disk image"]
   Store --> Journal["Append-only durable journal"]
@@ -33,8 +34,10 @@ flowchart TD
 ## Kernel
 
 The kernel initializes in a fixed dependency order: console, serial, error log,
-recovery memory/store, IDT/PIC/PIT, task table, keyboard IRQ, GhostAttach, package metadata,
-snapshots, report, and finally the shell.
+kernel GDT, early exception IDT, recovery memory/store, memory map, heap,
+validated paging, TinyFS, PIC/PIT/IRQ gates, tasks, apps, the kernel syscall
+gate, keyboard IRQ, GhostAttach, package metadata, snapshots, report, and
+finally the shell.
 
 Important source areas:
 
@@ -51,6 +54,8 @@ Important source areas:
 - `kernel/src/tinyfs.c`: fixed-sector file metadata and bounded text I/O.
 - `kernel/src/app.c`: fixed kernel-managed app registry and built-in apps.
 - `kernel/src/app_policy.c`: app launch policy for compile-time entries only.
+- `kernel/src/syscall.c`: fixed kernel-only syscall registry and dispatcher.
+- `kernel/src/syscall_stub.S`: normalized `int 0x80` entry and `iret` return.
 - `kernel/src/report.c`: serial report format.
 - `kernel/src/ata.c`: minimal ATA PIO storage driver.
 - `kernel/src/recovery_store.c`: disk-backed recovery state.
@@ -138,3 +143,12 @@ exercise isolation. It remains visible as `GA-TEST-201` and an expected-test
 counter, but it is not classified as a production critical event and is
 excluded from health penalties. A failure from any non-canary device retains
 the `GA-DRV-201` critical path.
+
+## Syscall Boundary
+
+Vector `0x80` is installed as a kernel-privilege interrupt gate after the
+exception IDT is live. Calls use registers only: EAX is the call ID,
+EBX/ECX/EDX are bounded scalar or index arguments, EAX returns a result code,
+and EDX returns a scalar value. Text is copied only into kernel-owned buffers.
+No syscall accepts or dereferences a caller-provided pointer. There are no
+Ring 3 callers, per-process permissions, or stable userspace ABI in v2.4.

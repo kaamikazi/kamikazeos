@@ -1,5 +1,18 @@
 # Changelog
 
+## v2.4.0 - Syscall Door
+
+- Added a DPL0 `int 0x80` IDT gate with a normalized assembly entry stub.
+- Added a fixed compile-time registry of eight kernel service calls.
+- Added a dispatcher with bounded scalar/handle validation and no pointer ABI.
+- Added safe result codes, unknown-ID rejection, call/failure statistics, and
+  structured error evidence.
+- Added `syscalls`, `syscall-test`, and `syscall <id>` shell commands.
+- Added `[SYSCALLS]` and `[SYSCALL_TABLE]` serial report sections.
+- Updated the offline analyzer, JSON exporter, and read-only Recovery Center.
+- Added no Ring 3 execution, userspace pointers, ELF loading, process
+  isolation, arbitrary execution, networking, downloads, or automatic repair.
+
 ## v2.3.0 - Paging Gate
 
 - Added 32-bit x86 paging structures for a low-memory identity map.

@@ -35,6 +35,8 @@ real OS and tooling mechanics, but avoids dangerous update behavior.
 - Enabled 32-bit x86 paging with a 0-16 MiB supervisor identity map.
 - Strict identity-map/runtime-range validation and CR3 verification.
 - Page fault CR2 evidence path when a page fault occurs.
+- DPL0 `int 0x80` gate and normalized kernel syscall entry stub.
+- Fixed eight-entry syscall registry, dispatcher, validation, and reporting.
 - COM1 serial logs and boot reports.
 - Structured kernel error log.
 - GhostAttach policy decisions over fixed device/driver registries.
@@ -67,7 +69,8 @@ real OS and tooling mechanics, but avoids dangerous update behavior.
 - Ring 3 userspace.
 - Process isolation.
 - Executable loading or ELF loading.
-- Per-process memory and syscalls.
+- Ring 3 syscall callers and userspace pointer validation.
+- Per-process syscall permissions and stable userspace ABI.
 - Enabled virtual memory.
 - Paging isolation.
 - Per-process page tables.
@@ -144,6 +147,18 @@ validation. The mapping is identity-only and supervisor-writable. There are no
 userspace address spaces, per-process page tables, demand paging,
 copy-on-write, or memory protection between tasks. Page faults are diagnosed
 and halt safely; they are not recovered.
+
+## v2.4 Syscall Boundary
+
+The `int 0x80` IDT gate, assembly entry/return path, dispatcher, fixed registry,
+result codes, and statistics are real. Calls currently originate in the kernel
+and use only bounded scalar values or registry indexes. Text output is held in
+fixed kernel-owned buffers, and the ABI exposes no raw pointer argument.
+
+This is not a userspace ABI. There are no Ring 3 callers, user/kernel address
+checks, process credentials, per-process permissions, ELF programs, or ABI
+stability guarantees. The syscall layer cannot write arbitrary sectors,
+approve packages, change recovery policy, or execute unknown apps.
 
 ## Package Transaction Boundary
 

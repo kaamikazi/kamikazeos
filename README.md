@@ -16,8 +16,8 @@ KamikazeOS is not production-ready and not a general-purpose operating system.
 It has no user isolation, no networking stack, no real driver loading, and no
 production security guarantees.
 
-Current release: v2.3.0 "Paging Gate". It enables a strictly validated 32-bit
-x86 supervisor identity map and adds CR3/page-fault diagnostics.
+Current release: v2.4.0 "Syscall Door". It adds a fixed kernel-internal
+system-call gate and dispatcher while deliberately keeping Ring 3 unavailable.
 
 ## Feature Overview
 
@@ -26,6 +26,7 @@ x86 supervisor identity map and adds CR3/page-fault diagnostics.
 - Multiboot memory map parsing and fixed 4 KiB physical page tracking.
 - Bounded fixed-region kernel bump heap with allocation stats.
 - Enabled 32-bit x86 paging with a validated 0-16 MiB identity map.
+- Kernel-only `int 0x80` gate with eight fixed, validated service calls.
 - Fixed kernel task records and cooperative built-in task steps.
 - Fixed-sector TinyFS with bounded checksummed text files.
 - Fixed kernel-managed app registry with policy-gated built-in app runs.
@@ -54,6 +55,7 @@ flowchart TD
   IRQ --> Keyboard["PS/2 IRQ keyboard shell"]
   IRQ --> Tasks["Task table + tick accounting"]
   Kernel --> Apps["Kernel-managed app registry"]
+  Kernel --> Syscalls["Kernel-only syscall gate: int 0x80"]
   Kernel --> Ghost["GhostAttach"]
   Kernel --> Errors["Structured error log"]
   Kernel --> Store["RecoveryStore: ATA PIO recovery.img"]
@@ -132,6 +134,8 @@ diagnose
 store
 snapshots
 tasks
+syscalls
+syscall-test
 fs
 apps
 run tinyfs-demo
@@ -173,6 +177,7 @@ Real:
 - Host-side package manifest creation, validation, import/export.
 - Real host-side Ed25519 manifest signing and verification.
 - Kernel-side manifest checksum, trust-anchor, and policy enforcement.
+- Fixed kernel-internal syscall gate, dispatcher, registry, and reporting.
 - Read-only analyzer and Recovery Center Pro dashboard.
 
 Simulated:
@@ -182,6 +187,7 @@ Simulated:
 - Internet update fetching.
 - AI auto-repair.
 - Driver downloads or arbitrary package execution.
+- Ring 3 syscall callers, userspace pointers, and process isolation.
 
 ## Safety Principles
 
@@ -196,6 +202,7 @@ Simulated:
 
 ## Version History
 
+- v2.4.0 "Syscall Door": fixed kernel-internal `int 0x80` service interface.
 - v2.3.0 "Paging Gate": validated identity paging, CR3, and page-fault evidence.
 - v2.2.0 "Heap Seed": bounded kernel bump heap and heap reports.
 - v2.1.0 "Memory Map": Multiboot memory map parsing and page tracking.
@@ -218,8 +225,8 @@ See [docs/VERSION_HISTORY.md](docs/VERSION_HISTORY.md).
 
 ## Roadmap
 
-- Possible future technical work: virtual memory foundations, scheduler
-  groundwork, real in-kernel Ed25519 verification, and richer test automation.
+- Possible future technical work: Ring 3 foundations, scheduler groundwork,
+  real in-kernel Ed25519 verification, and richer test automation.
 - Still out of scope: networking, driver downloads, binary patching, and
   autonomous repair.
 
