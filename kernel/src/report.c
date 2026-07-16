@@ -321,7 +321,9 @@ void report_send(void)
     if (syscall_status.last_id == 0xFFFFFFFFu) serial_print("none");
     else serial_print_dec(syscall_status.last_id);
     serial_print("\nlast_name="); serial_print(syscall_name(syscall_status.last_id));
-    serial_print("\nlast_result="); serial_print(syscall_result_name(syscall_status.last_result));
+    serial_print("\nlast_result=");
+    if (syscall_status.last_id == 0xFFFFFFFFu) serial_print("none");
+    else serial_print(syscall_result_name(syscall_status.last_result));
     serial_print("\nlast_value="); serial_print_dec(syscall_status.last_value);
     serial_print("\nuser_mode_available=no");
     serial_print("\nargument_model=bounded_scalars_and_kernel_owned_buffers");

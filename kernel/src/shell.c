@@ -634,7 +634,9 @@ static void cmd_syscalls(void)
     if (stats.last_id == 0xFFFFFFFFu) vga_print("none");
     else { vga_print_dec(stats.last_id); vga_print(" "); vga_print(syscall_name(stats.last_id)); }
     vga_print("\n");
-    vga_print("  last result        : "); vga_print(syscall_result_name(stats.last_result)); vga_print("\n");
+    vga_print("  last result        : ");
+    vga_print(stats.last_id == 0xFFFFFFFFu ? "none" : syscall_result_name(stats.last_result));
+    vga_print("\n");
     vga_print("  user mode available: no\n");
     vga_print("  pointer arguments  : no\n\n");
     vga_print("ID  Name             Arguments\n");
