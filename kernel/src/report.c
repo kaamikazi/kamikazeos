@@ -301,7 +301,7 @@ void report_send(void)
     serial_print(";virtual_end="); serial_print_dec(pg_status->mapped_end);
     serial_print(";physical_start="); serial_print_dec(pg_status->mapped_start);
     serial_print(";physical_end="); serial_print_dec(pg_status->mapped_end);
-    serial_print(";flags=present,writable,supervisor");
+    serial_print(";flags=present,writable,supervisor_default,minimal_user_exceptions");
     serial_print(";validated="); serial_print(pg_status->identity_map_valid ? "yes" : "no");
     serial_print("\n");
     for (uint32_t i = 0; i < paging_range_count(); i++) {

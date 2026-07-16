@@ -219,7 +219,7 @@ void syscall_init(void)
                   : "Kernel syscall gate initialized at vector 128 DPL0 fallback")
                                 : "Kernel syscall gate initialization failed",
               stats.initialized ? (stats.syscall_user_gate
-                  ? "Ring 3 execution remains disabled"
+                  ? "Fixed CPL3 test still requires the final user-memory gate"
                   : "TSS or user segment prerequisite unavailable")
                                 : "do not invoke syscalls");
 }

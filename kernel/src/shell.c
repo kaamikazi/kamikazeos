@@ -3,7 +3,7 @@
  * In this phase the shell runs INSIDE the kernel (there's no userspace yet):
  * read a line from the keyboard, match it against a command table, run the
  * handler. Real OSes run shells as unprivileged processes — that separation
- * still requires a Ring 3 process boundary; v2.5 does not execute Ring 3.
+ * v2.6 can execute one fixed linked CPL3 test routine; it is not a process model.
  */
 #include "shell.h"
 #include "app.h"
@@ -183,7 +183,7 @@ static void cmd_help(void)
     vga_print("  help        show this list\n");
     vga_print("  clear       clear the screen\n");
     vga_print("  about       OS version, mission, CPU info\n");
-    vga_print("  system      integrated v2.5 system readiness summary\n");
+    vga_print("  system      integrated v2.6 system readiness summary\n");
     vga_print("  diagnose    compact full-system diagnostic summary\n");
     vga_print("  devices     GhostAttach device status table\n");
     vga_print("  drivers     GhostAttach driver registry table\n");
@@ -267,11 +267,11 @@ static void cmd_about(void)
     cpu_vendor(vendor);
 
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
-    vga_print("KamikazeOS v2.5.0 \"Privilege Boundary\"\n");
+    vga_print("KamikazeOS v2.6.0 \"Ring 3 Seed\"\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     vga_print("Experimental OS research prototype for auditable recovery.\n");
-    vga_print("v2.5: DPL3 user segments, TSS, ESP0 stack, and gated int 0x80.\n");
-    vga_print("Ring 3 execution remains disabled; no user pages or user stack.\n\n");
+    vga_print("v2.6: one fixed linked CPL3 routine, bounded user stack, and gated int 0x80.\n");
+    vga_print("No ELF loading, arbitrary user code, process isolation, or stable userspace ABI.\n\n");
     vga_print("  Architecture : x86 (i686), 32-bit protected mode\n");
     vga_print("  CPU vendor   : ");
     vga_print(vendor);
@@ -297,9 +297,11 @@ static void cmd_system(void)
     const struct paging_status *pg = paging_status();
 
     struct syscall_stats sys;
+    struct ring3_status ring3;
     syscall_stats(&sys);
+    ring3_status(&ring3);
 
-    vga_print("KamikazeOS v2.5 System Status:\n");
+    vga_print("KamikazeOS v2.6 System Status:\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     vga_print("  Kernel version      : "); vga_print(module_version_of(MOD_KERNEL)); vga_print("\n");
     vga_print("  Interrupts          : IDT "); vga_print(idt_is_loaded() ? "yes" : "no");
@@ -322,6 +324,9 @@ static void cmd_system(void)
     vga_print("  Syscall gate        : "); vga_print(sys.initialized ? "ready" : "unavailable");
     vga_print(" vector="); vga_print_hex(sys.vector);
     vga_print(" calls="); vga_print_dec(sys.total_calls); vga_print("\n");
+    vga_print("  Ring 3 seed         : ");
+    vga_print(ring3.execution_enabled ? "controlled_test_ready" : "disabled");
+    vga_print(" last="); vga_print(ring3.test_status); vga_print("\n");
     vga_print("  TinyFS              : ");
     vga_print(fs->available ? (fs->formatted ? "formatted" : "not_formatted") : "unavailable");
     vga_print(" files="); vga_print_dec(fs->file_count); vga_print("\n");
@@ -347,7 +352,7 @@ static void cmd_diagnose(void)
     boot_snapshot_health_now(&hb);
 
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
-    vga_print("KamikazeOS v2.5 Diagnostic Summary:\n");
+    vga_print("KamikazeOS v2.6 Diagnostic Summary:\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     vga_print("  Devices : total="); vga_print_dec(st.total);
     vga_print(" attached="); vga_print_dec(st.attached);
@@ -373,10 +378,14 @@ static void cmd_diagnose(void)
     vga_print(" identity="); vga_print(pg->identity_map_valid ? "yes" : "no");
     vga_print("\n");
     struct syscall_stats sys;
+    struct ring3_status ring3;
     syscall_stats(&sys);
+    ring3_status(&ring3);
     vga_print("  Syscalls: initialized="); vga_print(sys.initialized ? "yes" : "no");
     vga_print(" registered="); vga_print_dec(sys.registered_count);
     vga_print(" failed="); vga_print_dec(sys.failed_calls); vga_print("\n");
+    vga_print("  Ring3   : ready="); vga_print(ring3.execution_enabled ? "yes" : "no");
+    vga_print(" test="); vga_print(ring3.test_status); vga_print("\n");
     vga_print("  Tasks   : total="); vga_print_dec(task_count());
     vga_print(" ready="); vga_print_dec(task_count_state(TASK_READY));
     vga_print(" crashed="); vga_print_dec(task_count_state(TASK_CRASHED)); vga_print("\n");
@@ -706,7 +715,9 @@ static void print_privilege_check(const char *name, int ready)
 static void cmd_privilege(void)
 {
     struct privilege_status status;
+    struct ring3_status ring3;
     privilege_status(&status);
+    ring3_status(&ring3);
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
     vga_print("Privilege Boundary:\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
@@ -714,7 +725,7 @@ static void cmd_privilege(void)
     vga_print("  syscall gate DPL   : "); vga_print_dec(status.syscall_gate_dpl); vga_print("\n");
     vga_print("  syscall user gate  : "); vga_print(status.syscall_gate_dpl == 3u ? "enabled" : "disabled"); vga_print("\n");
     vga_print("  foundation ready   : "); vga_print(status.foundation_ready ? "yes" : "no"); vga_print("\n");
-    vga_print("  execution enabled  : no\n");
+    vga_print("  controlled CPL3    : "); vga_print(ring3.execution_enabled ? "enabled" : "disabled"); vga_print("\n");
     vga_print("  bootstrap stack    : "); vga_print_hex(status.bootstrap_stack_bottom); vga_print("-"); vga_print_hex(status.bootstrap_stack_top); vga_print("\n");
     vga_print("  transition stack   : "); vga_print_hex(status.transition_stack_bottom); vga_print("-"); vga_print_hex(status.transition_stack_top); vga_print("\n");
     vga_print("  ESP0               : "); vga_print_hex(status.esp0); vga_print("\n");
