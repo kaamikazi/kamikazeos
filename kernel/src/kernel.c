@@ -25,6 +25,7 @@
 #include "recovery_package.h"
 #include "recovery_store.h"
 #include "report.h"
+#include "ring3.h"
 #include "serial.h"
 #include "shell.h"
 #include "pic.h"
@@ -201,6 +202,7 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
 
     syscall_init();
     privilege_init();
+    ring3_init();
     struct syscall_stats syscall_boot_stats;
     syscall_stats(&syscall_boot_stats);
     report_ok(syscall_boot_stats.initialized

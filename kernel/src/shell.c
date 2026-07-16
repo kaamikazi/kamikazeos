@@ -30,6 +30,7 @@
 #include "recovery_policy.h"
 #include "recovery_store.h"
 #include "report.h"
+#include "ring3.h"
 #include "serial.h"
 #include "string.h"
 #include "syscall.h"
@@ -208,7 +209,11 @@ static void cmd_help(void)
     vga_print("  privilege   show privilege-boundary status and current CPL\n");
     vga_print("  gdt         show kernel, user, and TSS selectors\n");
     vga_print("  tss         show TSS, esp0, and transition stack status\n");
-    vga_print("  ring3-readiness show foundation checklist; execution stays off\n");
+    vga_print("  ring3       show controlled CPL3 execution status\n");
+    vga_print("  ring3-readiness show CPL3 transition validation checklist\n");
+    vga_print("  ring3-test  run the fixed build-time CPL3 routine\n");
+    vga_print("  user-memory show the only user-accessible code/stack pages\n");
+    vga_print("  user-fault-test confirm  intentional CPL3 fault; disposable session only\n");
     vga_print("  tasks       show the fixed kernel task table\n");
     vga_print("  task-current show the current logical kernel task\n");
     vga_print("  task-yield  cooperatively run one ready task step\n");
@@ -719,9 +724,13 @@ static void cmd_privilege(void)
 static void cmd_ring3_readiness(void)
 {
     struct privilege_status status;
+    struct ring3_status ring3;
+    struct user_memory_status memory;
     privilege_status(&status);
+    ring3_status(&ring3);
+    paging_user_memory_status(&memory);
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
-    vga_print("Ring 3 Foundation Readiness:\n");
+    vga_print("Ring 3 Controlled Transition Readiness:\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     print_privilege_check("kernel GDT", status.gdt_loaded);
     print_privilege_check("user DPL3 segments", status.user_segments_valid);
@@ -729,9 +738,73 @@ static void cmd_ring3_readiness(void)
     print_privilege_check("SS0:ESP0 kernel stack", status.kernel_stack_valid);
     print_privilege_check("paging enabled", status.paging_enabled);
     print_privilege_check("syscall gate DPL3", status.syscall_gate_installed && status.syscall_gate_dpl == 3u);
-    vga_print("  readiness               : "); vga_print(status.foundation_ready ? "foundation_ready" : "not_ready"); vga_print("\n");
-    vga_print("  ring3_execution_enabled : no\n");
-    vga_print("Missing by design: user stack, user pages, ELF loader, isolation.\n");
+    print_privilege_check("user code page", memory.code_user_accessible && memory.code_read_only);
+    print_privilege_check("fixed user stack", memory.stack_user_accessible && memory.stack_writable);
+    print_privilege_check("kernel supervisor pages", memory.kernel_supervisor_only);
+    print_privilege_check("no broad user exposure", memory.no_broad_user_exposure);
+    vga_print("  readiness               : "); vga_print(ring3.execution_enabled ? "controlled_test_ready" : "not_ready"); vga_print("\n");
+    vga_print("  ring3_execution_enabled : "); vga_print(ring3.execution_enabled ? "yes" : "no"); vga_print("\n");
+    vga_print("Only the fixed build-time test routine may execute.\n");
+}
+
+static void cmd_ring3(void)
+{
+    struct ring3_status status;
+    ring3_status(&status);
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("Ring 3 Seed Status:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print("  initialized          : "); vga_print(status.initialized ? "yes" : "no"); vga_print("\n");
+    vga_print("  execution enabled    : "); vga_print(status.execution_enabled ? "yes" : "no"); vga_print("\n");
+    vga_print("  test status          : "); vga_print(status.test_status); vga_print("\n");
+    vga_print("  last caller CPL      : "); vga_print_dec(status.last_cpl); vga_print("\n");
+    vga_print("  last syscall         : ");
+    if (status.last_syscall == 0xFFFFFFFFu) vga_print("none");
+    else { vga_print_dec(status.last_syscall); vga_print(" "); vga_print(syscall_name(status.last_syscall)); }
+    vga_print("\n  last result          : "); vga_print_dec((uint32_t)status.last_result); vga_print("\n");
+    vga_print("  ESP0 switch observed : "); vga_print(status.esp0_switch_observed ? "yes" : "no"); vga_print("\n");
+    vga_print("  kernel return        : "); vga_print(status.kernel_return_supported ? "supported" : "no"); vga_print("\n");
+    vga_print("  returned to kernel   : "); vga_print(status.returned_to_kernel ? "yes" : "no"); vga_print("\n");
+    vga_print("  user faults observed : "); vga_print_dec(status.user_faults_observed); vga_print("\n");
+}
+
+static void cmd_user_memory(void)
+{
+    struct user_memory_status memory;
+    paging_user_memory_status(&memory);
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("Fixed User Memory:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print("  code  : "); vga_print_hex(memory.code_start); vga_print("-"); vga_print_hex(memory.code_end);
+    vga_print(" user="); vga_print(memory.code_user_accessible ? "yes" : "no");
+    vga_print(" writable="); vga_print(memory.code_read_only ? "no" : "INVALID"); vga_print("\n");
+    vga_print("  stack : "); vga_print_hex(memory.stack_start); vga_print("-"); vga_print_hex(memory.stack_end);
+    vga_print(" user="); vga_print(memory.stack_user_accessible ? "yes" : "no");
+    vga_print(" writable="); vga_print(memory.stack_writable ? "yes" : "no"); vga_print("\n");
+    vga_print("  kernel supervisor only : "); vga_print(memory.kernel_supervisor_only ? "yes" : "NO"); vga_print("\n");
+    vga_print("  page structs supervisor: "); vga_print(memory.page_structures_supervisor_only ? "yes" : "NO"); vga_print("\n");
+    vga_print("  broad user exposure     : "); vga_print(memory.no_broad_user_exposure ? "no" : "INVALID"); vga_print("\n");
+    vga_print("  validation              : "); vga_print(memory.validation_error); vga_print("\n");
+}
+
+static void cmd_ring3_test(void)
+{
+    vga_print("Entering fixed build-time CPL3 test routine...\n");
+    int passed = ring3_run_test();
+    vga_print(passed ? "Ring 3 test PASS; original Ring 0 shell context restored.\n"
+                     : "Ring 3 test FAILED or was refused.\n");
+    cmd_ring3();
+}
+
+static void cmd_user_fault_test(const char *arg)
+{
+    if (kstrcmp(arg, "confirm") != 0) {
+        vga_print("This intentionally faults in CPL3 and halts the VM.\n");
+        vga_print("Use only in a disposable session: user-fault-test confirm\n");
+        return;
+    }
+    vga_print("Entering CPL3 and reading supervisor-only kernel memory.\n");
+    ring3_run_fault_test();
 }
 
 static void cmd_syscall_test(void)
@@ -741,11 +814,15 @@ static void cmd_syscall_test(void)
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     for (uint32_t i = 0; i < syscall_table_count(); i++) {
         const struct syscall_descriptor *entry = syscall_table_get(i);
+        if (entry->id == SYS_USER_EXIT) {
+            vga_print("  9 user_exit        CPL3-only (tested by ring3-test)\n");
+            continue;
+        }
         uint32_t value = 0;
         int32_t result = invoke_controlled_syscall(entry->id, &value);
         print_syscall_result(entry->id, result, value);
     }
-    vga_print("Raw pointers are not part of the v2.5 syscall ABI.\n");
+    vga_print("Raw pointers are not part of the v2.6 syscall ABI.\n");
 }
 
 static void cmd_syscall(const char *arg)
@@ -2225,7 +2302,10 @@ static const struct command commands[] = {
     { "privilege",   cmd_privilege   },
     { "gdt",         cmd_gdt         },
     { "tss",         cmd_tss         },
+    { "ring3",       cmd_ring3       },
     { "ring3-readiness", cmd_ring3_readiness },
+    { "ring3-test",  cmd_ring3_test  },
+    { "user-memory", cmd_user_memory },
     { "tasks",      cmd_tasks      },
     { "task-current", cmd_task_current },
     { "task-yield", cmd_task_yield },
@@ -2340,6 +2420,7 @@ void shell_run(void)
         if (kstrcmp(line, "heap-alloc") == 0) { cmd_heap_alloc(arg); continue; }
         if (kstrcmp(line, "pagefault-test") == 0) { cmd_pagefault_test(arg); continue; }
         if (kstrcmp(line, "syscall") == 0) { cmd_syscall(arg); continue; }
+        if (kstrcmp(line, "user-fault-test") == 0) { cmd_user_fault_test(arg); continue; }
 
         int found = 0;
         for (unsigned i = 0; i < sizeof(commands) / sizeof(commands[0]); i++) {

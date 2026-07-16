@@ -4,6 +4,7 @@
 #include "keyboard.h"
 #include "panic.h"
 #include "pic.h"
+#include "ring3.h"
 #include "timer.h"
 #include "task.h"
 #include "syscall.h"
@@ -70,8 +71,12 @@ void interrupt_dispatch(struct interrupt_frame *frame)
     if (frame->vector < 32) {
         last_exception = frame->vector;
         last_error = frame->error_code;
+        uint8_t caller_cpl = (uint8_t)(frame->cs & 3u);
         kpanic_exception(frame->vector, frame->error_code,
-                         interrupt_exception_name(frame->vector), frame->eip);
+                         interrupt_exception_name(frame->vector), frame->eip,
+                         frame->cs, frame->eflags,
+                         caller_cpl == 3u ? frame->user_esp : 0,
+                         caller_cpl == 3u ? frame->user_ss : 0);
     }
 
     if (frame->vector == SYSCALL_VECTOR) {

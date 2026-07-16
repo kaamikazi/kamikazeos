@@ -3,6 +3,7 @@
 #include "gdt.h"
 #include "idt.h"
 #include "paging.h"
+#include "ring3.h"
 #include "tss.h"
 
 extern char stack_bottom;
@@ -30,7 +31,7 @@ void privilege_init(void)
               ready ? "PRIV-000" : "PRIV-101", "Privilege",
               ready ? "Ring 3 architectural foundation validated"
                     : "Ring 3 foundation incomplete; user gate disabled",
-              ready ? "execution remains disabled until user mappings exist"
+              ready ? "ring3 init performs the final fixed user mapping gate"
                     : "inspect GDT TSS paging and syscall gate status");
 }
 
@@ -48,7 +49,9 @@ void privilege_status(struct privilege_status *out)
     out->syscall_gate_installed = idt_syscall_gate_installed();
     out->syscall_gate_dpl = idt_syscall_gate_dpl();
     out->foundation_ready = privilege_ready_for_ring3();
-    out->execution_enabled = 0;
+    struct ring3_status ring3;
+    ring3_status(&ring3);
+    out->execution_enabled = ring3.execution_enabled;
     out->current_cpl = current_cpl();
     out->bootstrap_stack_bottom = (uint32_t)&stack_bottom;
     out->bootstrap_stack_top = (uint32_t)&stack_top;

@@ -15,6 +15,7 @@ enum syscall_id {
     SYS_APP_INFO = 6,
     SYS_YIELD = 7,
     SYS_SYSTEM_INFO = 8,
+    SYS_USER_EXIT = 9,
 };
 
 enum syscall_result {
@@ -45,6 +46,12 @@ struct syscall_stats {
     int user_mode_available;
     int syscall_user_gate;
     uint8_t gate_dpl;
+    uint8_t last_caller_cpl;
+    uint32_t cpl0_calls;
+    uint32_t cpl3_calls;
+    uint32_t origin_denied_calls;
+    uint32_t last_kernel_esp;
+    int esp0_switch_observed;
 };
 
 void syscall_init(void);

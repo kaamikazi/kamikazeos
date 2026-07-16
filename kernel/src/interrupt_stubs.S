@@ -2,6 +2,8 @@
 
 .extern interrupt_dispatch
 
+.set GDT_KERNEL_DATA_SELECTOR, 0x10
+
 .macro ISR_NOERR number
 .global isr\number
 .type isr\number, @function
@@ -79,9 +81,23 @@ isr_unknown:
 interrupt_common:
     cld
     pusha
-    push esp
+    push ds
+    push es
+    push fs
+    push gs
+    mov ax, GDT_KERNEL_DATA_SELECTOR
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    lea eax, [esp + 8]
+    push eax
     call interrupt_dispatch
     add esp, 4
+    pop gs
+    pop fs
+    pop es
+    pop ds
     popa
     add esp, 8
     iretd

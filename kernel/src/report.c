@@ -27,6 +27,7 @@
 #include "recovery_actions.h"
 #include "recovery_memory.h"
 #include "recovery_store.h"
+#include "ring3.h"
 #include "serial.h"
 #include "string.h"
 #include "syscall.h"
@@ -37,7 +38,7 @@
 #include "tinyfs.h"
 #include "tss.h"
 
-#define KMZ_VERSION "2.5.0"
+#define KMZ_VERSION "2.6.0"
 
 /* serial_print for numbers: render via kitoa, then send. */
 static void serial_print_dec(uint32_t value)
@@ -123,6 +124,10 @@ void report_send(void)
     syscall_stats(&syscall_status);
     struct privilege_status privilege_state;
     privilege_status(&privilege_state);
+    struct ring3_status ring3_state;
+    ring3_status(&ring3_state);
+    struct user_memory_status user_memory;
+    paging_user_memory_status(&user_memory);
     struct gdt_status gdt_state;
     gdt_status(&gdt_state);
     struct tss_status tss_state;
@@ -150,7 +155,7 @@ void report_send(void)
     serial_print("\nsyscall_failed_calls="); serial_print_dec(syscall_status.failed_calls);
     serial_print("\nsyscall_gate_dpl="); serial_print_dec(syscall_status.gate_dpl);
     serial_print("\nprivilege_foundation="); serial_print(privilege_state.foundation_ready ? "ready" : "not_ready");
-    serial_print("\nring3_execution_enabled=no");
+    serial_print("\nring3_execution_enabled="); serial_print(ring3_state.execution_enabled ? "yes" : "no");
     serial_print("\ntask_count="); serial_print_dec(task_count());
     serial_print("\ntinyfs_status=");
     serial_print(fs_status->available ? (fs_status->formatted ? "formatted" : "not_formatted") : "unavailable");
@@ -308,7 +313,9 @@ void report_send(void)
         serial_print(";virtual_end="); serial_print_dec(range.end);
         serial_print(";physical_start="); serial_print_dec(range.start);
         serial_print(";physical_end="); serial_print_dec(range.end);
-        serial_print(";flags=present,writable,supervisor");
+        serial_print(";flags=present,");
+        serial_print(range.writable ? "writable," : "read_only,");
+        serial_print(range.user_accessible ? "user" : "supervisor");
         serial_print(";validated="); serial_print(range.validated ? "yes" : "no");
         serial_print("\n");
     }
@@ -336,9 +343,15 @@ void report_send(void)
     if (syscall_status.last_id == 0xFFFFFFFFu) serial_print("none");
     else serial_print(syscall_result_name(syscall_status.last_result));
     serial_print("\nlast_value="); serial_print_dec(syscall_status.last_value);
+    serial_print("\nlast_caller_cpl="); serial_print_dec(syscall_status.last_caller_cpl);
+    serial_print("\ncpl0_calls="); serial_print_dec(syscall_status.cpl0_calls);
+    serial_print("\ncpl3_calls="); serial_print_dec(syscall_status.cpl3_calls);
+    serial_print("\norigin_denied_calls="); serial_print_dec(syscall_status.origin_denied_calls);
+    serial_print("\nlast_kernel_esp="); serial_print_dec(syscall_status.last_kernel_esp);
+    serial_print("\nesp0_switch_observed="); serial_print(syscall_status.esp0_switch_observed ? "yes" : "no");
     serial_print("\nsyscall_gate_dpl="); serial_print_dec(syscall_status.gate_dpl);
     serial_print("\nsyscall_user_gate="); serial_print(syscall_status.syscall_user_gate ? "enabled" : "disabled");
-    serial_print("\nuser_mode_available=no");
+    serial_print("\nuser_mode_available=fixed_builtin_test_only");
     serial_print("\nargument_model=bounded_scalars_and_kernel_owned_buffers");
     serial_print("\npointer_arguments=no\n");
 
@@ -358,7 +371,7 @@ void report_send(void)
     serial_print("\nesp0="); serial_print_dec(privilege_state.esp0);
     serial_print("\nguard_policy="); serial_print(privilege_state.guard_policy);
     serial_print("\nreadiness="); serial_print(privilege_state.foundation_ready ? "foundation_ready" : "not_ready");
-    serial_print("\nexecution_enabled=no\n");
+    serial_print("\nexecution_enabled="); serial_print(ring3_state.execution_enabled ? "yes" : "no"); serial_print("\n");
 
     serial_print("[GDT]\n");
     serial_print("loaded="); serial_print(gdt_state.loaded ? "yes" : "no");
@@ -396,9 +409,55 @@ void report_send(void)
     serial_print("\nesp0_ready="); serial_print(privilege_state.kernel_stack_valid ? "yes" : "no");
     serial_print("\npaging_ready="); serial_print(privilege_state.paging_enabled ? "yes" : "no");
     serial_print("\nsyscall_gate_dpl="); serial_print_dec(privilege_state.syscall_gate_dpl);
-    serial_print("\nreadiness="); serial_print(privilege_state.foundation_ready ? "foundation_ready" : "not_ready");
-    serial_print("\nexecution_enabled=no");
-    serial_print("\nuser_stack=no\nuser_page_mappings=no\nelf_loader=no\nprocess_isolation=no\n");
+    serial_print("\nreadiness="); serial_print(ring3_state.execution_enabled ? "controlled_test_ready" : "not_ready");
+    serial_print("\nexecution_enabled="); serial_print(ring3_state.execution_enabled ? "yes" : "no");
+    serial_print("\nuser_stack=fixed_bounded\nuser_page_mappings=minimal_explicit\nelf_loader=no\nprocess_isolation=no\n");
+
+    serial_print("[RING3]\ninitialized="); serial_print(ring3_state.initialized ? "yes" : "no");
+    serial_print("\nexecution_enabled="); serial_print(ring3_state.execution_enabled ? "yes" : "no");
+    serial_print("\ntest_status="); serial_print(ring3_state.test_status);
+    serial_print("\nlast_cpl="); serial_print_dec(ring3_state.last_cpl);
+    serial_print("\nlast_syscall=");
+    if (ring3_state.last_syscall == 0xFFFFFFFFu) serial_print("none"); else serial_print_dec(ring3_state.last_syscall);
+    serial_print("\nexit_result="); serial_print_dec((uint32_t)ring3_state.last_result);
+    serial_print("\nkernel_return_supported="); serial_print(ring3_state.kernel_return_supported ? "yes" : "no");
+    serial_print("\nreturned_to_kernel="); serial_print(ring3_state.returned_to_kernel ? "yes" : "no");
+    serial_print("\nesp0_switch_observed="); serial_print(ring3_state.esp0_switch_observed ? "yes" : "no");
+    serial_print("\nuser_faults_observed="); serial_print_dec(ring3_state.user_faults_observed);
+    serial_print("\ntrusted_routine=builtin_linked_only\n");
+
+    serial_print("[USER_MEMORY]\nuser_code_start="); serial_print_dec(user_memory.code_start);
+    serial_print("\nuser_code_end="); serial_print_dec(user_memory.code_end);
+    serial_print("\nuser_stack_start="); serial_print_dec(user_memory.stack_start);
+    serial_print("\nuser_stack_end="); serial_print_dec(user_memory.stack_end);
+    serial_print("\ncode_user_accessible="); serial_print(user_memory.code_user_accessible ? "yes" : "no");
+    serial_print("\ncode_read_only="); serial_print(user_memory.code_read_only ? "yes" : "no");
+    serial_print("\nstack_user_accessible="); serial_print(user_memory.stack_user_accessible ? "yes" : "no");
+    serial_print("\nstack_writable="); serial_print(user_memory.stack_writable ? "yes" : "no");
+    serial_print("\nkernel_supervisor_only="); serial_print(user_memory.kernel_supervisor_only ? "yes" : "no");
+    serial_print("\npage_structures_supervisor_only="); serial_print(user_memory.page_structures_supervisor_only ? "yes" : "no");
+    serial_print("\nno_broad_user_exposure="); serial_print(user_memory.no_broad_user_exposure ? "yes" : "no");
+    serial_print("\nvalidated="); serial_print(user_memory.validated ? "yes" : "no");
+    serial_print("\nvalidation_error="); serial_print(user_memory.validation_error);
+    serial_print("\n");
+
+    serial_print("[USER_EXECUTION]\ntest_status="); serial_print(ring3_state.test_status);
+    serial_print("\nlast_cpl="); serial_print_dec(ring3_state.last_cpl);
+    serial_print("\nlast_syscall=");
+    if (ring3_state.last_syscall == 0xFFFFFFFFu) serial_print("none"); else serial_print_dec(ring3_state.last_syscall);
+    serial_print("\nexit_result="); serial_print_dec((uint32_t)ring3_state.last_result);
+    serial_print("\nreturned_to_kernel="); serial_print(ring3_state.returned_to_kernel ? "yes" : "no");
+    serial_print("\nesp0_switch_observed="); serial_print(ring3_state.esp0_switch_observed ? "yes" : "no");
+    serial_print("\n");
+
+    serial_print("[USER_FAULT]\npresent="); serial_print(ring3_state.user_faults_observed ? "yes" : "no");
+    serial_print("\nfault_origin="); serial_print(ring3_state.user_faults_observed ? "cpl3" : "none");
+    serial_print("\nvector="); serial_print_dec(ring3_state.last_fault_vector);
+    serial_print("\nfault_address="); serial_print_dec(ring3_state.last_fault_address);
+    serial_print("\neip="); serial_print_dec(ring3_state.last_fault_eip);
+    serial_print("\nuser_esp="); serial_print_dec(ring3_state.last_fault_user_esp);
+    serial_print("\nintentional_test="); serial_print(ring3_state.last_fault_intentional ? "yes" : "no");
+    serial_print("\n");
 
     serial_print("[SYSCALL_TABLE]\n");
     for (uint32_t i = 0; i < syscall_table_count(); i++) {
@@ -406,7 +465,11 @@ void report_send(void)
         serial_print("id="); serial_print_dec(entry->id);
         serial_print(";name="); serial_print_field(entry->name);
         serial_print(";argument_mode="); serial_print_field(entry->argument_mode);
-        serial_print(";caller_mode=kernel_only_current");
+        serial_print(";caller_mode=");
+        if (entry->id == SYS_USER_EXIT) serial_print("cpl3_only");
+        else if (entry->id == SYS_GET_TICKS || entry->id == SYS_GET_HEALTH ||
+                 entry->id == SYS_SYSTEM_INFO) serial_print("cpl0_or_cpl3");
+        else serial_print("cpl0_only");
         serial_print(";gate_access=");
         serial_print(syscall_status.gate_dpl == 3u ? "dpl3" : "dpl0");
         serial_print(";pointer_arguments=no\n");

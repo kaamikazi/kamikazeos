@@ -6,6 +6,7 @@
 #include "idt.h"
 #include "interrupts.h"
 #include "paging.h"
+#include "ring3.h"
 #include "string.h"
 #include "task.h"
 #include "timer.h"
@@ -28,6 +29,7 @@ static int32_t handle_read_file(uint32_t, uint32_t, uint32_t, uint32_t *);
 static int32_t handle_app_info(uint32_t, uint32_t, uint32_t, uint32_t *);
 static int32_t handle_yield(uint32_t, uint32_t, uint32_t, uint32_t *);
 static int32_t handle_system_info(uint32_t, uint32_t, uint32_t, uint32_t *);
+static int32_t handle_user_exit(uint32_t, uint32_t, uint32_t, uint32_t *);
 
 static const struct syscall_entry table[] = {
     {{SYS_WRITE_CONSOLE, "write_console", "message_token"}, handle_write_console},
@@ -38,6 +40,7 @@ static const struct syscall_entry table[] = {
     {{SYS_APP_INFO, "app_info", "app_index"}, handle_app_info},
     {{SYS_YIELD, "yield", "none"}, handle_yield},
     {{SYS_SYSTEM_INFO, "system_info", "none"}, handle_system_info},
+    {{SYS_USER_EXIT, "user_exit", "result_code_cpl3_only"}, handle_user_exit},
 };
 
 static struct syscall_stats stats;
@@ -175,6 +178,23 @@ static int32_t handle_system_info(uint32_t a, uint32_t b, uint32_t c,
     return SYSCALL_OK;
 }
 
+static int32_t handle_user_exit(uint32_t a, uint32_t b, uint32_t c,
+                                uint32_t *value)
+{
+    (void)a; (void)b; (void)c; (void)value;
+    return SYSCALL_ERR_DENIED;
+}
+
+static int syscall_origin_allowed(uint32_t id, uint8_t cpl)
+{
+    if (cpl == 0u)
+        return id != SYS_USER_EXIT;
+    if (cpl != 3u)
+        return 0;
+    return id == SYS_GET_TICKS || id == SYS_GET_HEALTH ||
+           id == SYS_SYSTEM_INFO || id == SYS_USER_EXIT;
+}
+
 void syscall_init(void)
 {
     kmemset(&stats, 0, sizeof(stats));
@@ -213,6 +233,15 @@ void syscall_dispatch(struct interrupt_frame *frame)
         return;
     stats.total_calls++;
     stats.last_id = id;
+    uint8_t caller_cpl = (uint8_t)(frame->cs & 3u);
+    stats.last_caller_cpl = caller_cpl;
+    stats.last_kernel_esp = (uint32_t)frame;
+    if (caller_cpl == 0u) stats.cpl0_calls++;
+    else if (caller_cpl == 3u) stats.cpl3_calls++;
+    ring3_note_syscall(caller_cpl, id, (uint32_t)frame);
+    if (caller_cpl == 3u && (uint32_t)frame >= tss_privilege_stack_bottom() &&
+        (uint32_t)frame < tss_privilege_stack_top())
+        stats.esp0_switch_observed = 1;
     last_text[0] = '\0';
     const struct syscall_entry *entry = find_entry(id);
     if (!stats.initialized) {
@@ -221,6 +250,20 @@ void syscall_dispatch(struct interrupt_frame *frame)
         result = SYSCALL_ERR_UNKNOWN;
         error_log(SEV_WARNING, "SYS-ERR-001", "Syscalls",
                   "Unknown syscall ID rejected", "use the fixed syscall table");
+    } else if (!syscall_origin_allowed(id, caller_cpl)) {
+        result = SYSCALL_ERR_DENIED;
+        stats.origin_denied_calls++;
+        error_log(SEV_WARNING, "SYS-ERR-004", "Syscalls",
+                  "Syscall origin policy rejected caller CPL",
+                  "use only services permitted for the saved CS privilege");
+    } else if (id == SYS_USER_EXIT) {
+        if (frame->ebx > 2u || frame->ecx != 0 || frame->edx != 0) {
+            result = SYSCALL_ERR_INVALID_ARG;
+        } else {
+            stats.last_result = SYSCALL_OK;
+            stats.last_value = frame->ebx;
+            ring3_complete_user_exit(frame->ebx, (uint32_t)frame);
+        }
     } else {
         result = entry->handler(frame->ebx, frame->ecx, frame->edx, &value);
         if (result != SYSCALL_OK)

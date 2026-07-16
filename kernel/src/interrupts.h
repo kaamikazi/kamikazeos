@@ -8,6 +8,8 @@ struct interrupt_frame {
     uint32_t ebx, edx, ecx, eax;
     uint32_t vector, error_code;
     uint32_t eip, cs, eflags;
+    /* Present only when saved CS indicates a transition from CPL3. */
+    uint32_t user_esp, user_ss;
 };
 
 void interrupts_init(void);
