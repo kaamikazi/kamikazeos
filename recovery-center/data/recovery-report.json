@@ -1,31 +1,31 @@
 {
-  "version": "2.5.0",
+  "version": "2.6.0",
   "ghostattach": {
     "expected_self_test_failures": "1"
   },
   "backend": "disk+CMOS",
   "system_status": {
-    "kernel_version": "2.5",
+    "kernel_version": "2.6",
     "gdt_loaded": "yes",
     "idt_loaded": "yes",
     "irq_gates_installed": "yes",
     "pic_remapped": "yes",
-    "timer_ticks": "3373",
+    "timer_ticks": "2272",
     "keyboard_mode": "irq",
     "memory_map": "multiboot",
-    "free_pages": "16014",
+    "free_pages": "16006",
     "heap_available": "yes",
     "heap_remaining": "65536",
     "paging_prepared": "yes",
     "paging_enabled": "yes",
-    "paging_mode": "identity_enabled",
+    "paging_mode": "identity_enabled_minimal_user_pages",
     "syscall_initialized": "yes",
     "syscall_vector": "128",
-    "syscall_total_calls": "8",
+    "syscall_total_calls": "10",
     "syscall_failed_calls": "0",
     "syscall_gate_dpl": "3",
     "privilege_foundation": "ready",
-    "ring3_execution_enabled": "no",
+    "ring3_execution_enabled": "yes",
     "task_count": "4",
     "tinyfs_status": "formatted",
     "tinyfs_files": "2",
@@ -39,10 +39,10 @@
   "diagnostics": {
     "devices": "total:7,attached:3,fallback:1,missing:2,isolated:1,expected_test:1",
     "drivers": "verified_policy_active",
-    "memory": "map:multiboot,usable_kib:65023,free_pages:16014",
+    "memory": "map:multiboot,usable_kib:65023,free_pages:16006",
     "heap": "available:yes,used:0,remaining:65536,free_supported:no",
-    "paging": "prepared:yes,enabled:yes,identity:yes,mode:identity_enabled",
-    "syscalls": "initialized:yes,registered:8,failed:0",
+    "paging": "prepared:yes,enabled:yes,identity:yes,mode:identity_enabled_minimal_user_pages",
+    "syscalls": "initialized:yes,registered:9,failed:0",
     "tasks": "total:4,ready:3,crashed:0",
     "tinyfs": "status:formatted,files:2,last_error:none",
     "apps": "total:6,blocked_attempts:0",
@@ -60,9 +60,9 @@
     "usable_kib": "65023",
     "reserved_kib": "449",
     "kernel_start": "1048576",
-    "kernel_end": "1318912",
-    "heap_start": "1318912",
-    "heap_end": "1384448",
+    "kernel_end": "1351680",
+    "heap_start": "1351680",
+    "heap_end": "1417216",
     "allocation_mode": "physical_page_tracker_plus_fixed_bump_heap",
     "virtual_memory": "no",
     "heap_allocator": "bounded_bump"
@@ -114,18 +114,18 @@
   "pages": {
     "page_size": "4096",
     "total_pages": "16368",
-    "free_pages": "16014",
-    "used_pages": "354",
+    "free_pages": "16006",
+    "used_pages": "362",
     "reserved_low_pages": "159",
-    "reserved_kernel_pages": "66",
+    "reserved_kernel_pages": "74",
     "reserved_heap_pages": "16",
     "tracked_limit_kib": "131072",
     "virtual_memory": "no"
   },
   "kernel_heap": {
     "available": "yes",
-    "heap_start": "1318912",
-    "heap_end": "1384448",
+    "heap_start": "1351680",
+    "heap_end": "1417216",
     "total_bytes": "65536",
     "used_bytes": "0",
     "remaining_bytes": "65536",
@@ -137,12 +137,12 @@
   "paging": {
     "prepared": "yes",
     "enabled": "yes",
-    "mode": "identity_enabled",
+    "mode": "identity_enabled_minimal_user_pages",
     "identity_map_valid": "yes",
     "required_ranges_valid": "yes",
     "prerequisites_valid": "yes",
-    "page_directory": "1261568",
-    "active_cr3": "1261568",
+    "page_directory": "1273856",
+    "active_cr3": "1273856",
     "mapped_start": "0",
     "mapped_end": "16777216",
     "page_fault_handler": "diagnostic_halt",
@@ -170,7 +170,7 @@
       "virtual_end": "16777216",
       "physical_start": "0",
       "physical_end": "16777216",
-      "flags": "present,writable,supervisor",
+      "flags": "present,writable,supervisor_default,minimal_user_exceptions",
       "validated": "yes"
     },
     {
@@ -197,59 +197,79 @@
       "type": "required_identity",
       "name": "kernel_image_and_static_buffers",
       "virtual_start": "1048576",
-      "virtual_end": "1318912",
+      "virtual_end": "1331200",
       "physical_start": "1048576",
-      "physical_end": "1318912",
+      "physical_end": "1331200",
       "flags": "present,writable,supervisor",
       "validated": "yes"
     },
     {
       "type": "required_identity",
+      "name": "ring3_builtin_code",
+      "virtual_start": "1331200",
+      "virtual_end": "1335296",
+      "physical_start": "1331200",
+      "physical_end": "1335296",
+      "flags": "present,read_only,user",
+      "validated": "yes"
+    },
+    {
+      "type": "required_identity",
+      "name": "ring3_fixed_stack",
+      "virtual_start": "1335296",
+      "virtual_end": "1351680",
+      "physical_start": "1335296",
+      "physical_end": "1351680",
+      "flags": "present,writable,user",
+      "validated": "yes"
+    },
+    {
+      "type": "required_identity",
       "name": "bootstrap_stack",
-      "virtual_start": "1220608",
-      "virtual_end": "1236992",
-      "physical_start": "1220608",
-      "physical_end": "1236992",
+      "virtual_start": "1232896",
+      "virtual_end": "1249280",
+      "physical_start": "1232896",
+      "physical_end": "1249280",
       "flags": "present,writable,supervisor",
       "validated": "yes"
     },
     {
       "type": "required_identity",
       "name": "privilege_transition_stack",
-      "virtual_start": "1298432",
-      "virtual_end": "1314816",
-      "physical_start": "1298432",
-      "physical_end": "1314816",
+      "virtual_start": "1310720",
+      "virtual_end": "1327104",
+      "physical_start": "1310720",
+      "physical_end": "1327104",
       "flags": "present,writable,supervisor",
       "validated": "yes"
     },
     {
       "type": "required_identity",
       "name": "kernel_heap",
-      "virtual_start": "1318912",
-      "virtual_end": "1384448",
-      "physical_start": "1318912",
-      "physical_end": "1384448",
+      "virtual_start": "1351680",
+      "virtual_end": "1417216",
+      "physical_start": "1351680",
+      "physical_end": "1417216",
       "flags": "present,writable,supervisor",
       "validated": "yes"
     },
     {
       "type": "required_identity",
       "name": "page_directory",
-      "virtual_start": "1261568",
-      "virtual_end": "1265664",
-      "physical_start": "1261568",
-      "physical_end": "1265664",
+      "virtual_start": "1273856",
+      "virtual_end": "1277952",
+      "physical_start": "1273856",
+      "physical_end": "1277952",
       "flags": "present,writable,supervisor",
       "validated": "yes"
     },
     {
       "type": "required_identity",
       "name": "page_tables",
-      "virtual_start": "1265664",
-      "virtual_end": "1282048",
-      "physical_start": "1265664",
-      "physical_end": "1282048",
+      "virtual_start": "1277952",
+      "virtual_end": "1294336",
+      "physical_start": "1277952",
+      "physical_end": "1294336",
       "flags": "present,writable,supervisor",
       "validated": "yes"
     }
@@ -257,16 +277,22 @@
   "syscalls": {
     "initialized": "yes",
     "vector": "128",
-    "total_calls": "8",
+    "total_calls": "10",
     "failed_calls": "0",
-    "registered_count": "8",
-    "last_id": "8",
-    "last_name": "system_info",
+    "registered_count": "9",
+    "last_id": "9",
+    "last_name": "user_exit",
     "last_result": "ok",
-    "last_value": "7",
+    "last_value": "0",
+    "last_caller_cpl": "3",
+    "cpl0_calls": "8",
+    "cpl3_calls": "2",
+    "origin_denied_calls": "0",
+    "last_kernel_esp": "1327044",
+    "esp0_switch_observed": "yes",
     "syscall_gate_dpl": "3",
     "syscall_user_gate": "enabled",
-    "user_mode_available": "no",
+    "user_mode_available": "fixed_builtin_test_only",
     "argument_model": "bounded_scalars_and_kernel_owned_buffers",
     "pointer_arguments": "no"
   },
@@ -275,7 +301,7 @@
       "id": "1",
       "name": "write_console",
       "argument_mode": "message_token",
-      "caller_mode": "kernel_only_current",
+      "caller_mode": "cpl0_only",
       "gate_access": "dpl3",
       "pointer_arguments": "no"
     },
@@ -283,7 +309,7 @@
       "id": "2",
       "name": "get_ticks",
       "argument_mode": "none",
-      "caller_mode": "kernel_only_current",
+      "caller_mode": "cpl0_or_cpl3",
       "gate_access": "dpl3",
       "pointer_arguments": "no"
     },
@@ -291,7 +317,7 @@
       "id": "3",
       "name": "get_health",
       "argument_mode": "none",
-      "caller_mode": "kernel_only_current",
+      "caller_mode": "cpl0_or_cpl3",
       "gate_access": "dpl3",
       "pointer_arguments": "no"
     },
@@ -299,7 +325,7 @@
       "id": "4",
       "name": "list_files",
       "argument_mode": "file_index",
-      "caller_mode": "kernel_only_current",
+      "caller_mode": "cpl0_only",
       "gate_access": "dpl3",
       "pointer_arguments": "no"
     },
@@ -307,7 +333,7 @@
       "id": "5",
       "name": "read_file",
       "argument_mode": "file_index",
-      "caller_mode": "kernel_only_current",
+      "caller_mode": "cpl0_only",
       "gate_access": "dpl3",
       "pointer_arguments": "no"
     },
@@ -315,7 +341,7 @@
       "id": "6",
       "name": "app_info",
       "argument_mode": "app_index",
-      "caller_mode": "kernel_only_current",
+      "caller_mode": "cpl0_only",
       "gate_access": "dpl3",
       "pointer_arguments": "no"
     },
@@ -323,7 +349,7 @@
       "id": "7",
       "name": "yield",
       "argument_mode": "none",
-      "caller_mode": "kernel_only_current",
+      "caller_mode": "cpl0_only",
       "gate_access": "dpl3",
       "pointer_arguments": "no"
     },
@@ -331,7 +357,15 @@
       "id": "8",
       "name": "system_info",
       "argument_mode": "none",
-      "caller_mode": "kernel_only_current",
+      "caller_mode": "cpl0_or_cpl3",
+      "gate_access": "dpl3",
+      "pointer_arguments": "no"
+    },
+    {
+      "id": "9",
+      "name": "user_exit",
+      "argument_mode": "result_code_cpl3_only",
+      "caller_mode": "cpl3_only",
       "gate_access": "dpl3",
       "pointer_arguments": "no"
     }
@@ -345,14 +379,14 @@
     "syscall_gate_installed": "yes",
     "syscall_gate_dpl": "3",
     "current_cpl": "0",
-    "bootstrap_stack_bottom": "1220608",
-    "bootstrap_stack_top": "1236992",
-    "transition_stack_bottom": "1298432",
-    "transition_stack_top": "1314816",
-    "esp0": "1314816",
+    "bootstrap_stack_bottom": "1232896",
+    "bootstrap_stack_top": "1249280",
+    "transition_stack_bottom": "1310720",
+    "transition_stack_top": "1327104",
+    "esp0": "1327104",
     "guard_policy": "bounds_checked_no_guard_page",
     "readiness": "foundation_ready",
-    "execution_enabled": "no"
+    "execution_enabled": "yes"
   },
   "gdt": {
     "loaded": "yes",
@@ -374,9 +408,9 @@
     "descriptor_valid": "yes",
     "tss_loaded": "yes",
     "ss0": "16",
-    "esp0": "1314816",
-    "stack_bottom": "1298432",
-    "stack_top": "1314816",
+    "esp0": "1327104",
+    "stack_bottom": "1310720",
+    "stack_top": "1327104",
     "stack_size": "16384",
     "kernel_stack_valid": "yes",
     "guard_policy": "bounds_checked_no_guard_page",
@@ -389,12 +423,57 @@
     "esp0_ready": "yes",
     "paging_ready": "yes",
     "syscall_gate_dpl": "3",
-    "readiness": "foundation_ready",
-    "execution_enabled": "no",
-    "user_stack": "no",
-    "user_page_mappings": "no",
+    "readiness": "controlled_test_ready",
+    "execution_enabled": "yes",
+    "user_stack": "fixed_bounded",
+    "user_page_mappings": "minimal_explicit",
     "elf_loader": "no",
     "process_isolation": "no"
+  },
+  "ring3": {
+    "initialized": "yes",
+    "execution_enabled": "yes",
+    "test_status": "passed",
+    "last_cpl": "3",
+    "last_syscall": "9",
+    "exit_result": "0",
+    "kernel_return_supported": "yes",
+    "returned_to_kernel": "yes",
+    "esp0_switch_observed": "yes",
+    "user_faults_observed": "0",
+    "trusted_routine": "builtin_linked_only"
+  },
+  "user_memory": {
+    "user_code_start": "1331200",
+    "user_code_end": "1335296",
+    "user_stack_start": "1335296",
+    "user_stack_end": "1351680",
+    "code_user_accessible": "yes",
+    "code_read_only": "yes",
+    "stack_user_accessible": "yes",
+    "stack_writable": "yes",
+    "kernel_supervisor_only": "yes",
+    "page_structures_supervisor_only": "yes",
+    "no_broad_user_exposure": "yes",
+    "validated": "yes",
+    "validation_error": "none"
+  },
+  "user_execution": {
+    "test_status": "passed",
+    "last_cpl": "3",
+    "last_syscall": "9",
+    "exit_result": "0",
+    "returned_to_kernel": "yes",
+    "esp0_switch_observed": "yes"
+  },
+  "user_fault": {
+    "present": "no",
+    "fault_origin": "none",
+    "vector": "0",
+    "fault_address": "0",
+    "eip": "0",
+    "user_esp": "0",
+    "intentional_test": "no"
   },
   "store": {
     "backend": "disk+CMOS",
@@ -1054,8 +1133,8 @@
   "modules": [
     {
       "module": "Kernel",
-      "version": "2.5",
-      "base": "2.5",
+      "version": "2.6",
+      "base": "2.6",
       "updated": "0"
     },
     {
@@ -1214,11 +1293,11 @@
     "timer_enabled": "yes",
     "keyboard_mode": "irq",
     "interrupts_enabled": "yes",
-    "interrupts_handled": "3646",
-    "last_vector": "32"
+    "interrupts_handled": "2596",
+    "last_vector": "33"
   },
   "kernel_timing": {
-    "tick_count": "3376",
+    "tick_count": "2275",
     "timer_irq": "enabled",
     "frequency_hz": "100"
   },
@@ -1244,9 +1323,9 @@
       "name": "kernel_shell",
       "state": "running",
       "priority": "3",
-      "ticks_run": "3376",
+      "ticks_run": "2275",
       "created_at_tick": "0",
-      "last_run_tick": "3376",
+      "last_run_tick": "2275",
       "flags": "1"
     },
     {
@@ -1256,7 +1335,7 @@
       "priority": "0",
       "ticks_run": "0",
       "created_at_tick": "0",
-      "last_run_tick": "1550",
+      "last_run_tick": "999",
       "flags": "3"
     },
     {
@@ -1591,7 +1670,7 @@
     },
     "SYS-ERR-002": {
       "cause": "A syscall rejected an invalid bounded argument or an unavailable kernel service.",
-      "action": "Inspect `syscalls` and the target subsystem. Do not pass raw addresses; v2.5 exposes no pointer ABI."
+      "action": "Inspect `syscalls` and the target subsystem. Do not pass raw addresses; v2.6 exposes no pointer ABI."
     },
     "SYS-ERR-003": {
       "cause": "The kernel could not install its dedicated syscall IDT gate.",
@@ -1608,6 +1687,18 @@
     "PRIV-101": {
       "cause": "One or more privilege-boundary prerequisites failed, so the Ring 3 foundation is incomplete.",
       "action": "Inspect GDT, TSS, ESP0, paging, and syscall DPL evidence. Do not bypass the readiness gate."
+    },
+    "RING3-101": {
+      "cause": "The fixed CPL3 execution gate rejected incomplete user-memory or privilege validation.",
+      "action": "Keep Ring 3 execution disabled. Inspect `ring3-readiness` and `user-memory`; never broaden the identity map."
+    },
+    "RING3-MEM-CRITICAL": {
+      "cause": "The report indicates kernel or paging structures may be user-accessible, or the user mapping is broader than the fixed test pages.",
+      "action": "Stop CPL3 testing. Keep execution disabled and inspect page-table USER bits manually."
+    },
+    "RING3-VALIDATION": {
+      "cause": "Ring 3 execution was enabled without every fixed user-memory validation result passing.",
+      "action": "Disable CPL3 execution and repair the readiness gate. Do not bypass validation."
     },
     "APP-BLOCK-001": {
       "cause": "The app policy gate refused a requested app name that is not in the fixed compile-time registry, or an app without a registered entry point.",
