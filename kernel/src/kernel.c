@@ -30,6 +30,7 @@
 #include "pic.h"
 #include "timer.h"
 #include "task.h"
+#include "syscall.h"
 #include "tinyfs.h"
 #include "vga.h"
 
@@ -192,6 +193,13 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
 
     apps_init();
     report_ok("kernel-managed app registry (not Ring 3 userspace)");
+
+    syscall_init();
+    struct syscall_stats syscall_boot_stats;
+    syscall_stats(&syscall_boot_stats);
+    report_ok(syscall_boot_stats.initialized
+              ? "kernel-internal syscall gate (int 0x80 DPL0)"
+              : "syscall gate unavailable");
 
     /* Keyboard: may legitimately fail; it logs its own error and we keep
        booting (a server without a keyboard is still a working server). */

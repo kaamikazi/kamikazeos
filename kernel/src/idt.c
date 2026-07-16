@@ -20,11 +20,13 @@ struct idt_pointer {
 
 extern void (*interrupt_stub_table[])(void);
 extern void isr_unknown(void);
+extern void syscall_isr(void);
 
 static struct idt_entry idt[IDT_ENTRIES];
 static struct idt_pointer idt_ptr;
 static int loaded;
 static int irq_gates_installed;
+static int syscall_gate_installed;
 
 static void idt_set_gate(uint8_t vector, void (*handler)(void))
 {
@@ -40,6 +42,7 @@ void idt_init_exceptions(void)
 {
     loaded = 0;
     irq_gates_installed = 0;
+    syscall_gate_installed = 0;
     for (uint32_t i = 0; i < IDT_ENTRIES; i++)
         idt_set_gate((uint8_t)i, isr_unknown);
     for (uint32_t i = 0; i < 32; i++)
@@ -49,6 +52,14 @@ void idt_init_exceptions(void)
     idt_ptr.base = (uint32_t)&idt[0];
     __asm__ volatile ("lidt %0" : : "m"(idt_ptr));
     loaded = 1;
+}
+
+void idt_install_syscall_gate(void)
+{
+    if (!loaded)
+        return;
+    idt_set_gate(0x80u, syscall_isr);
+    syscall_gate_installed = 1;
 }
 
 void idt_install_irq_gates(void)
@@ -68,4 +79,9 @@ int idt_is_loaded(void)
 int idt_irq_gates_installed(void)
 {
     return irq_gates_installed;
+}
+
+int idt_syscall_gate_installed(void)
+{
+    return syscall_gate_installed;
 }

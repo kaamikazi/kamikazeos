@@ -3,7 +3,9 @@
 
 void idt_init_exceptions(void);
 void idt_install_irq_gates(void);
+void idt_install_syscall_gate(void);
 int idt_is_loaded(void);
 int idt_irq_gates_installed(void);
+int idt_syscall_gate_installed(void);
 
 #endif
