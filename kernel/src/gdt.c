@@ -66,8 +66,16 @@ int gdt_is_loaded(void)
 int gdt_user_segments_valid(void)
 {
     return loaded &&
+           gdt[GDT_USER_CODE_INDEX].base_low == 0 &&
+           gdt[GDT_USER_CODE_INDEX].base_middle == 0 &&
+           gdt[GDT_USER_CODE_INDEX].base_high == 0 &&
+           gdt[GDT_USER_CODE_INDEX].limit_low == 0xFFFFu &&
            gdt[GDT_USER_CODE_INDEX].access == 0xFAu &&
            gdt[GDT_USER_CODE_INDEX].granularity == 0xCFu &&
+           gdt[GDT_USER_DATA_INDEX].base_low == 0 &&
+           gdt[GDT_USER_DATA_INDEX].base_middle == 0 &&
+           gdt[GDT_USER_DATA_INDEX].base_high == 0 &&
+           gdt[GDT_USER_DATA_INDEX].limit_low == 0xFFFFu &&
            gdt[GDT_USER_DATA_INDEX].access == 0xF2u &&
            gdt[GDT_USER_DATA_INDEX].granularity == 0xCFu;
 }

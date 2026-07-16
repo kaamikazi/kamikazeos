@@ -2,6 +2,7 @@
 #include "app.h"
 #include "boot_snapshot.h"
 #include "errors.h"
+#include "gdt.h"
 #include "idt.h"
 #include "interrupts.h"
 #include "paging.h"
@@ -9,6 +10,7 @@
 #include "task.h"
 #include "timer.h"
 #include "tinyfs.h"
+#include "tss.h"
 #include "vga.h"
 
 typedef int32_t (*syscall_handler)(uint32_t, uint32_t, uint32_t, uint32_t *);
@@ -182,13 +184,22 @@ void syscall_init(void)
     stats.last_id = 0xFFFFFFFFu;
     stats.last_result = SYSCALL_OK;
     stats.user_mode_available = 0;
-    idt_install_syscall_gate();
+    uint8_t requested_dpl = (gdt_user_segments_valid() &&
+                             tss_is_loaded() &&
+                             tss_kernel_stack_valid()) ? 3u : 0u;
+    idt_install_syscall_gate(requested_dpl);
     stats.initialized = idt_syscall_gate_installed();
+    stats.gate_dpl = idt_syscall_gate_dpl();
+    stats.syscall_user_gate = stats.initialized && stats.gate_dpl == 3u;
     error_log(stats.initialized ? SEV_INFO : SEV_ERROR,
               stats.initialized ? "SYS-000" : "SYS-ERR-003", "Syscalls",
-              stats.initialized ? "Kernel syscall gate initialized at vector 128"
+              stats.initialized ? (stats.syscall_user_gate
+                  ? "Kernel syscall gate initialized at vector 128 DPL3"
+                  : "Kernel syscall gate initialized at vector 128 DPL0 fallback")
                                 : "Kernel syscall gate initialization failed",
-              stats.initialized ? "kernel-internal callers only"
+              stats.initialized ? (stats.syscall_user_gate
+                  ? "Ring 3 execution remains disabled"
+                  : "TSS or user segment prerequisite unavailable")
                                 : "do not invoke syscalls");
 }
 

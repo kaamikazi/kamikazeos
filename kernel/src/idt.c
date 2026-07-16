@@ -1,8 +1,8 @@
 #include <stdint.h>
+#include "gdt.h"
 #include "idt.h"
 
 #define IDT_ENTRIES 256
-#define KERNEL_CODE_SELECTOR 0x08
 #define INTERRUPT_GATE 0x8E
 
 struct idt_entry {
@@ -27,15 +27,21 @@ static struct idt_pointer idt_ptr;
 static int loaded;
 static int irq_gates_installed;
 static int syscall_gate_installed;
+static uint8_t syscall_gate_dpl;
 
-static void idt_set_gate(uint8_t vector, void (*handler)(void))
+static void idt_set_gate_dpl(uint8_t vector, void (*handler)(void), uint8_t dpl)
 {
     uint32_t address = (uint32_t)handler;
     idt[vector].offset_low = (uint16_t)(address & 0xFFFFu);
-    idt[vector].selector = KERNEL_CODE_SELECTOR;
+    idt[vector].selector = GDT_KERNEL_CODE_SELECTOR;
     idt[vector].zero = 0;
-    idt[vector].flags = INTERRUPT_GATE;
+    idt[vector].flags = (uint8_t)(INTERRUPT_GATE | ((dpl & 3u) << 5));
     idt[vector].offset_high = (uint16_t)(address >> 16);
+}
+
+static void idt_set_gate(uint8_t vector, void (*handler)(void))
+{
+    idt_set_gate_dpl(vector, handler, 0);
 }
 
 void idt_init_exceptions(void)
@@ -43,6 +49,7 @@ void idt_init_exceptions(void)
     loaded = 0;
     irq_gates_installed = 0;
     syscall_gate_installed = 0;
+    syscall_gate_dpl = 0xFFu;
     for (uint32_t i = 0; i < IDT_ENTRIES; i++)
         idt_set_gate((uint8_t)i, isr_unknown);
     for (uint32_t i = 0; i < 32; i++)
@@ -54,12 +61,14 @@ void idt_init_exceptions(void)
     loaded = 1;
 }
 
-void idt_install_syscall_gate(void)
+int idt_install_syscall_gate(uint8_t dpl)
 {
-    if (!loaded)
-        return;
-    idt_set_gate(0x80u, syscall_isr);
+    if (!loaded || (dpl != 0u && dpl != 3u))
+        return 0;
+    idt_set_gate_dpl(0x80u, syscall_isr, dpl);
     syscall_gate_installed = 1;
+    syscall_gate_dpl = dpl;
+    return 1;
 }
 
 void idt_install_irq_gates(void)
@@ -84,4 +93,9 @@ int idt_irq_gates_installed(void)
 int idt_syscall_gate_installed(void)
 {
     return syscall_gate_installed;
+}
+
+uint8_t idt_syscall_gate_dpl(void)
+{
+    return syscall_gate_installed ? syscall_gate_dpl : 0xFFu;
 }

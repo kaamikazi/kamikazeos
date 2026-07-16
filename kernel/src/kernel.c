@@ -28,6 +28,7 @@
 #include "serial.h"
 #include "shell.h"
 #include "pic.h"
+#include "privilege.h"
 #include "timer.h"
 #include "task.h"
 #include "syscall.h"
@@ -94,8 +95,8 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
     serial_init();
     errors_init();
     gdt_init();
-    tss_init();
     idt_init_exceptions();
+    tss_init();
     serial_print("\n=== KamikazeOS v2.4.0 serial log ===\n");
 
     error_log(SEV_INFO, "BOOT-000", "kernel",
@@ -199,10 +200,13 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
     report_ok("kernel-managed app registry (not Ring 3 userspace)");
 
     syscall_init();
+    privilege_init();
     struct syscall_stats syscall_boot_stats;
     syscall_stats(&syscall_boot_stats);
     report_ok(syscall_boot_stats.initialized
-              ? "kernel-internal syscall gate (int 0x80 DPL0)"
+              ? (syscall_boot_stats.gate_dpl == 3u
+                 ? "validated syscall gate (int 0x80 DPL3; Ring 3 disabled)"
+                 : "syscall gate fallback (int 0x80 DPL0)")
               : "syscall gate unavailable");
 
     /* Keyboard: may legitimately fail; it logs its own error and we keep

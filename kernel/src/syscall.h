@@ -43,6 +43,8 @@ struct syscall_stats {
     int32_t last_result;
     uint32_t last_value;
     int user_mode_available;
+    int syscall_user_gate;
+    uint8_t gate_dpl;
 };
 
 void syscall_init(void);
