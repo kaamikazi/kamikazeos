@@ -3,7 +3,7 @@
  * In this phase the shell runs INSIDE the kernel (there's no userspace yet):
  * read a line from the keyboard, match it against a command table, run the
  * handler. Real OSes run shells as unprivileged processes — that separation
- * still requires a Ring 3 process boundary; v2.4 syscalls are kernel-only.
+ * still requires a Ring 3 process boundary; v2.5 does not execute Ring 3.
  */
 #include "shell.h"
 #include "app.h"
@@ -182,7 +182,7 @@ static void cmd_help(void)
     vga_print("  help        show this list\n");
     vga_print("  clear       clear the screen\n");
     vga_print("  about       OS version, mission, CPU info\n");
-    vga_print("  system      integrated v2.4 system readiness summary\n");
+    vga_print("  system      integrated v2.5 system readiness summary\n");
     vga_print("  diagnose    compact full-system diagnostic summary\n");
     vga_print("  devices     GhostAttach device status table\n");
     vga_print("  drivers     GhostAttach driver registry table\n");
@@ -262,11 +262,11 @@ static void cmd_about(void)
     cpu_vendor(vendor);
 
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
-    vga_print("KamikazeOS v2.4.0 \"Syscall Door\"\n");
+    vga_print("KamikazeOS v2.5.0 \"Privilege Boundary\"\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     vga_print("Experimental OS research prototype for auditable recovery.\n");
-    vga_print("v2.4: fixed kernel-internal syscall gate at vector 0x80.\n");
-    vga_print("Still no Ring 3 callers, userspace pointers, or process isolation.\n\n");
+    vga_print("v2.5: DPL3 user segments, TSS, ESP0 stack, and gated int 0x80.\n");
+    vga_print("Ring 3 execution remains disabled; no user pages or user stack.\n\n");
     vga_print("  Architecture : x86 (i686), 32-bit protected mode\n");
     vga_print("  CPU vendor   : ");
     vga_print(vendor);
@@ -294,7 +294,7 @@ static void cmd_system(void)
     struct syscall_stats sys;
     syscall_stats(&sys);
 
-    vga_print("KamikazeOS v2.4 System Status:\n");
+    vga_print("KamikazeOS v2.5 System Status:\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     vga_print("  Kernel version      : "); vga_print(module_version_of(MOD_KERNEL)); vga_print("\n");
     vga_print("  Interrupts          : IDT "); vga_print(idt_is_loaded() ? "yes" : "no");
@@ -342,7 +342,7 @@ static void cmd_diagnose(void)
     boot_snapshot_health_now(&hb);
 
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
-    vga_print("KamikazeOS v2.4 Diagnostic Summary:\n");
+    vga_print("KamikazeOS v2.5 Diagnostic Summary:\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     vga_print("  Devices : total="); vga_print_dec(st.total);
     vga_print(" attached="); vga_print_dec(st.attached);
@@ -745,7 +745,7 @@ static void cmd_syscall_test(void)
         int32_t result = invoke_controlled_syscall(entry->id, &value);
         print_syscall_result(entry->id, result, value);
     }
-    vga_print("Raw pointers are not part of the v2.4 syscall ABI.\n");
+    vga_print("Raw pointers are not part of the v2.5 syscall ABI.\n");
 }
 
 static void cmd_syscall(const char *arg)

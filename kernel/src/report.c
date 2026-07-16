@@ -37,7 +37,7 @@
 #include "tinyfs.h"
 #include "tss.h"
 
-#define KMZ_VERSION "2.4.0"
+#define KMZ_VERSION "2.5.0"
 
 /* serial_print for numbers: render via kitoa, then send. */
 static void serial_print_dec(uint32_t value)
