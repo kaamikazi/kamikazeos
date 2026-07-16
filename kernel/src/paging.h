@@ -1,10 +1,8 @@
 /*
  * paging.h - v2.3 paging structures and gated virtual memory foundation.
  *
- * v2.3 prepares and validates identity paging data structures but does not
- * enable paging by default. That keeps all existing v2.2 behavior intact while
- * making page-table state visible to the shell, reports, analyzer, and
- * dashboard.
+ * Paging is enabled only after the kernel-owned GDT, early exception IDT,
+ * page structures, and every required identity-mapped range validate.
  */
 #ifndef KMZ_PAGING_H
 #define KMZ_PAGING_H

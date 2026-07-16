@@ -136,6 +136,10 @@ void report_send(void)
     serial_print("\npaging_prepared="); serial_print(pg_status->prepared ? "yes" : "no");
     serial_print("\npaging_enabled="); serial_print(pg_status->enabled ? "yes" : "no");
     serial_print("\npaging_mode="); serial_print(pg_status->mode);
+    serial_print("\nsyscall_initialized="); serial_print(syscall_status.initialized ? "yes" : "no");
+    serial_print("\nsyscall_vector="); serial_print_dec(syscall_status.vector);
+    serial_print("\nsyscall_total_calls="); serial_print_dec(syscall_status.total_calls);
+    serial_print("\nsyscall_failed_calls="); serial_print_dec(syscall_status.failed_calls);
     serial_print("\ntask_count="); serial_print_dec(task_count());
     serial_print("\ntinyfs_status=");
     serial_print(fs_status->available ? (fs_status->formatted ? "formatted" : "not_formatted") : "unavailable");
@@ -178,6 +182,10 @@ void report_send(void)
     serial_print(",enabled:"); serial_print(pg_status->enabled ? "yes" : "no");
     serial_print(",identity:"); serial_print(pg_status->identity_map_valid ? "yes" : "no");
     serial_print(",mode:"); serial_print(pg_status->mode);
+    serial_print("\nsyscalls=initialized:");
+    serial_print(syscall_status.initialized ? "yes" : "no");
+    serial_print(",registered:"); serial_print_dec(syscall_status.registered_count);
+    serial_print(",failed:"); serial_print_dec(syscall_status.failed_calls);
     serial_print("\ntasks=total:"); serial_print_dec(task_count());
     serial_print(",ready:"); serial_print_dec(task_count_state(TASK_READY));
     serial_print(",crashed:"); serial_print_dec(task_count_state(TASK_CRASHED));
