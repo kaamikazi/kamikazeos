@@ -21,7 +21,8 @@ from pathlib import Path
 
 # Reuse the analyzer's parsing — one parser, one format contract.
 from analyze_logs import (RULES, extract_last_boot_report,
-                          parse_page_fault_evidence, parse_kv_line, parse_report)
+                          parse_page_fault_evidence, parse_section_evidence,
+                          parse_kv_line, parse_report)
 
 
 def build_recommendations(memory, actions, suggestions):
@@ -100,12 +101,16 @@ def main():
      kernel_memory, memory_map, pages, kernel_heap,
      paging, page_map, syscalls, syscall_rows,
      privilege, gdt, tss, ring3_readiness,
+     ring3, user_memory, user_execution, user_fault,
      kernel_interrupts, kernel_timing, kernel_exceptions,
      kernel_tasks, task_rows, tinyfs, tinyfs_files,
      apps, app_rows, app_log, system_status, diagnostics) = parse_report(lines)
     page_fault = parse_page_fault_evidence(raw_text)
     if page_fault:
         paging.update(page_fault)
+    post_user_fault = parse_section_evidence(raw_text, "[USER_FAULT]")
+    if post_user_fault:
+        user_fault.update(post_user_fault)
 
     # Package recommendations: same catalog-only rule as actions.
     pkg_recs = []
@@ -166,6 +171,10 @@ def main():
         "gdt": gdt,
         "tss": tss,
         "ring3_readiness": ring3_readiness,
+        "ring3": ring3,
+        "user_memory": user_memory,
+        "user_execution": user_execution,
+        "user_fault": user_fault,
         "store": store,
         "memory": memory,
         "health": health,

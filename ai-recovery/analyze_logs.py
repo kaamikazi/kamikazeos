@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-KamikazeOS AI Recovery Core - host-side log analyzer (v2.5, offline/rule-based)
+KamikazeOS AI Recovery Core - host-side log analyzer (v2.6, offline/rule-based)
 
 This is the first working incarnation of the "maintenance brain". It runs on
 the HOST, outside the kernel, and its powers are deliberately limited:
@@ -8,7 +8,7 @@ the HOST, outside the kernel, and its powers are deliberately limited:
     READ logs  ->  EXPLAIN problems  ->  RANK risk  ->  SUGGEST next actions
 
 It never patches binaries, installs drivers, downloads code, or modifies the
-OS. Every suggestion is for a HUMAN to approve and perform. v2.5 is
+OS. Every suggestion is for a HUMAN to approve and perform. v2.6 is
 rule-based (no AI API yet) so the pipeline can be built and trusted first;
 see analyze_with_ai_later() at the bottom for where a real model plugs in.
 
@@ -201,7 +201,7 @@ RULES = {
         "cause":  "A syscall rejected an invalid bounded argument or an "
                   "unavailable kernel service.",
         "action": "Inspect `syscalls` and the target subsystem. Do not pass "
-                  "raw addresses; v2.5 exposes no pointer ABI.",
+                  "raw addresses; v2.6 exposes no pointer ABI.",
     },
     "SYS-ERR-003": {
         "cause":  "The kernel could not install its dedicated syscall IDT gate.",
@@ -225,6 +225,18 @@ RULES = {
                   "the Ring 3 foundation is incomplete.",
         "action": "Inspect GDT, TSS, ESP0, paging, and syscall DPL evidence. "
                   "Do not bypass the readiness gate.",
+    },
+    "RING3-101": {
+        "cause":  "The fixed CPL3 execution gate rejected incomplete user-memory or privilege validation.",
+        "action": "Keep Ring 3 execution disabled. Inspect `ring3-readiness` and `user-memory`; never broaden the identity map.",
+    },
+    "RING3-MEM-CRITICAL": {
+        "cause":  "The report indicates kernel or paging structures may be user-accessible, or the user mapping is broader than the fixed test pages.",
+        "action": "Stop CPL3 testing. Keep execution disabled and inspect page-table USER bits manually.",
+    },
+    "RING3-VALIDATION": {
+        "cause":  "Ring 3 execution was enabled without every fixed user-memory validation result passing.",
+        "action": "Disable CPL3 execution and repair the readiness gate. Do not bypass validation.",
     },
     "APP-BLOCK-001": {
         "cause":  "The app policy gate refused a requested app name that is not "
@@ -312,6 +324,26 @@ def parse_page_fault_evidence(text: str):
     return latest
 
 
+def parse_section_evidence(text: str, header: str):
+    """Return the last named key/value section, including post-report evidence."""
+    latest, current = {}, None
+    for raw in text.splitlines():
+        line = raw.strip()
+        if line == header:
+            if current:
+                latest = current
+            current = {}
+        elif current is not None and line.startswith("["):
+            if current:
+                latest = current
+            current = None
+        elif current is not None and line:
+            current.update(parse_kv_line(line))
+    if current:
+        latest = current
+    return latest
+
+
 def parse_report(lines):
     """Split the report into its sections."""
     meta, devices, drivers, events = {}, [], [], []
@@ -354,6 +386,10 @@ def parse_report(lines):
         "[GDT]": "gdt",
         "[TSS]": "tss",
         "[RING3_READINESS]": "ring3_readiness",
+        "[RING3]": "ring3",
+        "[USER_MEMORY]": "user_memory",
+        "[USER_EXECUTION]": "user_execution",
+        "[USER_FAULT]": "user_fault",
         "[KERNEL_INTERRUPTS]": "kernel_interrupts",
         "[KERNEL_TIMING]": "kernel_timing",
         "[KERNEL_EXCEPTIONS]": "kernel_exceptions",
@@ -373,6 +409,7 @@ def parse_report(lines):
     paging, page_map = {}, []
     syscalls, syscall_rows = {}, []
     privilege, gdt, tss, ring3_readiness = {}, {}, {}, {}
+    ring3, user_memory, user_execution, user_fault = {}, {}, {}, {}
     kernel_tasks, task_rows = {}, []
     tinyfs, tinyfs_files = {}, []
     apps, app_rows, app_log = {}, [], []
@@ -451,6 +488,14 @@ def parse_report(lines):
             tss.update(parse_kv_line(line))
         elif section == "ring3_readiness":
             ring3_readiness.update(parse_kv_line(line))
+        elif section == "ring3":
+            ring3.update(parse_kv_line(line))
+        elif section == "user_memory":
+            user_memory.update(parse_kv_line(line))
+        elif section == "user_execution":
+            user_execution.update(parse_kv_line(line))
+        elif section == "user_fault":
+            user_fault.update(parse_kv_line(line))
         elif section == "kernel_interrupts":
             kernel_interrupts.update(parse_kv_line(line))
         elif section == "kernel_timing":
@@ -484,19 +529,21 @@ def parse_report(lines):
             kernel_memory, memory_map, pages, kernel_heap,
             paging, page_map, syscalls, syscall_rows,
             privilege, gdt, tss, ring3_readiness,
+            ring3, user_memory, user_execution, user_fault,
             kernel_interrupts, kernel_timing, kernel_exceptions,
             kernel_tasks, task_rows, tinyfs, tinyfs_files,
             apps, app_rows, app_log, system_status, diagnostics)
 
 
-def classify(events):
+def classify(events, intentional_user_fault=False):
     """Bucket events into info / warning / critical."""
     buckets = {"info": [], "warning": [], "critical": []}
     for e in events:
         expected_canary = e.get("code") == "GA-TEST-201" or (
             e.get("code") == "GA-DRV-201" and
             e.get("message", "").startswith("Self-Test Device ")
-        )
+        ) or (intentional_user_fault and
+              e.get("code") in ("PAGE-FAULT", "CPU-EXCEPTION"))
         cls = "info" if expected_canary else \
             SEVERITY_CLASS.get(e.get("severity", ""), "warning")
         buckets[cls].append(e)
@@ -530,7 +577,7 @@ def main():
     lines, after_lines, found = extract_last_boot_report(text)
 
     print("=" * 72)
-    print(" KamikazeOS AI RECOVERY CORE - recovery report (v2.5, rule-based)")
+    print(" KamikazeOS AI RECOVERY CORE - recovery report (v2.6, rule-based)")
     print("=" * 72)
 
     if not found:
@@ -548,6 +595,7 @@ def main():
         paging, page_map = {}, []
         syscalls, syscall_rows = {}, []
         privilege, gdt, tss, ring3_readiness = {}, {}, {}, {}
+        ring3, user_memory, user_execution, user_fault = {}, {}, {}, {}
         kernel_interrupts, kernel_timing, kernel_exceptions = {}, {}, {}
         kernel_tasks, task_rows = {}, []
         tinyfs, tinyfs_files = {}, []
@@ -561,6 +609,7 @@ def main():
          kernel_memory, memory_map, pages, kernel_heap,
          paging, page_map, syscalls, syscall_rows,
          privilege, gdt, tss, ring3_readiness,
+         ring3, user_memory, user_execution, user_fault,
          kernel_interrupts, kernel_timing, kernel_exceptions,
          kernel_tasks, task_rows, tinyfs, tinyfs_files,
          apps, app_rows, app_log, system_status, diagnostics) = parse_report(lines)
@@ -573,6 +622,24 @@ def main():
     page_fault = parse_page_fault_evidence(text)
     if page_fault:
         paging.update(page_fault)
+    post_user_fault = parse_section_evidence(text, "[USER_FAULT]")
+    if post_user_fault:
+        user_fault.update(post_user_fault)
+
+    memory_safe = user_memory and all(user_memory.get(key) == "yes" for key in (
+        "validated", "code_user_accessible", "code_read_only",
+        "stack_user_accessible", "stack_writable", "kernel_supervisor_only",
+        "page_structures_supervisor_only", "no_broad_user_exposure"))
+    if user_memory and (user_memory.get("kernel_supervisor_only") != "yes" or
+                        user_memory.get("page_structures_supervisor_only") != "yes" or
+                        user_memory.get("no_broad_user_exposure") != "yes"):
+        events.append({"code": "RING3-MEM-CRITICAL", "severity": "panic",
+                       "component": "Ring3", "message": "Unsafe CPL3 page permissions reported",
+                       "hint": "disable Ring 3 and inspect USER bits"})
+    if ring3.get("execution_enabled") == "yes" and not memory_safe:
+        events.append({"code": "RING3-VALIDATION", "severity": "panic",
+                       "component": "Ring3", "message": "CPL3 enabled without complete validation",
+                       "hint": "keep execution disabled until every check passes"})
 
     if meta:
         print(f"\nKernel version : {meta.get('version', '?')}")
@@ -584,7 +651,7 @@ def main():
               f"({meta.get('scan_expected_self_tests', '0')} expected test)")
 
     if system_status:
-        print("\nv2.5 integrated system status:")
+        print("\nv2.6 integrated system status:")
         print(f"  * Kernel: {system_status.get('kernel_version', '?')}")
         print(f"  * Interrupts: IDT={system_status.get('idt_loaded', '?')} "
               f"PIC={system_status.get('pic_remapped', '?')} "
@@ -665,8 +732,11 @@ def main():
               f"{syscalls.get('user_mode_available', 'no')}")
         print(f"  * Gate DPL: {syscalls.get('syscall_gate_dpl', '?')}")
         print(f"  * User-callable gate: {syscalls.get('syscall_user_gate', 'disabled')}")
-        print("  * Boundary: the gate may be DPL3, but no Ring 3 execution, "
-              "userspace pointers, or ABI stability exists.")
+        print(f"  * Last caller CPL: {syscalls.get('last_caller_cpl', '?')}")
+        print(f"  * CPL0/CPL3 calls: {syscalls.get('cpl0_calls', '0')}/"
+              f"{syscalls.get('cpl3_calls', '0')}")
+        print(f"  * ESP0 switch observed: {syscalls.get('esp0_switch_observed', 'no')}")
+        print("  * Boundary: CPL3 is limited to a fixed built-in routine and a small syscall allowlist; no pointer ABI exists.")
         if syscalls.get("initialized") != "yes":
             print("  !! WARNING: syscall gate is not initialized.")
         try:
@@ -698,15 +768,36 @@ def main():
               f"{ring3_readiness.get('readiness', '?')}")
         print(f"  * Ring 3 execution enabled: "
               f"{ring3_readiness.get('execution_enabled', 'no')}")
-        print("  * Missing by design: user stack, user page mappings, ELF "
-              "loading, process isolation, and stable userspace ABI.")
+        print("  * Still missing: ELF loading, process isolation, multiple processes, and stable userspace ABI.")
         if tss.get("tss_loaded") != "yes" or \
                 tss.get("kernel_stack_valid") != "yes":
             print("  !! WARNING: TSS or ESP0 kernel stack is invalid.")
         if privilege.get("current_cpl") not in (None, "0"):
             print("  !! WARNING: exported kernel shell CPL is not Ring 0.")
-        if ring3_readiness.get("readiness") != "foundation_ready":
-            print("  !! WARNING: Ring 3 architectural foundation is incomplete.")
+        if ring3_readiness.get("readiness") not in ("foundation_ready", "controlled_test_ready"):
+            print("  !! WARNING: Ring 3 controlled-test readiness is incomplete.")
+
+    if ring3 or user_memory or user_execution:
+        print("\nControlled Ring 3 seed:")
+        print(f"  * Execution enabled: {ring3.get('execution_enabled', 'no')}")
+        print(f"  * Test status: {ring3.get('test_status', '?')}")
+        print(f"  * User code: {user_memory.get('user_code_start', '?')} - {user_memory.get('user_code_end', '?')} (read-only)")
+        print(f"  * User stack: {user_memory.get('user_stack_start', '?')} - {user_memory.get('user_stack_end', '?')} (fixed)")
+        print(f"  * Kernel supervisor-only: {user_memory.get('kernel_supervisor_only', '?')}")
+        print(f"  * Broad user exposure: {'no' if user_memory.get('no_broad_user_exposure') == 'yes' else 'WARNING'}")
+        print(f"  * Last CPL/syscall: {user_execution.get('last_cpl', '?')}/{user_execution.get('last_syscall', '?')}")
+        print(f"  * ESP0 switch: {user_execution.get('esp0_switch_observed', '?')}")
+        print(f"  * Returned to kernel: {user_execution.get('returned_to_kernel', '?')}")
+        print("  * Boundary: one linked trusted routine only; no ELF, TinyFS execution, or untrusted code.")
+
+    if user_fault.get("present") == "yes":
+        intentional = user_fault.get("intentional_test") == "yes"
+        print("\nCPL3 fault evidence:")
+        print(f"  * Origin: {user_fault.get('fault_origin', '?')}")
+        print(f"  * Vector/address: {user_fault.get('vector', '?')}/{user_fault.get('fault_address', '?')}")
+        print(f"  * User ESP/SS: {user_fault.get('user_esp', '?')}/{user_fault.get('user_ss', '?')}")
+        print(f"  * Intentional disposable test: {'yes' if intentional else 'no'}")
+        print("  * Recovery attempted: no; exception evidence was preserved before halt.")
 
     if kernel_heap:
         print("\nKernel heap foundation:")
@@ -839,7 +930,10 @@ def main():
         for d in blocked:
             print(f"  - {d.get('name', '?')} (risk: {d.get('risk', '?')})")
 
-    buckets = classify(events)
+    intentional_user_fault = (user_fault.get("present") == "yes" and
+                              user_fault.get("fault_origin") == "cpl3" and
+                              user_fault.get("intentional_test") == "yes")
+    buckets = classify(events, intentional_user_fault)
     print(f"\nIssue counts: {len(buckets['critical'])} critical, "
           f"{len(buckets['warning'])} warning, {len(buckets['info'])} info")
 
@@ -1200,7 +1294,7 @@ def main():
 
 
 # --------------------------------------------------------------------------
-# FUTURE AI INTEGRATION POINT (deliberately not implemented in v2.5)
+# FUTURE AI INTEGRATION POINT (deliberately not implemented in v2.6)
 # --------------------------------------------------------------------------
 def analyze_with_ai_later(log_text: str):
     """
@@ -1219,7 +1313,7 @@ def analyze_with_ai_later(log_text: str):
         as this rule-based analyzer - the policy engine, not the model,
         decides what may ever be applied automatically.
 
-    Keeping this stub un-implemented in v2.5 is intentional: the transport,
+    Keeping this stub un-implemented in v2.6 is intentional: the transport,
     format, and approval workflow get built and trusted first.
     """
     raise NotImplementedError("AI analysis arrives in a later phase - see docstring")
