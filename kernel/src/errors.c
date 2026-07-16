@@ -34,11 +34,11 @@ void errors_init(void)
  */
 static void emit_serial(const struct kerror *e)
 {
-    serial_print("code=");      serial_print(e->code);
+    serial_print("code=");      serial_print_field(e->code);
     serial_print(";severity="); serial_print(severity_name(e->severity));
-    serial_print(";component=");serial_print(e->component);
-    serial_print(";message=");  serial_print(e->message);
-    serial_print(";hint=");     serial_print(e->hint);
+    serial_print(";component=");serial_print_field(e->component);
+    serial_print(";message=");  serial_print_field(e->message);
+    serial_print(";hint=");     serial_print_field(e->hint);
     serial_print("\n");
 }
 

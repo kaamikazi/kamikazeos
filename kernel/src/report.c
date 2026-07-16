@@ -8,9 +8,11 @@
  */
 #include "report.h"
 #include "app.h"
+#include "ata.h"
 #include "boot_snapshot.h"
 #include "errors.h"
 #include "ghostattach.h"
+#include "gdt.h"
 #include "idt.h"
 #include "interrupts.h"
 #include "kheap.h"
@@ -20,18 +22,22 @@
 #include "module_versions.h"
 #include "package_manifest.h"
 #include "package_state.h"
+#include "paging.h"
 #include "recovery_package.h"
 #include "recovery_actions.h"
 #include "recovery_memory.h"
 #include "recovery_store.h"
 #include "serial.h"
 #include "string.h"
+#include "syscall.h"
 #include "pic.h"
+#include "privilege.h"
 #include "timer.h"
 #include "task.h"
 #include "tinyfs.h"
+#include "tss.h"
 
-#define KMZ_VERSION "2.2.0"
+#define KMZ_VERSION "2.5.0"
 
 /* serial_print for numbers: render via kitoa, then send. */
 static void serial_print_dec(uint32_t value)
@@ -100,6 +106,8 @@ void report_send(void)
     serial_print(";scan_fallback=");serial_print_dec(st.fallback);
     serial_print(";scan_missing="); serial_print_dec(st.missing);
     serial_print(";scan_isolated=");serial_print_dec(st.isolated);
+    serial_print(";scan_expected_self_tests=");
+    serial_print_dec(st.expected_test_failures);
     serial_print("\n");
 
     struct health_breakdown system_health;
@@ -110,11 +118,22 @@ void report_send(void)
     memory_pages(&page_status);
     struct kheap_stats heap_status;
     kheap_stats(&heap_status);
+    const struct paging_status *pg_status = paging_status();
+    struct syscall_stats syscall_status;
+    syscall_stats(&syscall_status);
+    struct privilege_status privilege_state;
+    privilege_status(&privilege_state);
+    struct gdt_status gdt_state;
+    gdt_status(&gdt_state);
+    struct tss_status tss_state;
+    tss_status(&tss_state);
     struct kerror last_critical;
 
     serial_print("[SYSTEM_STATUS]\n");
     serial_print("kernel_version="); serial_print(module_version_of(MOD_KERNEL));
+    serial_print("\ngdt_loaded="); serial_print(gdt_is_loaded() ? "yes" : "no");
     serial_print("\nidt_loaded="); serial_print(idt_is_loaded() ? "yes" : "no");
+    serial_print("\nirq_gates_installed="); serial_print(idt_irq_gates_installed() ? "yes" : "no");
     serial_print("\npic_remapped="); serial_print(pic_is_remapped() ? "yes" : "no");
     serial_print("\ntimer_ticks="); serial_print_dec(timer_ticks());
     serial_print("\nkeyboard_mode="); serial_print(keyboard_mode_name());
@@ -122,6 +141,16 @@ void report_send(void)
     serial_print("\nfree_pages="); serial_print_dec(page_status.free_pages);
     serial_print("\nheap_available="); serial_print(heap_status.available ? "yes" : "no");
     serial_print("\nheap_remaining="); serial_print_dec(heap_status.remaining_bytes);
+    serial_print("\npaging_prepared="); serial_print(pg_status->prepared ? "yes" : "no");
+    serial_print("\npaging_enabled="); serial_print(pg_status->enabled ? "yes" : "no");
+    serial_print("\npaging_mode="); serial_print(pg_status->mode);
+    serial_print("\nsyscall_initialized="); serial_print(syscall_status.initialized ? "yes" : "no");
+    serial_print("\nsyscall_vector="); serial_print_dec(syscall_status.vector);
+    serial_print("\nsyscall_total_calls="); serial_print_dec(syscall_status.total_calls);
+    serial_print("\nsyscall_failed_calls="); serial_print_dec(syscall_status.failed_calls);
+    serial_print("\nsyscall_gate_dpl="); serial_print_dec(syscall_status.gate_dpl);
+    serial_print("\nprivilege_foundation="); serial_print(privilege_state.foundation_ready ? "ready" : "not_ready");
+    serial_print("\nring3_execution_enabled=no");
     serial_print("\ntask_count="); serial_print_dec(task_count());
     serial_print("\ntinyfs_status=");
     serial_print(fs_status->available ? (fs_status->formatted ? "formatted" : "not_formatted") : "unavailable");
@@ -129,12 +158,14 @@ void report_send(void)
     serial_print("\napp_registry="); serial_print_dec(app_count());
     serial_print("\nrecovery_backend="); serial_print(recovery_memory_backend());
     serial_print("\nhealth_score="); serial_print_dec((uint32_t)system_health.score);
+    serial_print("\nexpected_self_test_failures=");
+    serial_print_dec(st.expected_test_failures);
     serial_print("\npackage_trust_mode=host_ed25519_real_kernel_simulated");
     serial_print("\nlast_critical=");
     if (report_last_critical(&last_critical)) {
-        serial_print(last_critical.code);
+        serial_print_field(last_critical.code);
         serial_print(":");
-        serial_print(last_critical.component);
+        serial_print_field(last_critical.component);
     } else {
         serial_print("none");
     }
@@ -146,6 +177,7 @@ void report_send(void)
     serial_print(",fallback:"); serial_print_dec(st.fallback);
     serial_print(",missing:"); serial_print_dec(st.missing);
     serial_print(",isolated:"); serial_print_dec(st.isolated);
+    serial_print(",expected_test:"); serial_print_dec(st.expected_test_failures);
     serial_print("\ndrivers=verified_policy_active");
     serial_print("\nmemory=map:");
     serial_print(mem_status->map_available ? "multiboot" : "fallback");
@@ -156,6 +188,15 @@ void report_send(void)
     serial_print(",used:"); serial_print_dec(heap_status.used_bytes);
     serial_print(",remaining:"); serial_print_dec(heap_status.remaining_bytes);
     serial_print(",free_supported:no");
+    serial_print("\npaging=prepared:");
+    serial_print(pg_status->prepared ? "yes" : "no");
+    serial_print(",enabled:"); serial_print(pg_status->enabled ? "yes" : "no");
+    serial_print(",identity:"); serial_print(pg_status->identity_map_valid ? "yes" : "no");
+    serial_print(",mode:"); serial_print(pg_status->mode);
+    serial_print("\nsyscalls=initialized:");
+    serial_print(syscall_status.initialized ? "yes" : "no");
+    serial_print(",registered:"); serial_print_dec(syscall_status.registered_count);
+    serial_print(",failed:"); serial_print_dec(syscall_status.failed_calls);
     serial_print("\ntasks=total:"); serial_print_dec(task_count());
     serial_print(",ready:"); serial_print_dec(task_count_state(TASK_READY));
     serial_print(",crashed:"); serial_print_dec(task_count_state(TASK_CRASHED));
@@ -229,8 +270,152 @@ void report_send(void)
     serial_print("\nhigh_water_mark="); serial_print_dec(heap_status.high_water_mark);
     serial_print("\nfree_supported=no\n");
 
+    serial_print("[PAGING]\n");
+    serial_print("prepared="); serial_print(pg_status->prepared ? "yes" : "no");
+    serial_print("\nenabled="); serial_print(pg_status->enabled ? "yes" : "no");
+    serial_print("\nmode="); serial_print(pg_status->mode);
+    serial_print("\nidentity_map_valid="); serial_print(pg_status->identity_map_valid ? "yes" : "no");
+    serial_print("\nrequired_ranges_valid="); serial_print(pg_status->required_ranges_valid ? "yes" : "no");
+    serial_print("\nprerequisites_valid="); serial_print(pg_status->prerequisites_valid ? "yes" : "no");
+    serial_print("\npage_directory="); serial_print_dec(pg_status->page_directory);
+    serial_print("\nactive_cr3="); serial_print_dec(pg_status->active_cr3);
+    serial_print("\nmapped_start="); serial_print_dec(pg_status->mapped_start);
+    serial_print("\nmapped_end="); serial_print_dec(pg_status->mapped_end);
+    serial_print("\npage_fault_handler="); serial_print(pg_status->page_fault_handler);
+    serial_print("\nvalidation_error="); serial_print(pg_status->validation_error);
+    serial_print("\nlast_fault_address=");
+    if (pg_status->last_fault_present) serial_print_dec(pg_status->last_fault_address);
+    else serial_print("none");
+    serial_print("\nlast_fault_error="); serial_print_dec(pg_status->last_fault_error);
+    serial_print("\nlast_fault_eip="); serial_print_dec(pg_status->last_fault_eip);
+    serial_print("\n");
+
+    serial_print("[PAGE_MAP]\n");
+    serial_print("type=identity");
+    serial_print(";virtual_start="); serial_print_dec(pg_status->mapped_start);
+    serial_print(";virtual_end="); serial_print_dec(pg_status->mapped_end);
+    serial_print(";physical_start="); serial_print_dec(pg_status->mapped_start);
+    serial_print(";physical_end="); serial_print_dec(pg_status->mapped_end);
+    serial_print(";flags=present,writable,supervisor");
+    serial_print(";validated="); serial_print(pg_status->identity_map_valid ? "yes" : "no");
+    serial_print("\n");
+    for (uint32_t i = 0; i < paging_range_count(); i++) {
+        struct paging_range range;
+        if (!paging_range_get(i, &range))
+            continue;
+        serial_print("type=required_identity;name="); serial_print_field(range.name);
+        serial_print(";virtual_start="); serial_print_dec(range.start);
+        serial_print(";virtual_end="); serial_print_dec(range.end);
+        serial_print(";physical_start="); serial_print_dec(range.start);
+        serial_print(";physical_end="); serial_print_dec(range.end);
+        serial_print(";flags=present,writable,supervisor");
+        serial_print(";validated="); serial_print(range.validated ? "yes" : "no");
+        serial_print("\n");
+    }
+
+    serial_print("[PAGE_FAULT]\n");
+    serial_print("present="); serial_print(pg_status->last_fault_present ? "yes" : "no");
+    serial_print("\nfault_address=");
+    if (pg_status->last_fault_present) serial_print_dec(pg_status->last_fault_address);
+    else serial_print("none");
+    serial_print("\nerror_code="); serial_print_dec(pg_status->last_fault_error);
+    serial_print("\neip="); serial_print_dec(pg_status->last_fault_eip);
+    serial_print("\nrecovery_attempted=no\n");
+
+    serial_print("[SYSCALLS]\n");
+    serial_print("initialized="); serial_print(syscall_status.initialized ? "yes" : "no");
+    serial_print("\nvector="); serial_print_dec(syscall_status.vector);
+    serial_print("\ntotal_calls="); serial_print_dec(syscall_status.total_calls);
+    serial_print("\nfailed_calls="); serial_print_dec(syscall_status.failed_calls);
+    serial_print("\nregistered_count="); serial_print_dec(syscall_status.registered_count);
+    serial_print("\nlast_id=");
+    if (syscall_status.last_id == 0xFFFFFFFFu) serial_print("none");
+    else serial_print_dec(syscall_status.last_id);
+    serial_print("\nlast_name="); serial_print(syscall_name(syscall_status.last_id));
+    serial_print("\nlast_result=");
+    if (syscall_status.last_id == 0xFFFFFFFFu) serial_print("none");
+    else serial_print(syscall_result_name(syscall_status.last_result));
+    serial_print("\nlast_value="); serial_print_dec(syscall_status.last_value);
+    serial_print("\nsyscall_gate_dpl="); serial_print_dec(syscall_status.gate_dpl);
+    serial_print("\nsyscall_user_gate="); serial_print(syscall_status.syscall_user_gate ? "enabled" : "disabled");
+    serial_print("\nuser_mode_available=no");
+    serial_print("\nargument_model=bounded_scalars_and_kernel_owned_buffers");
+    serial_print("\npointer_arguments=no\n");
+
+    serial_print("[PRIVILEGE]\n");
+    serial_print("gdt_loaded="); serial_print(privilege_state.gdt_loaded ? "yes" : "no");
+    serial_print("\nuser_segments_valid="); serial_print(privilege_state.user_segments_valid ? "yes" : "no");
+    serial_print("\ntss_loaded="); serial_print(privilege_state.tss_loaded ? "yes" : "no");
+    serial_print("\nkernel_stack_valid="); serial_print(privilege_state.kernel_stack_valid ? "yes" : "no");
+    serial_print("\npaging_enabled="); serial_print(privilege_state.paging_enabled ? "yes" : "no");
+    serial_print("\nsyscall_gate_installed="); serial_print(privilege_state.syscall_gate_installed ? "yes" : "no");
+    serial_print("\nsyscall_gate_dpl="); serial_print_dec(privilege_state.syscall_gate_dpl);
+    serial_print("\ncurrent_cpl="); serial_print_dec(privilege_state.current_cpl);
+    serial_print("\nbootstrap_stack_bottom="); serial_print_dec(privilege_state.bootstrap_stack_bottom);
+    serial_print("\nbootstrap_stack_top="); serial_print_dec(privilege_state.bootstrap_stack_top);
+    serial_print("\ntransition_stack_bottom="); serial_print_dec(privilege_state.transition_stack_bottom);
+    serial_print("\ntransition_stack_top="); serial_print_dec(privilege_state.transition_stack_top);
+    serial_print("\nesp0="); serial_print_dec(privilege_state.esp0);
+    serial_print("\nguard_policy="); serial_print(privilege_state.guard_policy);
+    serial_print("\nreadiness="); serial_print(privilege_state.foundation_ready ? "foundation_ready" : "not_ready");
+    serial_print("\nexecution_enabled=no\n");
+
+    serial_print("[GDT]\n");
+    serial_print("loaded="); serial_print(gdt_state.loaded ? "yes" : "no");
+    serial_print("\nkernel_code_selector="); serial_print_dec(gdt_state.kernel_code_selector);
+    serial_print("\nkernel_code_dpl="); serial_print_dec(gdt_state.kernel_code_dpl);
+    serial_print("\nkernel_data_selector="); serial_print_dec(gdt_state.kernel_data_selector);
+    serial_print("\nkernel_data_dpl="); serial_print_dec(gdt_state.kernel_data_dpl);
+    serial_print("\nuser_code_selector="); serial_print_dec(gdt_state.user_code_selector);
+    serial_print("\nuser_code_dpl="); serial_print_dec(gdt_state.user_code_dpl);
+    serial_print("\nuser_data_selector="); serial_print_dec(gdt_state.user_data_selector);
+    serial_print("\nuser_data_dpl="); serial_print_dec(gdt_state.user_data_dpl);
+    serial_print("\ntss_selector="); serial_print_dec(gdt_state.tss_selector);
+    serial_print("\nuser_segments_valid="); serial_print(gdt_state.user_segments_valid ? "yes" : "no");
+    serial_print("\ntss_descriptor_valid="); serial_print(gdt_state.tss_descriptor_valid ? "yes" : "no");
+    serial_print("\n");
+
+    serial_print("[TSS]\n");
+    serial_print("initialized="); serial_print(tss_state.initialized ? "yes" : "no");
+    serial_print("\nselector="); serial_print_dec(tss_state.selector);
+    serial_print("\ndescriptor_valid="); serial_print(tss_state.descriptor_valid ? "yes" : "no");
+    serial_print("\ntss_loaded="); serial_print(tss_state.loaded ? "yes" : "no");
+    serial_print("\nss0="); serial_print_dec(tss_state.ss0);
+    serial_print("\nesp0="); serial_print_dec(tss_state.esp0);
+    serial_print("\nstack_bottom="); serial_print_dec(tss_state.stack_bottom);
+    serial_print("\nstack_top="); serial_print_dec(tss_state.stack_top);
+    serial_print("\nstack_size="); serial_print_dec(tss_state.stack_size);
+    serial_print("\nkernel_stack_valid="); serial_print(tss_state.kernel_stack_valid ? "yes" : "no");
+    serial_print("\nguard_policy="); serial_print(tss_state.guard_policy);
+    serial_print("\nhardware_task_switching=no\n");
+
+    serial_print("[RING3_READINESS]\n");
+    serial_print("gdt_ready="); serial_print(privilege_state.gdt_loaded ? "yes" : "no");
+    serial_print("\nuser_segments_ready="); serial_print(privilege_state.user_segments_valid ? "yes" : "no");
+    serial_print("\ntss_ready="); serial_print(privilege_state.tss_loaded ? "yes" : "no");
+    serial_print("\nesp0_ready="); serial_print(privilege_state.kernel_stack_valid ? "yes" : "no");
+    serial_print("\npaging_ready="); serial_print(privilege_state.paging_enabled ? "yes" : "no");
+    serial_print("\nsyscall_gate_dpl="); serial_print_dec(privilege_state.syscall_gate_dpl);
+    serial_print("\nreadiness="); serial_print(privilege_state.foundation_ready ? "foundation_ready" : "not_ready");
+    serial_print("\nexecution_enabled=no");
+    serial_print("\nuser_stack=no\nuser_page_mappings=no\nelf_loader=no\nprocess_isolation=no\n");
+
+    serial_print("[SYSCALL_TABLE]\n");
+    for (uint32_t i = 0; i < syscall_table_count(); i++) {
+        const struct syscall_descriptor *entry = syscall_table_get(i);
+        serial_print("id="); serial_print_dec(entry->id);
+        serial_print(";name="); serial_print_field(entry->name);
+        serial_print(";argument_mode="); serial_print_field(entry->argument_mode);
+        serial_print(";caller_mode=kernel_only_current");
+        serial_print(";gate_access=");
+        serial_print(syscall_status.gate_dpl == 3u ? "dpl3" : "dpl0");
+        serial_print(";pointer_arguments=no\n");
+    }
+
     serial_print("[KERNEL_INTERRUPTS]\n");
-    serial_print("idt_loaded="); serial_print(idt_is_loaded() ? "yes" : "no");
+    serial_print("gdt_loaded="); serial_print(gdt_is_loaded() ? "yes" : "no");
+    serial_print("\nidt_loaded="); serial_print(idt_is_loaded() ? "yes" : "no");
+    serial_print("\nirq_gates_installed="); serial_print(idt_irq_gates_installed() ? "yes" : "no");
     serial_print("\npic_remapped="); serial_print(pic_is_remapped() ? "yes" : "no");
     serial_print("\ntimer_enabled="); serial_print(timer_is_enabled() ? "yes" : "no");
     serial_print("\nkeyboard_mode="); serial_print(keyboard_mode_name());
@@ -376,6 +561,7 @@ void report_send(void)
     serial_print("[RECOVERY_STORE]\n");
     serial_print("backend=");            serial_print(recovery_memory_backend());
     serial_print("\ndisk_available=");   serial_print(recovery_store_available() ? "1" : "0");
+    serial_print("\ndisk_capacity_sectors="); serial_print_dec(ata_capacity_sectors());
     serial_print("\nstate_valid=");      serial_print(recovery_store_valid() ? "1" : "0");
     serial_print("\njournal_count=");    serial_print_dec(recovery_journal_count());
     serial_print("\ndurable_boot_count=");serial_print_dec(m->boot_count);
@@ -413,7 +599,7 @@ void report_send(void)
             serial_print(e.risk_level == 0 ? "low" :
                          e.risk_level == 1 ? "medium" : "high");
             serial_print(";reversible="); serial_print(e.reversible ? "yes" : "no");
-            serial_print(";code=");       serial_print(e.short_code);
+            serial_print(";code=");       serial_print_field(e.short_code);
             serial_print("\n");
         }
     }
@@ -508,9 +694,9 @@ void report_send(void)
     serial_print("[MODULE_VERSIONS]\n");
     for (uint32_t i = 0; i < module_count(); i++) {
         const struct module_version *mv = module_get(i);
-        serial_print("module=");  serial_print(mv->name);
-        serial_print(";version=");serial_print(mv->version);
-        serial_print(";base=");   serial_print(mv->base_version);
+        serial_print("module=");  serial_print_field(mv->name);
+        serial_print(";version=");serial_print_field(mv->version);
+        serial_print(";base=");   serial_print_field(mv->base_version);
         serial_print(";updated=");serial_print(mv->updated ? "1" : "0");
         serial_print("\n");
     }
@@ -528,11 +714,11 @@ void report_send(void)
     serial_print("\n");
     for (uint32_t i = 0; i < manifest_count(); i++) {
         const struct pkg_manifest *p = manifest_get(i);
-        serial_print("id=");        serial_print(p->package_id);
-        serial_print(";name=");     serial_print(p->name);
-        serial_print(";target=");   serial_print(p->target_component);
-        serial_print(";from=");     serial_print(p->from_version);
-        serial_print(";to=");       serial_print(p->to_version);
+        serial_print("id=");        serial_print_field(p->package_id);
+        serial_print(";name=");     serial_print_field(p->name);
+        serial_print(";target=");   serial_print_field(p->target_component);
+        serial_print(";from=");     serial_print_field(p->from_version);
+        serial_print(";to=");       serial_print_field(p->to_version);
         serial_print(";risk=");     serial_print(risk_level_name(p->risk_level));
         serial_print(";reversible=");serial_print(p->reversible ? "yes" : "no");
         serial_print(";signature=");serial_print(signature_status_name(p->signature_status));
@@ -547,13 +733,13 @@ void report_send(void)
         serial_print(";signature_mode=");
         serial_print(manifest_signature_mode(p));
         serial_print(";signer_key=");
-        serial_print(p->signer_key_hash[0] ? p->signer_key_hash : "none");
+        serial_print_field(p->signer_key_hash[0] ? p->signer_key_hash : "none");
         serial_print(";signed_payload=");
-        serial_print(p->signed_payload_hash[0] ? p->signed_payload_hash : "none");
+        serial_print_field(p->signed_payload_hash[0] ? p->signed_payload_hash : "none");
         serial_print(";policy_result=");
         serial_print(manifest_policy_result(p));
         serial_print(";block_reason=");
-        serial_print(manifest_block_reason(p));
+        serial_print_field(manifest_block_reason(p));
         serial_print(";status=");
         serial_print(pkg_status_name(recovery_package_status(p)));
         serial_print("\n");
@@ -564,7 +750,7 @@ void report_send(void)
         const struct pkg_manifest *p = manifest_get(i);
         const char *reason;
         int ok = manifest_verify(p, &reason);
-        serial_print("id=");          serial_print(p->package_id);
+        serial_print("id=");          serial_print_field(p->package_id);
         serial_print(";payload=");    serial_print(payload_type_name(p->payload_type));
         serial_print(";trust_anchor=");
         serial_print(p->trust_anchor_id == TRUST_ANCHOR_ID ? TRUST_ANCHOR_NAME
@@ -579,40 +765,44 @@ void report_send(void)
         serial_print(";signature_mode=");
         serial_print(manifest_signature_mode(p));
         serial_print(";signer_key=");
-        serial_print(p->signer_key_hash[0] ? p->signer_key_hash : "none");
+        serial_print_field(p->signer_key_hash[0] ? p->signer_key_hash : "none");
         serial_print(";signed_payload=");
-        serial_print(p->signed_payload_hash[0] ? p->signed_payload_hash : "none");
+        serial_print_field(p->signed_payload_hash[0] ? p->signed_payload_hash : "none");
         serial_print(";verifies=");   serial_print(ok ? "yes" : "no");
         serial_print(";policy_result=");
         serial_print(manifest_policy_result(p));
-        serial_print(";reason=");     serial_print(reason);
+        serial_print(";reason=");     serial_print_field(reason);
         serial_print(";block_reason=");
-        serial_print(manifest_block_reason(p));
+        serial_print_field(manifest_block_reason(p));
         serial_print("\n");
     }
 
     serial_print("[PACKAGE_STATES]\n");
     for (uint32_t i = 0; i < package_state_count(); i++) {
         const struct pkg_pstate *s = package_state_get(i);
-        serial_print("id=");        serial_print(s->package_id);
+        serial_print("id=");        serial_print_field(s->package_id);
         serial_print(";approved="); serial_print(s->approved ? "1" : "0");
         serial_print(";applied=");  serial_print(s->applied ? "1" : "0");
         serial_print(";verified="); serial_print(s->verified ? "1" : "0");
         serial_print(";failed=");   serial_print(s->failed ? "1" : "0");
         serial_print(";rolled_back=");serial_print(s->rolled_back ? "1" : "0");
-        serial_print(";from=");     serial_print(s->from_version);
-        serial_print(";to=");       serial_print(s->to_version);
+        serial_print(";from=");     serial_print_field(s->from_version);
+        serial_print(";to=");       serial_print_field(s->to_version);
+        serial_print(";manifest_identity="); serial_print_dec(s->manifest_identity);
+        serial_print(";transaction_phase=");
+        serial_print(package_transaction_phase_name(s->transaction_phase));
+        serial_print(";binding_valid="); serial_print(s->extension_valid ? "1" : "0");
         serial_print("\n");
     }
 
     serial_print("[MODULE_SLOTS]\n");
     for (uint32_t i = 0; i < module_slot_count(); i++) {
         const struct module_slot *s = module_slot_get(i);
-        serial_print("module=");    serial_print(module_get((uint32_t)s->module)->name);
+        serial_print("module=");    serial_print_field(module_get((uint32_t)s->module)->name);
         serial_print(";active=");   serial_print(s->active_slot == SLOT_A ? "A" : "B");
-        serial_print(";slot_a=");   serial_print(s->slot_a_version);
+        serial_print(";slot_a=");   serial_print_field(s->slot_a_version);
         serial_print(";slot_a_verified="); serial_print(s->slot_a_verified ? "1" : "0");
-        serial_print(";slot_b=");   serial_print(s->slot_b_version);
+        serial_print(";slot_b=");   serial_print_field(s->slot_b_version);
         serial_print(";slot_b_verified="); serial_print(s->slot_b_verified ? "1" : "0");
         serial_print(";rollback=");
         serial_print(s->rollback_slot == SLOT_NONE ? "none" :
@@ -665,11 +855,11 @@ void report_send(void)
     serial_print("[ERROR_LOG]\n");
     struct kerror e;
     for (uint32_t i = 0; error_get(i, &e); i++) {
-        serial_print("code=");       serial_print(e.code);
+        serial_print("code=");       serial_print_field(e.code);
         serial_print(";severity=");  serial_print(severity_name(e.severity));
-        serial_print(";component="); serial_print(e.component);
-        serial_print(";message=");   serial_print(e.message);
-        serial_print(";hint=");      serial_print(e.hint);
+        serial_print(";component="); serial_print_field(e.component);
+        serial_print(";message=");   serial_print_field(e.message);
+        serial_print(";hint=");      serial_print_field(e.hint);
         serial_print("\n");
     }
 

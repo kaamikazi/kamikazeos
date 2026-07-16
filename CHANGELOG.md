@@ -1,5 +1,47 @@
 # Changelog
 
+## v2.5.0 - Privilege Boundary
+
+- Added flat DPL3 user code and data descriptors with explicit selectors.
+- Added a loaded 32-bit TSS with SS0 and a bounded 16 KiB ESP0 kernel stack.
+- Added privilege readiness validation and DPL0 fallback for the syscall gate.
+- Made `int 0x80` DPL3-capable only after GDT, TSS, ESP0, and paging validate.
+- Preserved segment registers correctly across the syscall assembly path.
+- Added `gdt`, `tss`, `privilege`, and `ring3-readiness` shell commands.
+- Added `[GDT]`, `[TSS]`, `[PRIVILEGE]`, and `[RING3_READINESS]` reports.
+- Updated the analyzer, JSON exporter, and read-only Recovery Center.
+- Added no Ring 3 execution, user stack/pages, ELF loading, process isolation,
+  per-process address spaces, arbitrary execution, networking, or auto-repair.
+
+## v2.4.0 - Syscall Door
+
+- Added a DPL0 `int 0x80` IDT gate with a normalized assembly entry stub.
+- Added a fixed compile-time registry of eight kernel service calls.
+- Added a dispatcher with bounded scalar/handle validation and no pointer ABI.
+- Added safe result codes, unknown-ID rejection, call/failure statistics, and
+  structured error evidence.
+- Added `syscalls`, `syscall-test`, and `syscall <id>` shell commands.
+- Added `[SYSCALLS]` and `[SYSCALL_TABLE]` serial report sections.
+- Updated the offline analyzer, JSON exporter, and read-only Recovery Center.
+- Added no Ring 3 execution, userspace pointers, ELF loading, process
+  isolation, arbitrary execution, networking, downloads, or automatic repair.
+
+## v2.3.0 - Paging Gate
+
+- Added 32-bit x86 paging structures for a low-memory identity map.
+- Added strict validation for the GDT, early exception IDT, page-directory and
+  page-table alignment/flags, unused PDEs, and required runtime ranges.
+- Added CR3 loading and the gated CR0.PG enable path.
+- Added `paging`, `page-map`, and guarded `pagefault-test confirm` commands.
+- Added `[PAGING]`, `[PAGE_MAP]`, and `[PAGE_FAULT]` serial report sections.
+- Added page fault CR2 evidence recording through the existing exception path.
+- Updated analyzer and Recovery Center with read-only paging visibility.
+- Paging is enabled with a supervisor-writable 0-16 MiB identity map after the
+  validation gate passes; validation failure leaves paging disabled.
+- Added no userspace virtual memory, per-process address spaces, demand paging,
+  copy-on-write, memory protection between tasks, networking, auto-repair,
+  arbitrary execution, or self-modification.
+
 ## v2.2.0 - Heap Seed
 
 - Added a fixed-region kernel bump heap initialized from the memory manager.

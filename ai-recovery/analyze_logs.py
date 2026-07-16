@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-KamikazeOS AI Recovery Core - host-side log analyzer (v2.2, offline/rule-based)
+KamikazeOS AI Recovery Core - host-side log analyzer (v2.5, offline/rule-based)
 
 This is the first working incarnation of the "maintenance brain". It runs on
 the HOST, outside the kernel, and its powers are deliberately limited:
@@ -8,7 +8,7 @@ the HOST, outside the kernel, and its powers are deliberately limited:
     READ logs  ->  EXPLAIN problems  ->  RANK risk  ->  SUGGEST next actions
 
 It never patches binaries, installs drivers, downloads code, or modifies the
-OS. Every suggestion is for a HUMAN to approve and perform. v2.2 is
+OS. Every suggestion is for a HUMAN to approve and perform. v2.5 is
 rule-based (no AI API yet) so the pipeline can be built and trusted first;
 see analyze_with_ai_later() at the bottom for where a real model plugs in.
 
@@ -47,6 +47,12 @@ RULES = {
                   "device was quarantined (isolated) to prevent boot loops.",
         "action": "Check device/driver compatibility. The quarantine is "
                   "correct behavior - lift it only after fixing the driver.",
+    },
+    "GA-TEST-201": {
+        "cause":  "The compiled-in virtual GhostAttach canary failed its "
+                  "attach probe as designed.",
+        "action": "No repair is required. This is expected self-test "
+                  "evidence, not a production device failure.",
     },
     "KBD-001": {
         "cause":  "The PS/2 keyboard controller did not respond to the boot "
@@ -169,6 +175,57 @@ RULES = {
         "action": "Do not attempt automatic recovery. Preserve the serial log, "
                   "reboot, and investigate the recorded exception evidence.",
     },
+    "PAGE-FAULT": {
+        "cause":  "The CPU raised a page fault. KamikazeOS captured the CR2 "
+                  "fault address, error code, and instruction pointer.",
+        "action": "Do not attempt automatic recovery. Preserve the serial log, "
+                  "reboot, and inspect the paging report and PAGE-FAULT evidence.",
+    },
+    "PAGE-101": {
+        "cause":  "Strict paging validation rejected at least one required "
+                  "identity-mapped runtime range or prerequisite.",
+        "action": "Keep paging disabled. Inspect `paging` and `page-map`; do "
+                  "not bypass the enable gate.",
+    },
+    "PAGE-102": {
+        "cause":  "The CPU paging enable state or active CR3 did not match "
+                  "the validated page directory.",
+        "action": "Stop paging tests and inspect CR0/CR3 handling manually.",
+    },
+    "SYS-ERR-001": {
+        "cause":  "The fixed syscall dispatcher rejected an unknown syscall ID.",
+        "action": "Use only IDs listed by `syscalls`. The rejection is the "
+                  "expected fail-closed behavior.",
+    },
+    "SYS-ERR-002": {
+        "cause":  "A syscall rejected an invalid bounded argument or an "
+                  "unavailable kernel service.",
+        "action": "Inspect `syscalls` and the target subsystem. Do not pass "
+                  "raw addresses; v2.5 exposes no pointer ABI.",
+    },
+    "SYS-ERR-003": {
+        "cause":  "The kernel could not install its dedicated syscall IDT gate.",
+        "action": "Keep syscall use disabled and inspect IDT initialization. "
+                  "Do not bypass the gate check.",
+    },
+    "TSS-101": {
+        "cause":  "The TSS descriptor or bounded SS0:ESP0 stack failed "
+                  "validation.",
+        "action": "Keep the syscall gate at DPL0. Inspect `gdt`, `tss`, and "
+                  "`ring3-readiness`; do not enable Ring 3 execution.",
+    },
+    "TSS-102": {
+        "cause":  "The CPU task register did not retain the expected TSS "
+                  "selector after ltr.",
+        "action": "Keep the user syscall gate disabled and inspect the TSS "
+                  "descriptor and selector manually.",
+    },
+    "PRIV-101": {
+        "cause":  "One or more privilege-boundary prerequisites failed, so "
+                  "the Ring 3 foundation is incomplete.",
+        "action": "Inspect GDT, TSS, ESP0, paging, and syscall DPL evidence. "
+                  "Do not bypass the readiness gate.",
+    },
     "APP-BLOCK-001": {
         "cause":  "The app policy gate refused a requested app name that is not "
                   "in the fixed compile-time registry, or an app without a "
@@ -233,6 +290,28 @@ def extract_last_boot_report(text: str):
     return report_lines, after_lines, True
 
 
+def parse_page_fault_evidence(text: str):
+    """Return the last PAGE_FAULT section, including panic evidence emitted
+    after a completed boot report."""
+    latest = {}
+    current = None
+    for raw in text.splitlines():
+        line = raw.strip()
+        if line == "[PAGE_FAULT]":
+            if current:
+                latest = current
+            current = {}
+        elif current is not None and line.startswith("["):
+            if current:
+                latest = current
+            current = None
+        elif current is not None and line:
+            current.update(parse_kv_line(line))
+    if current:
+        latest = current
+    return latest
+
+
 def parse_report(lines):
     """Split the report into its sections."""
     meta, devices, drivers, events = {}, [], [], []
@@ -266,6 +345,15 @@ def parse_report(lines):
         "[MEMORY_MAP]": "memory_map",
         "[PAGES]": "pages",
         "[KERNEL_HEAP]": "kernel_heap",
+        "[PAGING]": "paging",
+        "[PAGE_MAP]": "page_map",
+        "[PAGE_FAULT]": "paging",
+        "[SYSCALLS]": "syscalls",
+        "[SYSCALL_TABLE]": "syscall_table",
+        "[PRIVILEGE]": "privilege",
+        "[GDT]": "gdt",
+        "[TSS]": "tss",
+        "[RING3_READINESS]": "ring3_readiness",
         "[KERNEL_INTERRUPTS]": "kernel_interrupts",
         "[KERNEL_TIMING]": "kernel_timing",
         "[KERNEL_EXCEPTIONS]": "kernel_exceptions",
@@ -282,6 +370,9 @@ def parse_report(lines):
     trust, pkg_manifests, pkg_states, mod_slots, pending = {}, [], [], [], {}
     kernel_interrupts, kernel_timing, kernel_exceptions = {}, {}, {}
     kernel_memory, memory_map, pages, kernel_heap = {}, [], {}, {}
+    paging, page_map = {}, []
+    syscalls, syscall_rows = {}, []
+    privilege, gdt, tss, ring3_readiness = {}, {}, {}, {}
     kernel_tasks, task_rows = {}, []
     tinyfs, tinyfs_files = {}, []
     apps, app_rows, app_log = {}, [], []
@@ -344,6 +435,22 @@ def parse_report(lines):
             pages.update(parse_kv_line(line))
         elif section == "kernel_heap":
             kernel_heap.update(parse_kv_line(line))
+        elif section == "paging":
+            paging.update(parse_kv_line(line))
+        elif section == "page_map":
+            page_map.append(parse_kv_line(line))
+        elif section == "syscalls":
+            syscalls.update(parse_kv_line(line))
+        elif section == "syscall_table":
+            syscall_rows.append(parse_kv_line(line))
+        elif section == "privilege":
+            privilege.update(parse_kv_line(line))
+        elif section == "gdt":
+            gdt.update(parse_kv_line(line))
+        elif section == "tss":
+            tss.update(parse_kv_line(line))
+        elif section == "ring3_readiness":
+            ring3_readiness.update(parse_kv_line(line))
         elif section == "kernel_interrupts":
             kernel_interrupts.update(parse_kv_line(line))
         elif section == "kernel_timing":
@@ -375,6 +482,8 @@ def parse_report(lines):
             modules, pkgs, pkg_policy, pkg_history,
             trust, pkg_manifests, pkg_states, mod_slots, pending,
             kernel_memory, memory_map, pages, kernel_heap,
+            paging, page_map, syscalls, syscall_rows,
+            privilege, gdt, tss, ring3_readiness,
             kernel_interrupts, kernel_timing, kernel_exceptions,
             kernel_tasks, task_rows, tinyfs, tinyfs_files,
             apps, app_rows, app_log, system_status, diagnostics)
@@ -384,7 +493,12 @@ def classify(events):
     """Bucket events into info / warning / critical."""
     buckets = {"info": [], "warning": [], "critical": []}
     for e in events:
-        cls = SEVERITY_CLASS.get(e.get("severity", ""), "warning")
+        expected_canary = e.get("code") == "GA-TEST-201" or (
+            e.get("code") == "GA-DRV-201" and
+            e.get("message", "").startswith("Self-Test Device ")
+        )
+        cls = "info" if expected_canary else \
+            SEVERITY_CLASS.get(e.get("severity", ""), "warning")
         buckets[cls].append(e)
     return buckets
 
@@ -416,7 +530,7 @@ def main():
     lines, after_lines, found = extract_last_boot_report(text)
 
     print("=" * 72)
-    print(" KamikazeOS AI RECOVERY CORE - recovery report (v2.2, rule-based)")
+    print(" KamikazeOS AI RECOVERY CORE - recovery report (v2.5, rule-based)")
     print("=" * 72)
 
     if not found:
@@ -431,6 +545,9 @@ def main():
         modules, pkgs, pkg_policy, pkg_history = [], [], [], []
         trust, pkg_manifests, pkg_states, mod_slots, pending = {}, [], [], [], {}
         kernel_memory, memory_map, pages, kernel_heap = {}, [], {}, {}
+        paging, page_map = {}, []
+        syscalls, syscall_rows = {}, []
+        privilege, gdt, tss, ring3_readiness = {}, {}, {}, {}
         kernel_interrupts, kernel_timing, kernel_exceptions = {}, {}, {}
         kernel_tasks, task_rows = {}, []
         tinyfs, tinyfs_files = {}, []
@@ -442,6 +559,8 @@ def main():
          modules, pkgs, pkg_policy, pkg_history,
          trust, pkg_manifests, pkg_states, mod_slots, pending,
          kernel_memory, memory_map, pages, kernel_heap,
+         paging, page_map, syscalls, syscall_rows,
+         privilege, gdt, tss, ring3_readiness,
          kernel_interrupts, kernel_timing, kernel_exceptions,
          kernel_tasks, task_rows, tinyfs, tinyfs_files,
          apps, app_rows, app_log, system_status, diagnostics) = parse_report(lines)
@@ -451,16 +570,21 @@ def main():
                   "report was exported (merged below).")
             events.extend(parse_kv_line(l) for l in after_lines)
 
+    page_fault = parse_page_fault_evidence(text)
+    if page_fault:
+        paging.update(page_fault)
+
     if meta:
         print(f"\nKernel version : {meta.get('version', '?')}")
         print(f"GhostAttach    : {meta.get('scan_total', '?')} devices - "
               f"{meta.get('scan_attached', '?')} attached, "
               f"{meta.get('scan_fallback', '?')} fallback, "
               f"{meta.get('scan_missing', '?')} missing, "
-              f"{meta.get('scan_isolated', '?')} isolated")
+              f"{meta.get('scan_isolated', '?')} isolated "
+              f"({meta.get('scan_expected_self_tests', '0')} expected test)")
 
     if system_status:
-        print("\nv2.2 integrated system status:")
+        print("\nv2.5 integrated system status:")
         print(f"  * Kernel: {system_status.get('kernel_version', '?')}")
         print(f"  * Interrupts: IDT={system_status.get('idt_loaded', '?')} "
               f"PIC={system_status.get('pic_remapped', '?')} "
@@ -469,6 +593,9 @@ def main():
               f"free_pages={system_status.get('free_pages', '?')}")
         print(f"  * Heap: available={system_status.get('heap_available', '?')} "
               f"remaining={system_status.get('heap_remaining', '?')} bytes")
+        print(f"  * Paging: prepared={system_status.get('paging_prepared', '?')} "
+              f"enabled={system_status.get('paging_enabled', '?')} "
+              f"mode={system_status.get('paging_mode', '?')}")
         print(f"  * Storage: {system_status.get('recovery_backend', '?')} "
               f"TinyFS={system_status.get('tinyfs_status', '?')} "
               f"files={system_status.get('tinyfs_files', '?')}")
@@ -500,6 +627,87 @@ def main():
         except ValueError:
             pass
 
+    if paging:
+        print("\nPaging foundation:")
+        print(f"  * Prepared: {paging.get('prepared', '?')}")
+        print(f"  * Enabled: {paging.get('enabled', '?')}")
+        print(f"  * Mode: {paging.get('mode', '?')}")
+        print(f"  * Identity map valid: {paging.get('identity_map_valid', '?')}")
+        print(f"  * Required ranges valid: {paging.get('required_ranges_valid', '?')}")
+        print(f"  * Page directory: {paging.get('page_directory', '?')}")
+        print(f"  * Active CR3: {paging.get('active_cr3', '?')}")
+        print(f"  * Mapped range: {paging.get('mapped_start', '?')} - "
+              f"{paging.get('mapped_end', '?')}")
+        print(f"  * Page fault handler: {paging.get('page_fault_handler', '?')}")
+        if paging.get("enabled") == "yes":
+            print("  * CR0.PG is enabled with the validated identity map.")
+        else:
+            print("  * Enable gate held; kernel continued with paging disabled.")
+        if paging.get("identity_map_valid") != "yes":
+            print("  !! WARNING: identity map validation failed.")
+        if paging.get("present") == "yes":
+            print(f"  !! Page fault evidence: address "
+                  f"{paging.get('fault_address')} error "
+                  f"{paging.get('error_code', '?')} eip {paging.get('eip', '?')}")
+
+    if syscalls:
+        print("\nKernel syscall foundation:")
+        print(f"  * Initialized: {syscalls.get('initialized', '?')}")
+        print(f"  * IDT vector: {syscalls.get('vector', '?')} (0x80)")
+        print(f"  * Registered calls: {syscalls.get('registered_count', '?')}")
+        print(f"  * Calls at export: {syscalls.get('total_calls', '?')}")
+        print(f"  * Failed calls: {syscalls.get('failed_calls', '?')}")
+        print(f"  * Last call: {syscalls.get('last_id', '?')} "
+              f"{syscalls.get('last_name', '?')} "
+              f"({syscalls.get('last_result', '?')})")
+        print(f"  * Argument model: {syscalls.get('argument_model', '?')}")
+        print(f"  * User mode available: "
+              f"{syscalls.get('user_mode_available', 'no')}")
+        print(f"  * Gate DPL: {syscalls.get('syscall_gate_dpl', '?')}")
+        print(f"  * User-callable gate: {syscalls.get('syscall_user_gate', 'disabled')}")
+        print("  * Boundary: the gate may be DPL3, but no Ring 3 execution, "
+              "userspace pointers, or ABI stability exists.")
+        if syscalls.get("initialized") != "yes":
+            print("  !! WARNING: syscall gate is not initialized.")
+        try:
+            if int(syscalls.get("failed_calls", "0") or 0) > 0:
+                print("  !! WARNING: failed or unknown syscall attempts were recorded.")
+        except ValueError:
+            print("  !! WARNING: invalid syscall failure counter in report.")
+        for row in syscall_rows:
+            print(f"    - {row.get('id', '?'):>2} "
+                  f"{row.get('name', '?'):<16} "
+                  f"args={row.get('argument_mode', '?')} "
+                  f"caller={row.get('caller_mode', '?')}")
+
+    if privilege or tss or ring3_readiness:
+        print("\nPrivilege and TSS foundation:")
+        print(f"  * Current CPL: {privilege.get('current_cpl', '?')} "
+              "(kernel shell must remain 0)")
+        print(f"  * User segments valid: "
+              f"{privilege.get('user_segments_valid', '?')}")
+        print(f"  * TSS loaded: {tss.get('tss_loaded', '?')}")
+        print(f"  * TSS selector: {tss.get('selector', '?')}")
+        print(f"  * SS0:ESP0: {tss.get('ss0', '?')}:{tss.get('esp0', '?')}")
+        print(f"  * Transition stack: {tss.get('stack_bottom', '?')} - "
+              f"{tss.get('stack_top', '?')}")
+        print(f"  * Guard policy: {tss.get('guard_policy', '?')}")
+        print(f"  * Syscall gate DPL: "
+              f"{privilege.get('syscall_gate_dpl', '?')}")
+        print(f"  * Foundation readiness: "
+              f"{ring3_readiness.get('readiness', '?')}")
+        print(f"  * Ring 3 execution enabled: "
+              f"{ring3_readiness.get('execution_enabled', 'no')}")
+        print("  * Missing by design: user stack, user page mappings, ELF "
+              "loading, process isolation, and stable userspace ABI.")
+        if tss.get("tss_loaded") != "yes" or \
+                tss.get("kernel_stack_valid") != "yes":
+            print("  !! WARNING: TSS or ESP0 kernel stack is invalid.")
+        if privilege.get("current_cpl") not in (None, "0"):
+            print("  !! WARNING: exported kernel shell CPL is not Ring 0.")
+        if ring3_readiness.get("readiness") != "foundation_ready":
+            print("  !! WARNING: Ring 3 architectural foundation is incomplete.")
+
     if kernel_heap:
         print("\nKernel heap foundation:")
         print(f"  * Available: {kernel_heap.get('available', '?')}")
@@ -522,13 +730,18 @@ def main():
 
     if kernel_interrupts:
         print("\nKernel interrupt foundation:")
+        print(f"  * GDT loaded: {kernel_interrupts.get('gdt_loaded', '?')}")
         print(f"  * IDT loaded: {kernel_interrupts.get('idt_loaded', '?')}")
+        print(f"  * IRQ gates installed: "
+              f"{kernel_interrupts.get('irq_gates_installed', '?')}")
         print(f"  * PIC remapped: {kernel_interrupts.get('pic_remapped', '?')}")
         print(f"  * Timer IRQ enabled: {kernel_interrupts.get('timer_enabled', '?')}")
         print(f"  * Keyboard mode: {kernel_interrupts.get('keyboard_mode', '?')}")
         print(f"  * Interrupts handled at export: "
               f"{kernel_interrupts.get('interrupts_handled', '?')}")
-        for key, label in (("idt_loaded", "IDT"), ("pic_remapped", "PIC remap"),
+        for key, label in (("gdt_loaded", "GDT"), ("idt_loaded", "IDT"),
+                           ("irq_gates_installed", "IRQ gates"),
+                           ("pic_remapped", "PIC remap"),
                            ("timer_enabled", "PIT timer IRQ")):
             if kernel_interrupts.get(key) != "yes":
                 print(f"  !! WARNING: {label} is not operational.")
@@ -858,6 +1071,17 @@ def main():
             print("   Run `slots` inside KamikazeOS to find it, then verify-pkg.")
         print()
 
+    staged_states = [s for s in pkg_states
+                     if s.get("transaction_phase", "committed") not in
+                     ("committed", "legacy_unbound")]
+    if staged_states:
+        print("!! Package transaction evidence remains staged:")
+        for state in staged_states:
+            print(f"  * {state.get('id', '?')}: "
+                  f"{state.get('transaction_phase', '?')}")
+        print("   No automatic slot change is recommended. Reboot once to let the")
+        print("   kernel reconcile metadata, then inspect `packages` and `slots`.\n")
+
     # ----- RecoveryPackage analysis ------------------------------------
     if modules:
         print("Module versions:")
@@ -885,8 +1109,8 @@ def main():
                 blocked_pkgs.append(p)
             elif p.get("status") == "failed":
                 failed_pkgs.append(p)
-            elif p.get("policy_result", "allowed") == "allowed" and \
-                    p.get("signature_valid", "yes") == "yes" and \
+            elif p.get("policy_result") == "allowed" and \
+                    p.get("signature_valid") == "yes" and \
                     p.get("status") in ("available", "suggested"):
                 running = mod_ver.get(target_to_module.get(p.get("target"), ""))
                 if running == p.get("from"):
@@ -976,7 +1200,7 @@ def main():
 
 
 # --------------------------------------------------------------------------
-# FUTURE AI INTEGRATION POINT (deliberately not implemented in v2.2)
+# FUTURE AI INTEGRATION POINT (deliberately not implemented in v2.5)
 # --------------------------------------------------------------------------
 def analyze_with_ai_later(log_text: str):
     """
@@ -995,7 +1219,7 @@ def analyze_with_ai_later(log_text: str):
         as this rule-based analyzer - the policy engine, not the model,
         decides what may ever be applied automatically.
 
-    Keeping this stub un-implemented in v2.2 is intentional: the transport,
+    Keeping this stub un-implemented in v2.5 is intentional: the transport,
     format, and approval workflow get built and trusted first.
     """
     raise NotImplementedError("AI analysis arrives in a later phase - see docstring")

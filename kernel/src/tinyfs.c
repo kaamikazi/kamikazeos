@@ -198,6 +198,36 @@ static int write_table(void)
     return 1;
 }
 
+static void mark_metadata_uncertain(void)
+{
+    status.formatted = 0;
+    set_error("metadata_commit_uncertain");
+    error_log(SEV_ERROR, "TFS-ERR-016", "TinyFS",
+              "TinyFS metadata commit may be incomplete",
+              "filesystem disabled until reboot validation");
+}
+
+static int verify_extent(uint32_t start_lba, uint32_t sector_count,
+                         uint32_t length, uint32_t expected_checksum)
+{
+    kmemset(file_bytes, 0, sizeof(file_bytes));
+    for (uint32_t s = 0; s < sector_count; s++) {
+        if (!fs_read_sector(start_lba + s,
+                            file_bytes + s * ATA_SECTOR_SIZE))
+            return 0;
+    }
+    return checksum_bytes(file_bytes, length) == expected_checksum;
+}
+
+static int clear_extent(uint32_t start_lba, uint32_t sector_count)
+{
+    kmemset(sector, 0, sizeof(sector));
+    for (uint32_t s = 0; s < sector_count; s++)
+        if (!fs_write_sector(start_lba + s, sector))
+            return 0;
+    return 1;
+}
+
 static int load_table(void)
 {
     for (uint32_t i = 0; i < TABLE_SECTORS; i++)
@@ -403,10 +433,7 @@ int tinyfs_create(const char *name)
     if (!write_table() || !write_superblock()) {
         kmemset(&files[slot], 0, sizeof(files[slot]));
         status.file_count--;
-        set_error("metadata_write_failed");
-        error_log(SEV_ERROR, "TFS-ERR-007", "TinyFS",
-                  "TinyFS could not persist new file metadata",
-                  "file creation was rolled back in memory");
+        mark_metadata_uncertain();
         return 0;
     }
     set_error("none");
@@ -415,8 +442,7 @@ int tinyfs_create(const char *name)
     return 1;
 }
 
-static int allocate_extent(uint32_t sectors_needed, int exclude_index,
-                           uint32_t *start_lba)
+static int allocate_extent(uint32_t sectors_needed, uint32_t *start_lba)
 {
     if (sectors_needed == 0) {
         *start_lba = 0;
@@ -425,7 +451,7 @@ static int allocate_extent(uint32_t sectors_needed, int exclude_index,
     uint8_t used_map[DATA_SECTORS];
     kmemset(used_map, 0, sizeof(used_map));
     for (uint32_t i = 0; i < TINYFS_MAX_FILES; i++) {
-        if (!files[i].used || (int)i == exclude_index)
+        if (!files[i].used)
             continue;
         for (uint32_t s = 0; s < files[i].sector_count; s++)
             used_map[files[i].start_lba - TINYFS_LBA_DATA_START + s] = 1;
@@ -466,7 +492,7 @@ int tinyfs_write_text(const char *name, const char *text)
     }
     uint32_t sectors_needed = (length + ATA_SECTOR_SIZE - 1) / ATA_SECTOR_SIZE;
     uint32_t start_lba;
-    if (!allocate_extent(sectors_needed, index, &start_lba)) {
+    if (!allocate_extent(sectors_needed, &start_lba)) {
         set_error("data_area_full");
         error_log(SEV_WARNING, "TFS-ERR-010", "TinyFS",
                   "TinyFS data area has no contiguous extent",
@@ -476,6 +502,7 @@ int tinyfs_write_text(const char *name, const char *text)
 
     kmemset(file_bytes, 0, sizeof(file_bytes));
     memcpy(file_bytes, text, length);
+    uint32_t new_checksum = checksum_bytes(file_bytes, length);
     for (uint32_t s = 0; s < sectors_needed; s++) {
         if (!fs_write_sector(start_lba + s, file_bytes + s * ATA_SECTOR_SIZE)) {
             set_error("data_write_failed");
@@ -485,19 +512,30 @@ int tinyfs_write_text(const char *name, const char *text)
             return 0;
         }
     }
+    if (!verify_extent(start_lba, sectors_needed, length, new_checksum)) {
+        set_error("data_verify_failed");
+        error_log(SEV_ERROR, "TFS-ERR-017", "TinyFS",
+                  "TinyFS read-back verification failed",
+                  "file metadata was left unchanged");
+        return 0;
+    }
 
     struct tinyfs_file old = files[index];
     files[index].size = length;
     files[index].start_lba = start_lba;
     files[index].sector_count = sectors_needed;
-    files[index].checksum = checksum_bytes(file_bytes, length);
+    files[index].checksum = new_checksum;
     if (!write_table()) {
         files[index] = old;
-        set_error("metadata_write_failed");
-        error_log(SEV_ERROR, "TFS-ERR-007", "TinyFS",
-                  "TinyFS could not persist write metadata",
-                  "previous in-memory file metadata was restored");
+        mark_metadata_uncertain();
         return 0;
+    }
+    if (old.sector_count && !clear_extent(old.start_lba, old.sector_count)) {
+        set_error("old_extent_clear_failed");
+        error_log(SEV_WARNING, "TFS-WARN-005", "TinyFS",
+                  "TinyFS committed new data but could not clear old sectors",
+                  "old extent is unreferenced and can be reused safely");
+        return 1;
     }
     set_error("none");
     error_log(SEV_INFO, "TFS-WRITE-000", "TinyFS",
@@ -572,26 +610,20 @@ int tinyfs_delete(const char *name)
     }
 
     struct tinyfs_file old = files[index];
-    kmemset(sector, 0, sizeof(sector));
-    for (uint32_t s = 0; s < old.sector_count; s++) {
-        if (!fs_write_sector(old.start_lba + s, sector)) {
-            set_error("delete_wipe_failed");
-            error_log(SEV_ERROR, "TFS-ERR-015", "TinyFS",
-                      "TinyFS could not wipe deleted file data",
-                      "file metadata was left intact");
-            return 0;
-        }
-    }
     kmemset(&files[index], 0, sizeof(files[index]));
     status.file_count--;
     if (!write_table() || !write_superblock()) {
         files[index] = old;
         status.file_count++;
-        set_error("metadata_write_failed");
-        error_log(SEV_ERROR, "TFS-ERR-007", "TinyFS",
-                  "TinyFS could not persist deletion metadata",
-                  "previous in-memory metadata was restored");
+        mark_metadata_uncertain();
         return 0;
+    }
+    if (old.sector_count && !clear_extent(old.start_lba, old.sector_count)) {
+        set_error("deleted_extent_clear_failed");
+        error_log(SEV_WARNING, "TFS-WARN-006", "TinyFS",
+                  "TinyFS deletion committed but old data clearing failed",
+                  "metadata no longer references the deleted extent");
+        return 1;
     }
     set_error("none");
     error_log(SEV_INFO, "TFS-DELETE-000", "TinyFS",

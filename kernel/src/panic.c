@@ -1,6 +1,7 @@
 /* panic.c — diagnostic crash screen. See panic.h. */
 #include "panic.h"
 #include "errors.h"
+#include "paging.h"
 #include "recovery_memory.h"
 #include "recovery_store.h"
 #include "serial.h"
@@ -71,8 +72,14 @@ void kpanic_exception(uint32_t vector, uint32_t error_code,
         __asm__ volatile ("mov %%cr2, %0" : "=r"(fault_address));
 
     __asm__ volatile ("cli");
-    error_log(SEV_PANIC, "CPU-EXCEPTION", "interrupts", name,
-              "inspect vector error code and instruction pointer");
+    if (vector == 14) {
+        paging_record_page_fault(fault_address, error_code, eip);
+        error_log(SEV_PANIC, "PAGE-FAULT", "Paging", name,
+                  "inspect CR2 fault address and error code");
+    } else {
+        error_log(SEV_PANIC, "CPU-EXCEPTION", "interrupts", name,
+                  "inspect vector error code and instruction pointer");
+    }
 
     serial_print("[KERNEL_EXCEPTION_PANIC]\nvector=");
     serial_print_hex32(vector);
@@ -84,6 +91,13 @@ void kpanic_exception(uint32_t vector, uint32_t error_code,
         serial_print_hex32(fault_address);
     }
     serial_print("\n");
+    if (vector == 14) {
+        serial_print("[PAGE_FAULT]\npresent=yes\nfault_address=");
+        serial_print_hex32(fault_address);
+        serial_print("\nerror_code="); serial_print_hex32(error_code);
+        serial_print("\neip="); serial_print_hex32(eip);
+        serial_print("\nrecovery_attempted=no\n");
+    }
     record_panic();
 
     vga_set_color(VGA_WHITE, VGA_RED);
@@ -99,6 +113,6 @@ void kpanic_exception(uint32_t vector, uint32_t error_code,
         vga_print("\n  Fault address : "); vga_print_hex(fault_address);
     }
     vga_print("\n\n  Structured evidence was streamed to serial and persisted.\n");
-    vga_print("  CPU exceptions are not recovered in v2.0; the kernel halted safely.\n");
+    vga_print("  CPU exceptions are diagnostic-only; the kernel halted safely.\n");
     halt_forever();
 }

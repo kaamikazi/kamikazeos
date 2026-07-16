@@ -32,9 +32,19 @@ real OS and tooling mechanics, but avoids dangerous update behavior.
 - Memory status, memory map, and page reports in shell, analyzer, and dashboard.
 - Bounded fixed-region kernel bump heap.
 - Heap allocation bounds checks, stats, serial report, analyzer, and dashboard.
+- Enabled 32-bit x86 paging with a 0-16 MiB supervisor identity map.
+- Strict identity-map/runtime-range validation and CR3 verification.
+- Page fault CR2 evidence path when a page fault occurs.
+- Readiness-gated DPL3 `int 0x80` gate and normalized syscall entry stub.
+- Fixed eight-entry syscall registry, dispatcher, validation, and reporting.
+- Flat DPL3 user code/data descriptors in the kernel-owned GDT.
+- Loaded 32-bit TSS with SS0 and bounded ESP0 kernel-stack configuration.
+- Privilege prerequisite checks and read-only readiness reporting.
 - COM1 serial logs and boot reports.
 - Structured kernel error log.
 - GhostAttach policy decisions over fixed device/driver registries.
+- GhostAttach's virtual failure canary is reported separately from production
+  attach failures and does not reduce the production health score.
 - CMOS recovery memory fallback.
 - ATA PIO access to a raw recovery disk image.
 - Durable RecoveryStore journal.
@@ -62,9 +72,12 @@ real OS and tooling mechanics, but avoids dangerous update behavior.
 - Ring 3 userspace.
 - Process isolation.
 - Executable loading or ELF loading.
-- Per-process memory and syscalls.
-- Virtual memory.
+- Ring 3 syscall callers and userspace pointer validation.
+- Per-process syscall permissions and stable userspace ABI.
 - Paging isolation.
+- Per-process page tables.
+- Demand paging.
+- Copy-on-write.
 - General-purpose `malloc/free` heap allocation.
 - `free()` in the kernel bump allocator.
 - Heap growth.
@@ -127,6 +140,50 @@ v2.2 adds a real bounded kernel bump heap. Allocations are checked, aligned, and
 kept inside the fixed heap range. The allocator does not support `free()`, heap
 growth, malloc-compatible semantics, virtual memory, userspace heaps, or
 per-process address spaces.
+
+## v2.3 Paging Boundary
+
+v2.3 loads CR3 and enables CR0.PG only after the kernel-owned GDT, early
+exception IDT, page structures, flags, and every required runtime range pass
+validation. The mapping is identity-only and supervisor-writable. There are no
+userspace address spaces, per-process page tables, demand paging,
+copy-on-write, or memory protection between tasks. Page faults are diagnosed
+and halt safely; they are not recovered.
+
+## v2.4 Syscall Boundary
+
+The `int 0x80` IDT gate, assembly entry/return path, dispatcher, fixed registry,
+result codes, and statistics are real. Calls currently originate in the kernel
+and use only bounded scalar values or registry indexes. Text output is held in
+fixed kernel-owned buffers, and the ABI exposes no raw pointer argument.
+
+This is not a userspace ABI. There are no Ring 3 callers, user/kernel address
+checks, process credentials, per-process permissions, ELF programs, or ABI
+stability guarantees. The syscall layer cannot write arbitrary sectors,
+approve packages, change recovery policy, or execute unknown apps.
+
+## v2.5 Privilege Boundary
+
+v2.5 adds real DPL3 user segment descriptors, loads one 32-bit TSS with `ltr`,
+and configures SS0/ESP0 to a dedicated bounded kernel stack. The syscall gate
+is installed at DPL3 only after the GDT descriptors, TSS, ESP0 bounds, and
+paging validate; it falls back to DPL0 if a prerequisite fails. Shell commands,
+serial reports, analyzer output, and the Recovery Center expose this state.
+
+`privilege_ready_for_ring3()` means that the architectural foundation is
+internally ready for a future controlled transition. It does not enable that
+transition. The shell and syscall tests remain Ring 0. There is no user stack,
+user-accessible page mapping, transition trampoline, ELF loader, process
+isolation, per-process address space, or stable userspace ABI. The TSS is not
+used for hardware task switching, and the transition stack has bounds checks
+rather than a paging guard page.
+
+## Package Transaction Boundary
+
+Package lifecycle hardening uses staged metadata, manifest identity binding,
+and mirrored LBA 48-49 state copies to reconcile interrupted metadata writes.
+This is real bounded update-state recovery, not a claim of general filesystem
+transactions, atomic hardware writes, or actual module replacement.
 
 ## Why Simulate These Parts
 

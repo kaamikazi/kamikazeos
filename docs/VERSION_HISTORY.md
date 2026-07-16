@@ -1,5 +1,40 @@
 # KamikazeOS Version History
 
+## v2.5.0 "Privilege Boundary"
+
+Added flat DPL3 user code/data descriptors, an available 32-bit TSS descriptor,
+`ltr` loading, bounded SS0/ESP0 configuration on a dedicated 16 KiB kernel
+stack, privilege prerequisite validation, and a gated DPL3 `int 0x80` entry.
+Added `gdt`, `tss`, `privilege`, and `ring3-readiness` commands, four serial
+report sections, analyzer interpretation, and read-only Recovery Center views.
+The kernel shell and all callers remain Ring 0. No user stack, user-accessible
+page mapping, Ring 3 transition, ELF loading, process isolation, per-process
+address space, or stable userspace ABI was added.
+
+## v2.4.0 "Syscall Door"
+
+Added a dedicated DPL0 `int 0x80` gate, normalized assembly stub, fixed
+eight-entry syscall registry, validated dispatcher, result codes, counters,
+shell commands, serial reports, analyzer interpretation, and read-only
+Recovery Center visibility. Arguments are bounded scalar values and registry
+indexes; text results use kernel-owned buffers. No Ring 3 callers, userspace
+pointers, process isolation, ELF loading, arbitrary execution, networking,
+downloads, automatic repair, or ABI stability guarantee was added.
+
+## v2.3.0 "Paging Gate"
+
+Added the first safe paging foundation: 32-bit x86 page directory/table
+structures, a validated supervisor identity map, CR3 loading, gated CR0.PG
+enablement,
+`paging`, `page-map`, and guarded `pagefault-test confirm` shell commands,
+`[PAGING]`, `[PAGE_MAP]`, and `[PAGE_FAULT]` serial report sections, page-fault evidence
+recording, analyzer support, and read-only Recovery Center paging visibility.
+Paging is enabled only after all required kernel runtime ranges validate. No
+userspace virtual memory, per-process address spaces, demand paging,
+copy-on-write, memory
+protection between tasks, networking, auto-repair, arbitrary execution, or
+self-modification was added.
+
 ## v2.2.0 "Heap Seed"
 
 Added the first bounded kernel heap allocator foundation: a fixed-size bump

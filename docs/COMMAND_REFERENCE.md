@@ -1,6 +1,6 @@
 # Command Reference
 
-KamikazeOS shell commands in v2.2.0.
+KamikazeOS shell commands in v2.5.0.
 
 ## General
 
@@ -9,7 +9,7 @@ KamikazeOS shell commands in v2.2.0.
 | `help` | Show commands |
 | `clear` | Clear the screen |
 | `about` | Version and mission summary |
-| `system` | Integrated v2.2 system readiness summary |
+| `system` | Integrated v2.5 system readiness summary |
 | `diagnose` | Compact full-system diagnostic and next manual command |
 | `reboot` | Restart the machine |
 | `panic-test` | Deliberately crash for panic-handler testing |
@@ -36,9 +36,39 @@ recovery and require the literal `confirm` argument.
 | `heap` | Show fixed kernel heap allocator stats |
 | `heap-test` | Run small safe bump allocation checks |
 | `heap-alloc <bytes>` | Allocate bytes from the bounded kernel heap |
+| `paging` | Show paging preparation and enable status |
+| `page-map` | Show the identity map and every required runtime range |
+| `pagefault-test confirm` | Intentionally fault on an unmapped address and halt; disposable sessions only |
 
-These commands do not enable virtual memory, page isolation, `free()`,
-malloc-compatible behavior, or userspace address spaces.
+Paging is enabled only through the boot-time validation gate. These commands
+do not add page isolation, `free()`, malloc-compatible behavior, or userspace
+address spaces.
+
+## Kernel Syscalls
+
+| Command | Purpose |
+|---|---|
+| `syscalls` | Show gate state, vector, counters, and the fixed syscall table |
+| `syscall-test` | Invoke every registered service with controlled kernel arguments |
+| `syscall <id>` | Invoke one ID using its safe built-in test arguments |
+
+The v2.5 syscall gate is DPL3-capable when privilege prerequisites validate,
+but all current callers remain in Ring 0. It accepts bounded scalars and
+registry indexes, not raw pointers. Unknown IDs fail with
+`SYSCALL_ERR_UNKNOWN`; no syscall can approve packages, write disk sectors,
+change policy, load apps, or access arbitrary kernel memory.
+
+## Privilege Foundation
+
+| Command | Purpose |
+|---|---|
+| `gdt` | Show kernel, user, and TSS selectors and descriptor validation |
+| `tss` | Show TSS load state, SS0, ESP0, and transition-stack bounds |
+| `privilege` | Show current CPL, syscall gate DPL, and privilege prerequisites |
+| `ring3-readiness` | Show the architectural checklist and execution-disabled boundary |
+
+`foundation_ready` means the descriptors, TSS, ESP0 stack, paging, and syscall
+gate validate. It does not mean Ring 3 execution is enabled.
 
 ## Kernel Tasks
 

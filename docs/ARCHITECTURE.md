@@ -1,6 +1,6 @@
 # KamikazeOS Architecture
 
-Status: v2.2.0 "Heap Seed".
+Status: v2.5.0 "Privilege Boundary".
 
 KamikazeOS is a small 32-bit x86 experimental OS research prototype that runs
 in QEMU. Its architecture is organized around observability, durable recovery
@@ -18,6 +18,8 @@ flowchart TD
   Kernel --> Ghost["GhostAttach device/driver policy"]
   Kernel --> Recovery["RecoveryEngine action catalog"]
   Kernel --> Apps["Kernel-managed app registry"]
+  Kernel --> Privilege["DPL3 segments + TSS + ESP0 stack"]
+  Privilege --> Syscalls["Readiness-gated DPL3 int 0x80 entry"]
   Kernel --> Memory["RecoveryMemory: disk plus CMOS fallback"]
   Kernel --> Store["RecoveryStore: ATA PIO disk image"]
   Store --> Journal["Append-only durable journal"]
@@ -33,8 +35,10 @@ flowchart TD
 ## Kernel
 
 The kernel initializes in a fixed dependency order: console, serial, error log,
-recovery memory/store, IDT/PIC/PIT, task table, keyboard IRQ, GhostAttach, package metadata,
-snapshots, report, and finally the shell.
+kernel GDT, early exception IDT, TSS, recovery memory/store, memory map, heap,
+validated paging, TinyFS, PIC/PIT/IRQ gates, tasks, apps, the kernel syscall
+gate, keyboard IRQ, GhostAttach, package metadata, snapshots, report, and
+finally the shell.
 
 Important source areas:
 
@@ -45,12 +49,17 @@ Important source areas:
 - `kernel/src/idt.c`: Interrupt Descriptor Table construction and loading.
 - `kernel/src/interrupt_stubs.S`: normalized CPU exception and IRQ entry stubs.
 - `kernel/src/interrupts.c`: common dispatcher and exception state.
+- `kernel/src/gdt.c`: flat kernel/user descriptors and TSS descriptor.
+- `kernel/src/tss.c`: 32-bit TSS and dedicated privilege-transition stack.
+- `kernel/src/privilege.c`: privilege prerequisite validation and reporting.
 - `kernel/src/pic.c`: legacy 8259 PIC remap, masks, and EOI.
 - `kernel/src/timer.c`: PIT channel 0 and tick counter.
 - `kernel/src/task.c`: fixed task records and cooperative step dispatch.
 - `kernel/src/tinyfs.c`: fixed-sector file metadata and bounded text I/O.
 - `kernel/src/app.c`: fixed kernel-managed app registry and built-in apps.
 - `kernel/src/app_policy.c`: app launch policy for compile-time entries only.
+- `kernel/src/syscall.c`: fixed syscall registry, dispatcher, and gate policy.
+- `kernel/src/syscall_stub.S`: normalized `int 0x80` entry and `iret` return.
 - `kernel/src/report.c`: serial report format.
 - `kernel/src/ata.c`: minimal ATA PIO storage driver.
 - `kernel/src/recovery_store.c`: disk-backed recovery state.
@@ -70,7 +79,9 @@ to QEMU as an IDE disk. Current fixed LBA use:
 | 16-31 | Boot snapshots |
 | 32-39 | Package manifest slots |
 | 40-47 | Currently unused/reserved gap |
-| 48-55 | Persistent package lifecycle state |
+| 48 | Persistent package lifecycle primary state |
+| 49 | Mirrored package transaction state |
+| 50-55 | Currently unused/reserved gap |
 | 56-63 | A/B module slot metadata |
 | 64 | TinyFS superblock |
 | 65-72 | TinyFS file table |
@@ -79,11 +90,22 @@ to QEMU as an IDE disk. Current fixed LBA use:
 The layout is deliberately fixed and small so it can be audited by inspection.
 Host manifest tools write only the package manifest slot range.
 
+The ATA boundary retains the LBA28 capacity returned by IDENTIFY. Null buffers,
+out-of-range sectors, device faults, and failed cache flushes are rejected.
+
 ## Package Update Model
 
 Package application is metadata-only. The OS does not load package binaries and
 does not patch kernel memory. Applying a package switches simulated module
 version metadata and A/B slot metadata, then requires `verify-pkg`.
+
+Package state at LBA 48 keeps its v1 base record and checksum. Hardened builds
+use previously reserved bytes 320 onward for a separately checksummed manifest
+identity, generation, and transaction sidecar, and mirror the sector at LBA 49.
+The newest valid copy is selected after an interrupted write. Existing images
+remain readable because a legacy LBA 48 record is still accepted. Legacy
+approval-only records require fresh approval; active legacy slot transitions
+are bound only when their versions reconcile with current slot metadata.
 
 The safe flow is:
 
@@ -112,3 +134,39 @@ reported as such.
 The analyzer and dashboard consume serial reports. They do not talk back to the
 kernel, do not write the disk image, and do not apply repairs. Their strongest
 action is displaying or copying a command for a human to type into the shell.
+
+Report records use newline-delimited sections and semicolon-delimited
+`key=value` fields. Manifest validation rejects report delimiters and control
+bytes in imported fields. As defense in depth, dynamic serial field values are
+also sanitized by replacing `;`, `=`, and control bytes with `?`, preserving
+the existing parser grammar. Host recommendations fail closed when required
+policy or signature fields are missing.
+
+The fixed GhostAttach registry includes one virtual attach-failure canary to
+exercise isolation. It remains visible as `GA-TEST-201` and an expected-test
+counter, but it is not classified as a production critical event and is
+excluded from health penalties. A failure from any non-canary device retains
+the `GA-DRV-201` critical path.
+
+## Syscall Boundary
+
+Vector `0x80` is installed with DPL3 only after user GDT descriptors, the TSS,
+ESP0 stack, and paging validate; otherwise it remains DPL0. Calls use registers
+only: EAX is the call ID,
+EBX/ECX/EDX are bounded scalar or index arguments, EAX returns a result code,
+and EDX returns a scalar value. Text is copied only into kernel-owned buffers.
+No syscall accepts or dereferences a caller-provided pointer. There are no
+Ring 3 callers, per-process permissions, or stable userspace ABI in v2.5.
+
+## Privilege Boundary
+
+The GDT contains flat kernel code/data descriptors, flat DPL3 code/data
+descriptors, and one available 32-bit TSS descriptor. The CPU loads the TSS
+with `ltr`; `ss0` selects kernel data and `esp0` points at the top of a bounded,
+16 KiB dedicated privilege-transition stack. The TSS is not used for hardware
+task switching.
+
+`privilege_ready_for_ring3()` reports that these architectural prerequisites
+and the DPL3 syscall gate validate. It does not enable Ring 3 execution. There
+is no user stack, user-accessible page mapping, transition trampoline, ELF
+loader, process isolation, or per-process address space.

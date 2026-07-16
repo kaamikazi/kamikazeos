@@ -28,7 +28,7 @@ function scoreClass(score) {
 function classify(value) {
   const v = String(value ?? "").toLowerCase();
   if (["yes", "1", "ok", "allowed", "verified", "attached", "loaded", "trusted", "enabled", "irq", "none", "running", "completed"].includes(v)) return "good";
-  if (["fallback", "suggested", "available", "medium", "pending", "applied", "sleeping", "kernel_managed_builtin_apps"].includes(v)) return "warn";
+  if (["fallback", "suggested", "available", "medium", "pending", "applied", "sleeping", "apply_staged", "verify_staged", "rollback_staged", "kernel_managed_builtin_apps"].includes(v)) return "warn";
   if (["no", "0", "blocked", "failed", "invalid", "unsigned", "isolated", "missing_driver", "high", "error", "panic", "crashed"].includes(v)) return "bad";
   if (["low", "disk_imported", "builtin_seed", "ready", "cooperative"].includes(v)) return "info";
   return "neutral";
@@ -112,9 +112,11 @@ function renderV20Overview(data) {
   const box = $("v20-overview");
   box.innerHTML = "";
   box.appendChild(metric("Kernel", status.kernel_version || data.version));
-  box.appendChild(metric("Interrupts", `IDT ${status.idt_loaded || "?"}, PIC ${status.pic_remapped || "?"}, keyboard ${status.keyboard_mode || "?"}`));
+  box.appendChild(metric("Interrupts", `GDT ${status.gdt_loaded || "?"}, IDT ${status.idt_loaded || "?"}, PIC ${status.pic_remapped || "?"}, keyboard ${status.keyboard_mode || "?"}`));
   box.appendChild(metric("Memory", `map ${status.memory_map || data.kernel_memory?.map_available || "?"}, free pages ${status.free_pages || data.pages?.free_pages || "?"}`));
   box.appendChild(metric("Heap", `${status.heap_available || data.kernel_heap?.available || "?"}, remaining ${status.heap_remaining || data.kernel_heap?.remaining_bytes || "?"} bytes`));
+  box.appendChild(metric("Paging", `${status.paging_mode || data.paging?.mode || "?"}`));
+  box.appendChild(metric("Privilege", `${status.privilege_foundation || data.ring3_readiness?.readiness || "?"}, Ring 3 execution no`));
   box.appendChild(metric("Storage", `${status.recovery_backend || data.backend || "?"}, TinyFS ${status.tinyfs_status || "?"}`));
   box.appendChild(metric("Apps", `${status.app_registry || data.apps_status?.total_apps || "?"} fixed built-ins`));
   box.appendChild(metric("Packages", status.package_trust_mode || data.trust?.signature_verification || "?"));
@@ -122,15 +124,139 @@ function renderV20Overview(data) {
   box.appendChild(metric("Last critical", status.last_critical || "none"));
   box.appendChild(metric("Demo next command", diag.recommended_command || "none"));
   box.appendChild(metric("Auto repair", diag.auto_repair || "no"));
-  const ready = status.idt_loaded === "yes" &&
+  const privilegeFoundation = status.privilege_foundation ||
+    data.ring3_readiness?.readiness;
+  const ready = status.gdt_loaded === "yes" &&
+    status.idt_loaded === "yes" &&
+    status.irq_gates_installed === "yes" &&
     status.pic_remapped === "yes" &&
     parseInt(status.free_pages || data.pages?.free_pages || "0", 10) > 0 &&
     (status.heap_available || data.kernel_heap?.available) === "yes" &&
+    (status.paging_prepared || data.paging?.prepared) === "yes" &&
+    (data.paging?.identity_map_valid || "yes") === "yes" &&
+    (privilegeFoundation === "ready" || privilegeFoundation === "foundation_ready") &&
     status.tinyfs_status === "formatted" &&
     (status.recovery_backend || "").includes("disk") &&
     parseInt(status.app_registry || "0", 10) > 0;
   setBadge("v20-status", ready ? "integrated demo ready" : "review report",
     ready ? "good" : "warn");
+}
+
+function renderPaging(data) {
+  const paging = data.paging || {};
+  const box = $("paging-panel");
+  box.innerHTML = "";
+  box.appendChild(metric("Prepared", paging.prepared || "?"));
+  box.appendChild(metric("Enabled", paging.enabled || "?"));
+  box.appendChild(metric("Mode", paging.mode || "prepared_not_enabled"));
+  box.appendChild(metric("Identity valid", paging.identity_map_valid || "?"));
+  box.appendChild(metric("Required ranges", paging.required_ranges_valid || "?"));
+  box.appendChild(metric("Directory", paging.page_directory || "?"));
+  box.appendChild(metric("Active CR3", paging.active_cr3 || "?"));
+  box.appendChild(metric("Mapped range", `${paging.mapped_start || "?"} - ${paging.mapped_end || "?"}`));
+  box.appendChild(metric("Fault handler", paging.page_fault_handler || "?"));
+  box.appendChild(metric("Validation error", paging.validation_error || "none"));
+  const valid = paging.prepared === "yes" && paging.identity_map_valid === "yes" &&
+    paging.required_ranges_valid === "yes";
+  setBadge("paging-status", paging.enabled === "yes" ? "enabled" :
+    valid ? "prepared" : "invalid",
+    valid ? (paging.enabled === "yes" ? "good" : "info") : "bad");
+
+  renderTable("page-map", data.page_map || [], [
+    { key: "type", label: "Type" },
+    { key: "name", label: "Range", wrap: true },
+    { key: "virtual_start", label: "Virtual Start" },
+    { key: "virtual_end", label: "Virtual End" },
+    { key: "physical_start", label: "Physical Start" },
+    { key: "physical_end", label: "Physical End" },
+    { key: "flags", label: "Flags", wrap: true },
+    { key: "validated", label: "Validated", badge: true },
+  ]);
+
+  const fault = data.page_fault || {};
+  const fbox = $("page-fault-panel");
+  fbox.innerHTML = "";
+  fbox.appendChild(metric("Present", fault.present || "no"));
+  fbox.appendChild(metric("Fault address", fault.fault_address || "none"));
+  fbox.appendChild(metric("Error code", fault.error_code || "0"));
+  fbox.appendChild(metric("Instruction", fault.eip || "none"));
+  fbox.appendChild(metric("Recovery attempted", fault.recovery_attempted || "no"));
+  setBadge("page-fault-status", fault.present === "yes" ? "fault recorded" : "none recorded",
+    fault.present === "yes" ? "bad" : "good");
+}
+
+function renderSyscalls(data) {
+  const syscalls = data.syscalls || {};
+  const box = $("syscall-panel");
+  box.innerHTML = "";
+  box.appendChild(metric("Initialized", syscalls.initialized || "?"));
+  box.appendChild(metric("Vector", syscalls.vector ? `${syscalls.vector} (0x80)` : "?"));
+  box.appendChild(metric("Registered", syscalls.registered_count || "0"));
+  box.appendChild(metric("Total calls", syscalls.total_calls || "0"));
+  box.appendChild(metric("Failed calls", syscalls.failed_calls || "0"));
+  box.appendChild(metric("Last syscall", `${syscalls.last_id || "none"} ${syscalls.last_name || ""}`.trim()));
+  box.appendChild(metric("Last result", syscalls.last_result || "?"));
+  box.appendChild(metric("User mode", syscalls.user_mode_available || "no"));
+  box.appendChild(metric("Gate DPL", syscalls.syscall_gate_dpl || "?"));
+  box.appendChild(metric("User gate", syscalls.syscall_user_gate || "disabled"));
+  box.appendChild(metric("Pointer arguments", syscalls.pointer_arguments || "no"));
+  const failed = parseInt(syscalls.failed_calls || "0", 10) > 0;
+  const ready = syscalls.initialized === "yes";
+  setBadge("syscall-status", ready ? (failed ? "failures recorded" : `DPL${syscalls.syscall_gate_dpl || "?"}`) : "unavailable",
+    ready ? (failed ? "warn" : "info") : "bad");
+
+  renderTable("syscall-table", data.syscall_table || [], [
+    { key: "id", label: "ID" },
+    { key: "name", label: "Name" },
+    { key: "argument_mode", label: "Arguments" },
+    { key: "caller_mode", label: "Caller", badge: true },
+    { key: "pointer_arguments", label: "Pointers", badge: true },
+  ]);
+}
+
+function renderPrivilege(data) {
+  const gdt = data.gdt || {};
+  const tss = data.tss || {};
+  const privilege = data.privilege || {};
+  const readiness = data.ring3_readiness || {};
+
+  const gbox = $("gdt-panel");
+  gbox.innerHTML = "";
+  gbox.appendChild(metric("Kernel code", `${gdt.kernel_code_selector || "?"} / DPL ${gdt.kernel_code_dpl || "0"}`));
+  gbox.appendChild(metric("Kernel data", `${gdt.kernel_data_selector || "?"} / DPL ${gdt.kernel_data_dpl || "0"}`));
+  gbox.appendChild(metric("User code", `${gdt.user_code_selector || "?"} / DPL ${gdt.user_code_dpl || "3"}`));
+  gbox.appendChild(metric("User data", `${gdt.user_data_selector || "?"} / DPL ${gdt.user_data_dpl || "3"}`));
+  gbox.appendChild(metric("TSS selector", gdt.tss_selector || "?"));
+  gbox.appendChild(metric("User segments", gdt.user_segments_valid || "?"));
+  setBadge("gdt-status", gdt.loaded === "yes" && gdt.user_segments_valid === "yes" ? "segments valid" : "review",
+    gdt.loaded === "yes" && gdt.user_segments_valid === "yes" ? "good" : "bad");
+
+  const tbox = $("tss-panel");
+  tbox.innerHTML = "";
+  tbox.appendChild(metric("Loaded", tss.tss_loaded || "?"));
+  tbox.appendChild(metric("Selector", tss.selector || "?"));
+  tbox.appendChild(metric("SS0", tss.ss0 || "?"));
+  tbox.appendChild(metric("ESP0", tss.esp0 || "?"));
+  tbox.appendChild(metric("Kernel stack", `${tss.stack_bottom || "?"} - ${tss.stack_top || "?"}`));
+  tbox.appendChild(metric("Stack bytes", tss.stack_size || "?"));
+  tbox.appendChild(metric("Guard policy", tss.guard_policy || "none"));
+  tbox.appendChild(metric("Hardware switching", tss.hardware_task_switching || "no"));
+  const tssReady = tss.tss_loaded === "yes" && tss.kernel_stack_valid === "yes";
+  setBadge("tss-status", tssReady ? "esp0 ready" : "invalid", tssReady ? "good" : "bad");
+
+  const pbox = $("privilege-panel");
+  pbox.innerHTML = "";
+  pbox.appendChild(metric("Current CPL", privilege.current_cpl || "0"));
+  pbox.appendChild(metric("Foundation", readiness.readiness || "?"));
+  pbox.appendChild(metric("Syscall gate DPL", readiness.syscall_gate_dpl || "?"));
+  pbox.appendChild(metric("User stack", readiness.user_stack || "no"));
+  pbox.appendChild(metric("User page mappings", readiness.user_page_mappings || "no"));
+  pbox.appendChild(metric("ELF loader", readiness.elf_loader || "no"));
+  pbox.appendChild(metric("Process isolation", readiness.process_isolation || "no"));
+  pbox.appendChild(metric("Ring 3 execution", readiness.execution_enabled || "no"));
+  const foundationReady = readiness.readiness === "foundation_ready";
+  setBadge("privilege-status", foundationReady ? "foundation ready / execution off" : "not ready",
+    foundationReady ? "info" : "warn");
 }
 
 function renderHeap(data) {
@@ -496,6 +622,9 @@ function render(data) {
   renderTrust(data);
   renderMemory(data);
   renderHeap(data);
+  renderPaging(data);
+  renderSyscalls(data);
+  renderPrivilege(data);
   renderKernelFoundation(data);
   renderTaskFoundation(data);
   renderTinyFS(data);
@@ -507,7 +636,9 @@ function render(data) {
 
   const attached = (data.devices || []).filter(d => d.status === "attached").length;
   const total = (data.devices || []).length;
-  $("device-summary").textContent = `${attached}/${total} attached`;
+  const expectedTests = data.ghostattach?.expected_self_test_failures || "0";
+  $("device-summary").textContent =
+    `${attached}/${total} attached | ${expectedTests} expected canary failure`;
 
   renderTable("devices", data.devices || [], [
     { key: "id", label: "ID" },
@@ -552,6 +683,8 @@ function render(data) {
     { key: "rolled_back", label: "Rolled Back", badge: true },
     { key: "from", label: "From" },
     { key: "to", label: "To" },
+    { key: "transaction_phase", label: "Transaction" },
+    { key: "binding_valid", label: "Bound", badge: true },
   ]);
   setBadge("pending-verification",
     data.pending_verification ? "verification pending" : "no pending verification",

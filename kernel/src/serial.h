@@ -19,5 +19,6 @@ void serial_init(void);             /* configure COM1: 38400 baud, 8N1 */
 int  serial_present(void);          /* 1 if loopback self-test passed  */
 void serial_putc(char c);
 void serial_print(const char *s);
+void serial_print_field(const char *s);
 
 #endif /* KMZ_SERIAL_H */

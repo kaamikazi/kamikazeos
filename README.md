@@ -16,8 +16,10 @@ KamikazeOS is not production-ready and not a general-purpose operating system.
 It has no user isolation, no networking stack, no real driver loading, and no
 production security guarantees.
 
-Current release: v2.2.0 "Heap Seed". It adds the first bounded kernel heap
-allocator foundation on top of the v2.1 memory map/page tracker.
+Current release: v2.5.0 "Privilege Boundary". It adds DPL3 user segment
+descriptors, a loaded 32-bit TSS, a dedicated privilege-transition kernel
+stack, and a readiness-gated DPL3 syscall entry. Actual Ring 3 execution
+remains disabled.
 
 ## Feature Overview
 
@@ -25,6 +27,10 @@ allocator foundation on top of the v2.1 memory map/page tracker.
 - Real x86 IDT, CPU exception stubs, legacy PIC remap, and PIT timer ticks.
 - Multiboot memory map parsing and fixed 4 KiB physical page tracking.
 - Bounded fixed-region kernel bump heap with allocation stats.
+- Enabled 32-bit x86 paging with a validated 0-16 MiB identity map.
+- DPL3-capable `int 0x80` gate with eight fixed, validated service calls;
+  current callers remain in Ring 0.
+- Flat DPL3 code/data descriptors and a loaded 32-bit TSS with bounded ESP0.
 - Fixed kernel task records and cooperative built-in task steps.
 - Fixed-sector TinyFS with bounded checksummed text files.
 - Fixed kernel-managed app registry with policy-gated built-in app runs.
@@ -53,6 +59,8 @@ flowchart TD
   IRQ --> Keyboard["PS/2 IRQ keyboard shell"]
   IRQ --> Tasks["Task table + tick accounting"]
   Kernel --> Apps["Kernel-managed app registry"]
+  Kernel --> Privilege["User descriptors + TSS + ESP0 stack"]
+  Privilege --> Syscalls["Gated DPL3 syscall entry: int 0x80"]
   Kernel --> Ghost["GhostAttach"]
   Kernel --> Errors["Structured error log"]
   Kernel --> Store["RecoveryStore: ATA PIO recovery.img"]
@@ -131,6 +139,12 @@ diagnose
 store
 snapshots
 tasks
+gdt
+tss
+privilege
+ring3-readiness
+syscalls
+syscall-test
 fs
 apps
 run tinyfs-demo
@@ -172,6 +186,8 @@ Real:
 - Host-side package manifest creation, validation, import/export.
 - Real host-side Ed25519 manifest signing and verification.
 - Kernel-side manifest checksum, trust-anchor, and policy enforcement.
+- DPL3-capable syscall gate, fixed dispatcher, registry, and reporting.
+- User segment descriptors, loaded TSS, and dedicated ESP0 kernel stack.
 - Read-only analyzer and Recovery Center Pro dashboard.
 
 Simulated:
@@ -181,6 +197,8 @@ Simulated:
 - Internet update fetching.
 - AI auto-repair.
 - Driver downloads or arbitrary package execution.
+- Ring 3 syscall callers, userspace pointers, and process isolation.
+- User stacks, user page mappings, ELF loading, and per-process address spaces.
 
 ## Safety Principles
 
@@ -195,6 +213,10 @@ Simulated:
 
 ## Version History
 
+- v2.5.0 "Privilege Boundary": DPL3 descriptors, TSS/ESP0 stack, and
+  privilege-readiness reporting; Ring 3 execution remains disabled.
+- v2.4.0 "Syscall Door": fixed kernel-internal `int 0x80` service interface.
+- v2.3.0 "Paging Gate": validated identity paging, CR3, and page-fault evidence.
 - v2.2.0 "Heap Seed": bounded kernel bump heap and heap reports.
 - v2.1.0 "Memory Map": Multiboot memory map parsing and page tracking.
 - v2.0.0 "Real Kernel Demo": integrated milestone with system diagnostics.
@@ -216,8 +238,9 @@ See [docs/VERSION_HISTORY.md](docs/VERSION_HISTORY.md).
 
 ## Roadmap
 
-- Possible future technical work: virtual memory foundations, scheduler
-  groundwork, real in-kernel Ed25519 verification, and richer test automation.
+- Possible future technical work: a first controlled Ring 3 transition,
+  scheduler groundwork,
+  real in-kernel Ed25519 verification, and richer test automation.
 - Still out of scope: networking, driver downloads, binary patching, and
   autonomous repair.
 

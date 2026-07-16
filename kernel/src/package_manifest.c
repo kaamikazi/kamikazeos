@@ -98,6 +98,33 @@ static uint8_t manifest_checksum(const struct pkg_manifest *m)
     return sum;
 }
 
+uint32_t manifest_identity(const struct pkg_manifest *m)
+{
+    uint32_t hash = 2166136261u;
+    const char *strs[6] = { m->package_id, m->name, m->description,
+                            m->target_component, m->from_version,
+                            m->to_version };
+    for (int s = 0; s < 6; s++) {
+        for (const char *c = strs[s]; *c; c++) {
+            hash ^= (uint8_t)*c;
+            hash *= 16777619u;
+        }
+        hash ^= 0xFFu;
+        hash *= 16777619u;
+    }
+    const uint8_t fields[] = {
+        (uint8_t)m->risk_level, m->reversible, m->requires_approval,
+        (uint8_t)m->signature_status, m->trust_anchor_id,
+        m->manifest_version, (uint8_t)m->payload_type,
+        (uint8_t)m->target_module, m->checksum
+    };
+    for (uint32_t i = 0; i < sizeof(fields); i++) {
+        hash ^= fields[i];
+        hash *= 16777619u;
+    }
+    return hash;
+}
+
 /* ------------------------------------------------------------------ */
 /* Disk (de)serialization                                               */
 /* ------------------------------------------------------------------ */
@@ -271,8 +298,95 @@ const char *manifest_source_name(void)
 /* The verification chain — every rule, in order, first failure wins.   */
 /* ------------------------------------------------------------------ */
 
+static int safe_text(const char *value, uint32_t capacity, int allow_empty)
+{
+    uint32_t length = 0;
+    while (length < capacity && value[length] != '\0') {
+        uint8_t c = (uint8_t)value[length];
+        if (c < 0x20u || c > 0x7Eu || c == ';' || c == '=')
+            return 0;
+        length++;
+    }
+    if (length == capacity)
+        return 0;
+    return allow_empty || length > 0;
+}
+
+static int valid_package_id(const char *id)
+{
+    if (!safe_text(id, PM_ID_MAX, 0) || id[0] != 'P' || id[1] != 'K' ||
+        id[2] != 'G' || id[3] != '-')
+        return 0;
+    uint32_t i = 4;
+    if (id[i] == '\0')
+        return 0;
+    for (; id[i] != '\0'; i++)
+        if (id[i] < '0' || id[i] > '9')
+            return 0;
+    return 1;
+}
+
+static int valid_target_module(enum module_id module)
+{
+    return module == MOD_GHOSTATTACH || module == MOD_RECOVERY_ENGINE ||
+           module == MOD_AI_RULES || module == MOD_RC_SCHEMA;
+}
+
 int manifest_verify(const struct pkg_manifest *m, const char **reason)
 {
+    if (!m) {
+        *reason = "manifest missing";
+        return 0;
+    }
+    if (!valid_package_id(m->package_id) ||
+        !safe_text(m->name, PM_NAME_MAX, 0) ||
+        !safe_text(m->description, PM_DESC_MAX, 0) ||
+        !safe_text(m->target_component, PM_TARGET_MAX, 0) ||
+        !safe_text(m->from_version, PM_VER_MAX, 0) ||
+        !safe_text(m->to_version, PM_VER_MAX, 0)) {
+        *reason = "invalid text field or report delimiter";
+        return 0;
+    }
+    if (m->manifest_version != 1) {
+        *reason = "unsupported manifest schema version";
+        return 0;
+    }
+    if (m->risk_level != RISK_LOW && m->risk_level != RISK_MEDIUM &&
+        m->risk_level != RISK_HIGH) {
+        *reason = "unknown risk value";
+        return 0;
+    }
+    if (m->signature_status != SIG_UNSIGNED &&
+        m->signature_status != SIG_PLACEHOLDER &&
+        m->signature_status != SIG_INVALID &&
+        m->signature_status != SIG_TRUSTED) {
+        *reason = "unknown signature status";
+        return 0;
+    }
+    if (m->payload_type != PAYLOAD_METADATA_ONLY &&
+        m->payload_type != PAYLOAD_SLOT_SWITCH_SIM &&
+        m->payload_type != PAYLOAD_BLOCKED_DRIVER_INSTALL &&
+        m->payload_type != PAYLOAD_UNKNOWN) {
+        *reason = "unrecognized payload type value";
+        return 0;
+    }
+    if (!valid_target_module(m->target_module)) {
+        *reason = "target component has no managed A/B slot";
+        return 0;
+    }
+    if ((m->reversible != 0 && m->reversible != 1) ||
+        (m->requires_approval != 0 && m->requires_approval != 1)) {
+        *reason = "boolean field is not canonical zero or one";
+        return 0;
+    }
+    if (!m->requires_approval) {
+        *reason = "packages must require explicit human approval";
+        return 0;
+    }
+    if (kstrcmp(m->from_version, m->to_version) == 0) {
+        *reason = "from and to versions must differ";
+        return 0;
+    }
     if (!m->checksum_ok) {
         *reason = "checksum mismatch - manifest corrupt or tampered";
         return 0;
@@ -303,10 +417,6 @@ int manifest_verify(const struct pkg_manifest *m, const char **reason)
     }
     if (m->payload_type == PAYLOAD_UNKNOWN) {
         *reason = "unknown payload type";
-        return 0;
-    }
-    if (m->target_module >= MODULE_COUNT) {
-        *reason = "unknown target component";
         return 0;
     }
     if (m->risk_level == RISK_HIGH) {

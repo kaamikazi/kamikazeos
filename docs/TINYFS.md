@@ -37,8 +37,11 @@ separators or directories.
 ## Allocation And Bounds
 
 Files are limited to 2048 bytes or four sectors. Writes build a fixed 55-byte
-sector-use map and choose the first contiguous free extent. No heap allocation
-is used. Reads verify the stored content checksum before returning text.
+sector-use map and choose the first contiguous free extent. Replacements keep
+the current extent reserved while writing and reading back a distinct extent,
+then commit the file-table entry before reclaiming the old extent. No heap
+allocation is used. Reads verify the stored content checksum before returning
+text.
 
 ## Commands
 
@@ -61,6 +64,13 @@ If the ATA disk is missing, TinyFS reports unavailable and the rest of the
 kernel continues booting. Invalid metadata, names, sizes, extents, duplicate
 entries, overlap, read failures, write failures, and checksum mismatches are
 rejected and logged.
+
+Deletion removes the file-table entry before optionally clearing the old data
+sectors. If a metadata write may have completed only partially, TinyFS disables
+further operations until the next boot revalidates the superblock and table.
+These ordering rules protect the last referenced data during normal write
+failures, but they do not make multi-sector metadata commits atomic. TinyFS is
+still not a transactional or journaled filesystem.
 
 ## Not Implemented
 

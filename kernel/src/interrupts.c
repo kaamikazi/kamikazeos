@@ -6,6 +6,7 @@
 #include "pic.h"
 #include "timer.h"
 #include "task.h"
+#include "syscall.h"
 
 static volatile uint32_t handled;
 static volatile uint32_t last_vector = 0xFFFFFFFFu;
@@ -37,7 +38,7 @@ void interrupts_init(void)
     last_vector = 0xFFFFFFFFu;
     last_exception = 0xFFFFFFFFu;
     last_error = 0;
-    idt_init();
+    idt_install_irq_gates();
     pic_init();
     timer_init(100);
     error_log(SEV_INFO, "INT-000", "interrupts",
@@ -71,6 +72,11 @@ void interrupt_dispatch(struct interrupt_frame *frame)
         last_error = frame->error_code;
         kpanic_exception(frame->vector, frame->error_code,
                          interrupt_exception_name(frame->vector), frame->eip);
+    }
+
+    if (frame->vector == SYSCALL_VECTOR) {
+        syscall_dispatch(frame);
+        return;
     }
 
     if (frame->vector == 32) {

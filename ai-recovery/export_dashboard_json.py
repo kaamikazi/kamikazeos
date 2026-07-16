@@ -20,7 +20,8 @@ import sys
 from pathlib import Path
 
 # Reuse the analyzer's parsing — one parser, one format contract.
-from analyze_logs import RULES, extract_last_boot_report, parse_kv_line, parse_report
+from analyze_logs import (RULES, extract_last_boot_report,
+                          parse_page_fault_evidence, parse_kv_line, parse_report)
 
 
 def build_recommendations(memory, actions, suggestions):
@@ -86,7 +87,8 @@ def main():
         print(f"error: log file not found: {log_path} (boot the OS first)")
         return 2
 
-    lines, _after, found = extract_last_boot_report(log_path.read_text(errors="replace"))
+    raw_text = log_path.read_text(errors="replace")
+    lines, _after, found = extract_last_boot_report(raw_text)
     if not found:
         print("error: no complete boot report in the log - run export-logs in the OS")
         return 2
@@ -96,9 +98,14 @@ def main():
      modules, pkgs, pkg_policy, pkg_history,
      trust, pkg_manifests, pkg_states, mod_slots, pending,
      kernel_memory, memory_map, pages, kernel_heap,
+     paging, page_map, syscalls, syscall_rows,
+     privilege, gdt, tss, ring3_readiness,
      kernel_interrupts, kernel_timing, kernel_exceptions,
      kernel_tasks, task_rows, tinyfs, tinyfs_files,
      apps, app_rows, app_log, system_status, diagnostics) = parse_report(lines)
+    page_fault = parse_page_fault_evidence(raw_text)
+    if page_fault:
+        paging.update(page_fault)
 
     # Package recommendations: same catalog-only rule as actions.
     pkg_recs = []
@@ -111,8 +118,8 @@ def main():
         pid = p.get("id")
         if not pid:
             continue
-        if p.get("policy_result", "allowed") == "allowed" and \
-           p.get("signature_valid", "yes") == "yes" and \
+        if p.get("policy_result") == "allowed" and \
+           p.get("signature_valid") == "yes" and \
            p.get("status") in ("available", "suggested") and \
            mod_ver.get(target_to_module.get(p.get("target"), "")) == p.get("from"):
             pkg_recs.append({
@@ -139,6 +146,10 @@ def main():
 
     data = {
         "version": meta.get("version", "?"),
+        "ghostattach": {
+            "expected_self_test_failures":
+                meta.get("scan_expected_self_tests", "0"),
+        },
         "backend": store.get("backend", memory.get("persistence_mode", "?")),
         "system_status": system_status,
         "diagnostics": diagnostics,
@@ -146,6 +157,15 @@ def main():
         "memory_map": memory_map,
         "pages": pages,
         "kernel_heap": kernel_heap,
+        "paging": paging,
+        "page_fault": page_fault,
+        "page_map": page_map,
+        "syscalls": syscalls,
+        "syscall_table": syscall_rows,
+        "privilege": privilege,
+        "gdt": gdt,
+        "tss": tss,
+        "ring3_readiness": ring3_readiness,
         "store": store,
         "memory": memory,
         "health": health,
