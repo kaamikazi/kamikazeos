@@ -98,7 +98,7 @@ def main():
      modules, pkgs, pkg_policy, pkg_history,
      trust, pkg_manifests, pkg_states, mod_slots, pending,
      kernel_memory, memory_map, pages, kernel_heap,
-     paging, page_map,
+     paging, page_map, syscalls, syscall_rows,
      kernel_interrupts, kernel_timing, kernel_exceptions,
      kernel_tasks, task_rows, tinyfs, tinyfs_files,
      apps, app_rows, app_log, system_status, diagnostics) = parse_report(lines)
@@ -159,6 +159,8 @@ def main():
         "paging": paging,
         "page_fault": page_fault,
         "page_map": page_map,
+        "syscalls": syscalls,
+        "syscall_table": syscall_rows,
         "store": store,
         "memory": memory,
         "health": health,

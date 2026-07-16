@@ -33,7 +33,7 @@
   <main id="dashboard" class="dashboard">
     <section class="card wide">
       <div class="card-head">
-        <h2>v2.3 Paging Gate Overview</h2>
+        <h2>v2.4 Syscall Door Overview</h2>
         <span id="v20-status" class="badge neutral">unknown</span>
       </div>
       <div id="v20-overview" class="metric-list"></div>
@@ -115,6 +115,14 @@
 
       <article class="card">
         <div class="card-head">
+          <h2>Kernel Syscalls</h2>
+          <span id="syscall-status" class="badge neutral">unknown</span>
+        </div>
+        <div id="syscall-panel" class="metric-list"></div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
           <h2>PIT Timer</h2>
           <span id="timer-status" class="badge neutral">unknown</span>
         </div>
@@ -160,6 +168,14 @@
         <span class="hint">read-only identity mapping summary</span>
       </div>
       <div class="table-wrap"><table id="page-map"></table></div>
+    </section>
+
+    <section class="card wide">
+      <div class="card-head">
+        <h2>Syscall Registry</h2>
+        <span class="hint">fixed kernel-only ABI, read-only report data</span>
+      </div>
+      <div class="table-wrap"><table id="syscall-table"></table></div>
     </section>
 
     <section class="card wide">

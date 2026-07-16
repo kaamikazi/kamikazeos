@@ -181,6 +181,33 @@ function renderPaging(data) {
     fault.present === "yes" ? "bad" : "good");
 }
 
+function renderSyscalls(data) {
+  const syscalls = data.syscalls || {};
+  const box = $("syscall-panel");
+  box.innerHTML = "";
+  box.appendChild(metric("Initialized", syscalls.initialized || "?"));
+  box.appendChild(metric("Vector", syscalls.vector ? `${syscalls.vector} (0x80)` : "?"));
+  box.appendChild(metric("Registered", syscalls.registered_count || "0"));
+  box.appendChild(metric("Total calls", syscalls.total_calls || "0"));
+  box.appendChild(metric("Failed calls", syscalls.failed_calls || "0"));
+  box.appendChild(metric("Last syscall", `${syscalls.last_id || "none"} ${syscalls.last_name || ""}`.trim()));
+  box.appendChild(metric("Last result", syscalls.last_result || "?"));
+  box.appendChild(metric("User mode", syscalls.user_mode_available || "no"));
+  box.appendChild(metric("Pointer arguments", syscalls.pointer_arguments || "no"));
+  const failed = parseInt(syscalls.failed_calls || "0", 10) > 0;
+  const ready = syscalls.initialized === "yes";
+  setBadge("syscall-status", ready ? (failed ? "failures recorded" : "kernel only") : "unavailable",
+    ready ? (failed ? "warn" : "info") : "bad");
+
+  renderTable("syscall-table", data.syscall_table || [], [
+    { key: "id", label: "ID" },
+    { key: "name", label: "Name" },
+    { key: "argument_mode", label: "Arguments" },
+    { key: "caller_mode", label: "Caller", badge: true },
+    { key: "pointer_arguments", label: "Pointers", badge: true },
+  ]);
+}
+
 function renderHeap(data) {
   const heap = data.kernel_heap || {};
   const box = $("heap-panel");
@@ -545,6 +572,7 @@ function render(data) {
   renderMemory(data);
   renderHeap(data);
   renderPaging(data);
+  renderSyscalls(data);
   renderKernelFoundation(data);
   renderTaskFoundation(data);
   renderTinyFS(data);

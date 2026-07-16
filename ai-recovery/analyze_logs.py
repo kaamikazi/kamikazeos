@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-KamikazeOS AI Recovery Core - host-side log analyzer (v2.3, offline/rule-based)
+KamikazeOS AI Recovery Core - host-side log analyzer (v2.4, offline/rule-based)
 
 This is the first working incarnation of the "maintenance brain". It runs on
 the HOST, outside the kernel, and its powers are deliberately limited:
@@ -8,7 +8,7 @@ the HOST, outside the kernel, and its powers are deliberately limited:
     READ logs  ->  EXPLAIN problems  ->  RANK risk  ->  SUGGEST next actions
 
 It never patches binaries, installs drivers, downloads code, or modifies the
-OS. Every suggestion is for a HUMAN to approve and perform. v2.3 is
+OS. Every suggestion is for a HUMAN to approve and perform. v2.4 is
 rule-based (no AI API yet) so the pipeline can be built and trusted first;
 see analyze_with_ai_later() at the bottom for where a real model plugs in.
 
@@ -192,6 +192,22 @@ RULES = {
                   "the validated page directory.",
         "action": "Stop paging tests and inspect CR0/CR3 handling manually.",
     },
+    "SYS-ERR-001": {
+        "cause":  "The fixed syscall dispatcher rejected an unknown syscall ID.",
+        "action": "Use only IDs listed by `syscalls`. The rejection is the "
+                  "expected fail-closed behavior.",
+    },
+    "SYS-ERR-002": {
+        "cause":  "A syscall rejected an invalid bounded argument or an "
+                  "unavailable kernel service.",
+        "action": "Inspect `syscalls` and the target subsystem. Do not pass "
+                  "raw addresses; v2.4 exposes no pointer ABI.",
+    },
+    "SYS-ERR-003": {
+        "cause":  "The kernel could not install its dedicated syscall IDT gate.",
+        "action": "Keep syscall use disabled and inspect IDT initialization. "
+                  "Do not bypass the gate check.",
+    },
     "APP-BLOCK-001": {
         "cause":  "The app policy gate refused a requested app name that is not "
                   "in the fixed compile-time registry, or an app without a "
@@ -314,6 +330,8 @@ def parse_report(lines):
         "[PAGING]": "paging",
         "[PAGE_MAP]": "page_map",
         "[PAGE_FAULT]": "paging",
+        "[SYSCALLS]": "syscalls",
+        "[SYSCALL_TABLE]": "syscall_table",
         "[KERNEL_INTERRUPTS]": "kernel_interrupts",
         "[KERNEL_TIMING]": "kernel_timing",
         "[KERNEL_EXCEPTIONS]": "kernel_exceptions",
@@ -331,6 +349,7 @@ def parse_report(lines):
     kernel_interrupts, kernel_timing, kernel_exceptions = {}, {}, {}
     kernel_memory, memory_map, pages, kernel_heap = {}, [], {}, {}
     paging, page_map = {}, []
+    syscalls, syscall_rows = {}, []
     kernel_tasks, task_rows = {}, []
     tinyfs, tinyfs_files = {}, []
     apps, app_rows, app_log = {}, [], []
@@ -397,6 +416,10 @@ def parse_report(lines):
             paging.update(parse_kv_line(line))
         elif section == "page_map":
             page_map.append(parse_kv_line(line))
+        elif section == "syscalls":
+            syscalls.update(parse_kv_line(line))
+        elif section == "syscall_table":
+            syscall_rows.append(parse_kv_line(line))
         elif section == "kernel_interrupts":
             kernel_interrupts.update(parse_kv_line(line))
         elif section == "kernel_timing":
@@ -428,7 +451,7 @@ def parse_report(lines):
             modules, pkgs, pkg_policy, pkg_history,
             trust, pkg_manifests, pkg_states, mod_slots, pending,
             kernel_memory, memory_map, pages, kernel_heap,
-            paging, page_map,
+            paging, page_map, syscalls, syscall_rows,
             kernel_interrupts, kernel_timing, kernel_exceptions,
             kernel_tasks, task_rows, tinyfs, tinyfs_files,
             apps, app_rows, app_log, system_status, diagnostics)
@@ -475,7 +498,7 @@ def main():
     lines, after_lines, found = extract_last_boot_report(text)
 
     print("=" * 72)
-    print(" KamikazeOS AI RECOVERY CORE - recovery report (v2.3, rule-based)")
+    print(" KamikazeOS AI RECOVERY CORE - recovery report (v2.4, rule-based)")
     print("=" * 72)
 
     if not found:
@@ -491,6 +514,7 @@ def main():
         trust, pkg_manifests, pkg_states, mod_slots, pending = {}, [], [], [], {}
         kernel_memory, memory_map, pages, kernel_heap = {}, [], {}, {}
         paging, page_map = {}, []
+        syscalls, syscall_rows = {}, []
         kernel_interrupts, kernel_timing, kernel_exceptions = {}, {}, {}
         kernel_tasks, task_rows = {}, []
         tinyfs, tinyfs_files = {}, []
@@ -502,7 +526,7 @@ def main():
          modules, pkgs, pkg_policy, pkg_history,
          trust, pkg_manifests, pkg_states, mod_slots, pending,
          kernel_memory, memory_map, pages, kernel_heap,
-         paging, page_map,
+         paging, page_map, syscalls, syscall_rows,
          kernel_interrupts, kernel_timing, kernel_exceptions,
          kernel_tasks, task_rows, tinyfs, tinyfs_files,
          apps, app_rows, app_log, system_status, diagnostics) = parse_report(lines)
@@ -526,7 +550,7 @@ def main():
               f"({meta.get('scan_expected_self_tests', '0')} expected test)")
 
     if system_status:
-        print("\nv2.3 integrated system status:")
+        print("\nv2.4 integrated system status:")
         print(f"  * Kernel: {system_status.get('kernel_version', '?')}")
         print(f"  * Interrupts: IDT={system_status.get('idt_loaded', '?')} "
               f"PIC={system_status.get('pic_remapped', '?')} "
@@ -591,6 +615,34 @@ def main():
             print(f"  !! Page fault evidence: address "
                   f"{paging.get('fault_address')} error "
                   f"{paging.get('error_code', '?')} eip {paging.get('eip', '?')}")
+
+    if syscalls:
+        print("\nKernel syscall foundation:")
+        print(f"  * Initialized: {syscalls.get('initialized', '?')}")
+        print(f"  * IDT vector: {syscalls.get('vector', '?')} (0x80)")
+        print(f"  * Registered calls: {syscalls.get('registered_count', '?')}")
+        print(f"  * Calls at export: {syscalls.get('total_calls', '?')}")
+        print(f"  * Failed calls: {syscalls.get('failed_calls', '?')}")
+        print(f"  * Last call: {syscalls.get('last_id', '?')} "
+              f"{syscalls.get('last_name', '?')} "
+              f"({syscalls.get('last_result', '?')})")
+        print(f"  * Argument model: {syscalls.get('argument_model', '?')}")
+        print(f"  * User mode available: "
+              f"{syscalls.get('user_mode_available', 'no')}")
+        print("  * Boundary: kernel-internal preparation only; no Ring 3 "
+              "callers, userspace pointers, or ABI stability guarantee.")
+        if syscalls.get("initialized") != "yes":
+            print("  !! WARNING: syscall gate is not initialized.")
+        try:
+            if int(syscalls.get("failed_calls", "0") or 0) > 0:
+                print("  !! WARNING: failed or unknown syscall attempts were recorded.")
+        except ValueError:
+            print("  !! WARNING: invalid syscall failure counter in report.")
+        for row in syscall_rows:
+            print(f"    - {row.get('id', '?'):>2} "
+                  f"{row.get('name', '?'):<16} "
+                  f"args={row.get('argument_mode', '?')} "
+                  f"caller={row.get('caller_mode', '?')}")
 
     if kernel_heap:
         print("\nKernel heap foundation:")
@@ -1084,7 +1136,7 @@ def main():
 
 
 # --------------------------------------------------------------------------
-# FUTURE AI INTEGRATION POINT (deliberately not implemented in v2.3)
+# FUTURE AI INTEGRATION POINT (deliberately not implemented in v2.4)
 # --------------------------------------------------------------------------
 def analyze_with_ai_later(log_text: str):
     """
@@ -1103,7 +1155,7 @@ def analyze_with_ai_later(log_text: str):
         as this rule-based analyzer - the policy engine, not the model,
         decides what may ever be applied automatically.
 
-    Keeping this stub un-implemented in v2.3 is intentional: the transport,
+    Keeping this stub un-implemented in v2.4 is intentional: the transport,
     format, and approval workflow get built and trusted first.
     """
     raise NotImplementedError("AI analysis arrives in a later phase - see docstring")
