@@ -32,6 +32,7 @@
 #include "report.h"
 #include "serial.h"
 #include "string.h"
+#include "syscall.h"
 #include "pic.h"
 #include "timer.h"
 #include "task.h"
@@ -199,6 +200,9 @@ static void cmd_help(void)
     vga_print("  paging      show paging preparation and enable status\n");
     vga_print("  page-map    show compact identity map summary\n");
     vga_print("  pagefault-test confirm  trigger a page fault only if paging is enabled\n");
+    vga_print("  syscalls    show the fixed kernel-internal syscall registry\n");
+    vga_print("  syscall-test exercise safe syscalls with kernel-owned arguments\n");
+    vga_print("  syscall <id> invoke one syscall with controlled arguments\n");
     vga_print("  tasks       show the fixed kernel task table\n");
     vga_print("  task-current show the current logical kernel task\n");
     vga_print("  task-yield  cooperatively run one ready task step\n");
@@ -577,6 +581,84 @@ static void cmd_pagefault_test(const char *arg)
     }
     vga_print("Triggering an intentional unmapped access; the kernel will halt.\n");
     paging_trigger_pagefault_test();
+}
+
+static void print_syscall_result(uint32_t id, int32_t result, uint32_t value)
+{
+    vga_print("  ");
+    vga_print_dec(id);
+    vga_print(" ");
+    print_col(syscall_name(id), 16);
+    vga_print(syscall_result_name(result));
+    vga_print(" value=");
+    vga_print_dec(value);
+    if (syscall_last_text()[0] != '\0') {
+        vga_print(" text=");
+        vga_print(syscall_last_text());
+    }
+    vga_print("\n");
+}
+
+static int32_t invoke_controlled_syscall(uint32_t id, uint32_t *value)
+{
+    uint32_t arg0 = 0;
+    if (id == SYS_WRITE_CONSOLE)
+        arg0 = 1;
+    return syscall_invoke_test(id, arg0, 0, 0, value);
+}
+
+static void cmd_syscalls(void)
+{
+    struct syscall_stats stats;
+    syscall_stats(&stats);
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("Kernel Syscall Gate:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print("  initialized        : "); vga_print(stats.initialized ? "yes" : "no"); vga_print("\n");
+    vga_print("  vector             : "); vga_print_hex(stats.vector); vga_print("\n");
+    vga_print("  registered count   : "); vga_print_dec(stats.registered_count); vga_print("\n");
+    vga_print("  total calls        : "); vga_print_dec(stats.total_calls); vga_print("\n");
+    vga_print("  failed calls       : "); vga_print_dec(stats.failed_calls); vga_print("\n");
+    vga_print("  last syscall       : ");
+    if (stats.last_id == 0xFFFFFFFFu) vga_print("none");
+    else { vga_print_dec(stats.last_id); vga_print(" "); vga_print(syscall_name(stats.last_id)); }
+    vga_print("\n");
+    vga_print("  last result        : "); vga_print(syscall_result_name(stats.last_result)); vga_print("\n");
+    vga_print("  user mode available: no\n");
+    vga_print("  pointer arguments  : no\n\n");
+    vga_print("ID  Name             Arguments\n");
+    for (uint32_t i = 0; i < syscall_table_count(); i++) {
+        const struct syscall_descriptor *entry = syscall_table_get(i);
+        vga_print("  "); vga_print_dec(entry->id); vga_print(" ");
+        print_col(entry->name, 16);
+        vga_print(entry->argument_mode); vga_print("\n");
+    }
+}
+
+static void cmd_syscall_test(void)
+{
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("Controlled Syscall Test:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    for (uint32_t i = 0; i < syscall_table_count(); i++) {
+        const struct syscall_descriptor *entry = syscall_table_get(i);
+        uint32_t value = 0;
+        int32_t result = invoke_controlled_syscall(entry->id, &value);
+        print_syscall_result(entry->id, result, value);
+    }
+    vga_print("Raw pointers are not part of the v2.4 syscall ABI.\n");
+}
+
+static void cmd_syscall(const char *arg)
+{
+    uint32_t id = 0;
+    if (!parse_u32_dec(arg, &id)) {
+        vga_print("Usage: syscall <decimal-id>\n");
+        return;
+    }
+    uint32_t value = 0;
+    int32_t result = invoke_controlled_syscall(id, &value);
+    print_syscall_result(id, result, value);
 }
 
 /*
@@ -2039,6 +2121,8 @@ static const struct command commands[] = {
     { "heap-test",  cmd_heap_test  },
     { "paging",     cmd_paging     },
     { "page-map",   cmd_page_map   },
+    { "syscalls",   cmd_syscalls   },
+    { "syscall-test", cmd_syscall_test },
     { "tasks",      cmd_tasks      },
     { "task-current", cmd_task_current },
     { "task-yield", cmd_task_yield },
@@ -2152,6 +2236,7 @@ void shell_run(void)
         if (kstrcmp(line, "rm") == 0) { cmd_rm(arg); continue; }
         if (kstrcmp(line, "heap-alloc") == 0) { cmd_heap_alloc(arg); continue; }
         if (kstrcmp(line, "pagefault-test") == 0) { cmd_pagefault_test(arg); continue; }
+        if (kstrcmp(line, "syscall") == 0) { cmd_syscall(arg); continue; }
 
         int found = 0;
         for (unsigned i = 0; i < sizeof(commands) / sizeof(commands[0]); i++) {

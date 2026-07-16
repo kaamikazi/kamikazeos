@@ -29,12 +29,13 @@
 #include "recovery_store.h"
 #include "serial.h"
 #include "string.h"
+#include "syscall.h"
 #include "pic.h"
 #include "timer.h"
 #include "task.h"
 #include "tinyfs.h"
 
-#define KMZ_VERSION "2.3.0"
+#define KMZ_VERSION "2.4.0"
 
 /* serial_print for numbers: render via kitoa, then send. */
 static void serial_print_dec(uint32_t value)
@@ -116,6 +117,8 @@ void report_send(void)
     struct kheap_stats heap_status;
     kheap_stats(&heap_status);
     const struct paging_status *pg_status = paging_status();
+    struct syscall_stats syscall_status;
+    syscall_stats(&syscall_status);
     struct kerror last_critical;
 
     serial_print("[SYSTEM_STATUS]\n");
@@ -299,6 +302,31 @@ void report_send(void)
     serial_print("\nerror_code="); serial_print_dec(pg_status->last_fault_error);
     serial_print("\neip="); serial_print_dec(pg_status->last_fault_eip);
     serial_print("\nrecovery_attempted=no\n");
+
+    serial_print("[SYSCALLS]\n");
+    serial_print("initialized="); serial_print(syscall_status.initialized ? "yes" : "no");
+    serial_print("\nvector="); serial_print_dec(syscall_status.vector);
+    serial_print("\ntotal_calls="); serial_print_dec(syscall_status.total_calls);
+    serial_print("\nfailed_calls="); serial_print_dec(syscall_status.failed_calls);
+    serial_print("\nregistered_count="); serial_print_dec(syscall_status.registered_count);
+    serial_print("\nlast_id=");
+    if (syscall_status.last_id == 0xFFFFFFFFu) serial_print("none");
+    else serial_print_dec(syscall_status.last_id);
+    serial_print("\nlast_name="); serial_print(syscall_name(syscall_status.last_id));
+    serial_print("\nlast_result="); serial_print(syscall_result_name(syscall_status.last_result));
+    serial_print("\nlast_value="); serial_print_dec(syscall_status.last_value);
+    serial_print("\nuser_mode_available=no");
+    serial_print("\nargument_model=bounded_scalars_and_kernel_owned_buffers");
+    serial_print("\npointer_arguments=no\n");
+
+    serial_print("[SYSCALL_TABLE]\n");
+    for (uint32_t i = 0; i < syscall_table_count(); i++) {
+        const struct syscall_descriptor *entry = syscall_table_get(i);
+        serial_print("id="); serial_print_dec(entry->id);
+        serial_print(";name="); serial_print_field(entry->name);
+        serial_print(";argument_mode="); serial_print_field(entry->argument_mode);
+        serial_print(";caller_mode=kernel_only;pointer_arguments=no\n");
+    }
 
     serial_print("[KERNEL_INTERRUPTS]\n");
     serial_print("gdt_loaded="); serial_print(gdt_is_loaded() ? "yes" : "no");
