@@ -13,13 +13,12 @@ package trust tooling, and a read-only Recovery Center dashboard while keeping
 all repair/update actions explicit, logged, and human-approved.
 
 KamikazeOS is not production-ready and not a general-purpose operating system.
-It has no user isolation, no networking stack, no real driver loading, and no
-production security guarantees.
+It has no process isolation, no networking stack, no real driver loading, and
+no production security guarantees.
 
-Current release: v2.5.0 "Privilege Boundary". It adds DPL3 user segment
-descriptors, a loaded 32-bit TSS, a dedicated privilege-transition kernel
-stack, and a readiness-gated DPL3 syscall entry. Actual Ring 3 execution
-remains disabled.
+Current release: v2.6.0 "Ring 3 Seed". It performs one controlled CPL0-to-CPL3
+transition into a fixed linked test routine, enters the kernel through the TSS
+ESP0 stack and `int 0x80`, and returns to the original Ring 0 shell context.
 
 ## Feature Overview
 
@@ -27,10 +26,12 @@ remains disabled.
 - Real x86 IDT, CPU exception stubs, legacy PIC remap, and PIT timer ticks.
 - Multiboot memory map parsing and fixed 4 KiB physical page tracking.
 - Bounded fixed-region kernel bump heap with allocation stats.
-- Enabled 32-bit x86 paging with a validated 0-16 MiB identity map.
-- DPL3-capable `int 0x80` gate with eight fixed, validated service calls;
-  current callers remain in Ring 0.
+- Enabled 32-bit x86 paging with a validated 0-16 MiB identity map and five
+  narrowly scoped user pages; all other mapped pages remain supervisor-only.
+- DPL3-capable `int 0x80` gate with nine fixed services and caller-CPL policy.
 - Flat DPL3 code/data descriptors and a loaded 32-bit TSS with bounded ESP0.
+- One build-time trusted CPL3 routine with a read-only code page and fixed
+  16 KiB user stack; no disk or TinyFS executable loading.
 - Fixed kernel task records and cooperative built-in task steps.
 - Fixed-sector TinyFS with bounded checksummed text files.
 - Fixed kernel-managed app registry with policy-gated built-in app runs.
@@ -61,6 +62,8 @@ flowchart TD
   Kernel --> Apps["Kernel-managed app registry"]
   Kernel --> Privilege["User descriptors + TSS + ESP0 stack"]
   Privilege --> Syscalls["Gated DPL3 syscall entry: int 0x80"]
+  Privilege --> Ring3["Fixed linked CPL3 test routine"]
+  Ring3 --> Syscalls
   Kernel --> Ghost["GhostAttach"]
   Kernel --> Errors["Structured error log"]
   Kernel --> Store["RecoveryStore: ATA PIO recovery.img"]
@@ -143,6 +146,9 @@ gdt
 tss
 privilege
 ring3-readiness
+user-memory
+ring3-test
+ring3
 syscalls
 syscall-test
 fs
@@ -188,6 +194,9 @@ Real:
 - Kernel-side manifest checksum, trust-anchor, and policy enforcement.
 - DPL3-capable syscall gate, fixed dispatcher, registry, and reporting.
 - User segment descriptors, loaded TSS, and dedicated ESP0 kernel stack.
+- Controlled `iretd` transition to one linked CPL3 routine and safe return via
+  `SYS_USER_EXIT`, with caller-CPL and ESP0-switch evidence.
+- Minimal user code/stack PTEs and CPL3 exception-frame diagnostics.
 - Read-only analyzer and Recovery Center Pro dashboard.
 
 Simulated:
@@ -197,8 +206,9 @@ Simulated:
 - Internet update fetching.
 - AI auto-repair.
 - Driver downloads or arbitrary package execution.
-- Ring 3 syscall callers, userspace pointers, and process isolation.
-- User stacks, user page mappings, ELF loading, and per-process address spaces.
+- General userspace programs, ELF loading, and execution from TinyFS.
+- Userspace pointers, multiple processes, process isolation, and per-process
+  address spaces.
 
 ## Safety Principles
 
@@ -213,8 +223,10 @@ Simulated:
 
 ## Version History
 
+- v2.6.0 "Ring 3 Seed": controlled CPL3 entry, minimal user mappings, ESP0
+  syscall transition, safe kernel return, and CPL3 fault evidence.
 - v2.5.0 "Privilege Boundary": DPL3 descriptors, TSS/ESP0 stack, and
-  privilege-readiness reporting; Ring 3 execution remains disabled.
+  privilege-readiness reporting.
 - v2.4.0 "Syscall Door": fixed kernel-internal `int 0x80` service interface.
 - v2.3.0 "Paging Gate": validated identity paging, CR3, and page-fault evidence.
 - v2.2.0 "Heap Seed": bounded kernel bump heap and heap reports.
@@ -238,9 +250,9 @@ See [docs/VERSION_HISTORY.md](docs/VERSION_HISTORY.md).
 
 ## Roadmap
 
-- Possible future technical work: a first controlled Ring 3 transition,
-  scheduler groundwork,
-  real in-kernel Ed25519 verification, and richer test automation.
+- Possible future technical work: user/kernel copy helpers, a guarded user
+  stack, scheduler groundwork, real in-kernel Ed25519 verification, and richer
+  test automation.
 - Still out of scope: networking, driver downloads, binary patching, and
   autonomous repair.
 

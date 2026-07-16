@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.6.0 - Ring 3 Seed
+
+- Added a controlled `iretd` transition to one fixed linked CPL3 routine.
+- Added a read-only user code page and fixed four-page, 16 KiB user stack.
+- Kept the kernel, heap, page structures, GDT/IDT/TSS, ATA buffers, and ESP0
+  stack supervisor-only through exact PTE validation and USER-page counting.
+- Added CPL3 caller tracking and a four-call CPL3 syscall allowlist.
+- Added CPL3-only `SYS_USER_EXIT` and restoration of the original Ring 0 shell
+  stack/context after the TSS ESP0 syscall transition.
+- Extended exception frames with saved CPL, user ESP, and user SS evidence.
+- Added `ring3`, `ring3-readiness`, `ring3-test`, `user-memory`, and guarded
+  `user-fault-test confirm` commands.
+- Added `[RING3]`, `[USER_MEMORY]`, `[USER_EXECUTION]`, and `[USER_FAULT]`
+  reports plus analyzer and read-only dashboard support.
+- Added no ELF loading, TinyFS execution, arbitrary user binaries, multiple
+  processes, networking, downloads, automatic repair, or self-modification.
+
 ## v2.5.0 - Privilege Boundary
 
 - Added flat DPL3 user code and data descriptors with explicit selectors.

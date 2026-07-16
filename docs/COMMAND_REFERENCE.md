@@ -1,6 +1,6 @@
 # Command Reference
 
-KamikazeOS shell commands in v2.5.0.
+KamikazeOS shell commands in v2.6.0.
 
 ## General
 
@@ -9,7 +9,7 @@ KamikazeOS shell commands in v2.5.0.
 | `help` | Show commands |
 | `clear` | Clear the screen |
 | `about` | Version and mission summary |
-| `system` | Integrated v2.5 system readiness summary |
+| `system` | Integrated v2.6 system readiness summary |
 | `diagnose` | Compact full-system diagnostic and next manual command |
 | `reboot` | Restart the machine |
 | `panic-test` | Deliberately crash for panic-handler testing |
@@ -52,9 +52,9 @@ address spaces.
 | `syscall-test` | Invoke every registered service with controlled kernel arguments |
 | `syscall <id>` | Invoke one ID using its safe built-in test arguments |
 
-The v2.5 syscall gate is DPL3-capable when privilege prerequisites validate,
-but all current callers remain in Ring 0. It accepts bounded scalars and
-registry indexes, not raw pointers. Unknown IDs fail with
+The v2.6 syscall gate accepts the fixed CPL3 test routine after privilege and
+user-memory validation. Other shell tests originate in Ring 0. The dispatcher
+accepts bounded scalars and registry indexes, not raw pointers. Unknown IDs fail with
 `SYSCALL_ERR_UNKNOWN`; no syscall can approve packages, write disk sectors,
 change policy, load apps, or access arbitrary kernel memory.
 
@@ -65,10 +65,16 @@ change policy, load apps, or access arbitrary kernel memory.
 | `gdt` | Show kernel, user, and TSS selectors and descriptor validation |
 | `tss` | Show TSS load state, SS0, ESP0, and transition-stack bounds |
 | `privilege` | Show current CPL, syscall gate DPL, and privilege prerequisites |
-| `ring3-readiness` | Show the architectural checklist and execution-disabled boundary |
+| `ring3-readiness` | Show privilege and minimal user-mapping readiness |
+| `ring3` | Show controlled execution state and last result |
+| `user-memory` | Show the fixed user code/stack bounds and permission checks |
+| `ring3-test` | Run the one build-time trusted CPL3 routine and return |
+| `user-fault-test confirm` | Deliberately fault from CPL3 and halt; disposable sessions only |
 
-`foundation_ready` means the descriptors, TSS, ESP0 stack, paging, and syscall
-gate validate. It does not mean Ring 3 execution is enabled.
+`controlled_test_ready` means the v2.5 privilege foundation and every v2.6
+minimal user-page check passed. It authorizes only the linked test routine.
+`user-fault-test confirm` must be the final command in a VM using a copied
+recovery image.
 
 ## Kernel Tasks
 

@@ -145,8 +145,9 @@ per-process address spaces.
 
 v2.3 loads CR3 and enables CR0.PG only after the kernel-owned GDT, early
 exception IDT, page structures, flags, and every required runtime range pass
-validation. The mapping is identity-only and supervisor-writable. There are no
-userspace address spaces, per-process page tables, demand paging,
+validation. The mapping is identity-only and supervisor-writable by default;
+v2.6 adds exactly five user PTEs for its fixed code and stack. There are no
+general userspace address spaces, per-process page tables, demand paging,
 copy-on-write, or memory protection between tasks. Page faults are diagnosed
 and halt safely; they are not recovered.
 
@@ -177,6 +178,30 @@ user-accessible page mapping, transition trampoline, ELF loader, process
 isolation, per-process address space, or stable userspace ABI. The TSS is not
 used for hardware task switching, and the transition stack has bounds checks
 rather than a paging guard page.
+
+## v2.6 Ring 3 Seed
+
+Real:
+
+- `iretd` transition from CPL0 to one fixed build-time CPL3 routine
+- one read-only user code page and four writable fixed user-stack pages
+- TSS SS0:ESP0 stack switch on a CPL3 `int 0x80`
+- saved-CS caller-CPL policy and a narrow CPL3 syscall allowlist
+- CPL3-only controlled exit that restores the original Ring 0 shell context
+- CPL3 exception evidence including EIP, CS, EFLAGS, user ESP/SS, and CR2
+- fail-closed validation that kernel and paging structures are supervisor-only
+
+Still not implemented:
+
+- ELF or arbitrary executable loading
+- execution from TinyFS or package payloads
+- user-supplied machine code or untrusted code execution
+- multiple processes, scheduler-driven userspace tasks, or process isolation
+- per-process address spaces, user/kernel copy helpers, or a stable ABI
+- demand paging, stack growth, or guard pages
+
+This is a real hardware privilege transition in QEMU, but only for one trusted
+linked diagnostic routine. It is not general userspace.
 
 ## Package Transaction Boundary
 

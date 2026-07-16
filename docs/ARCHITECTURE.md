@@ -1,6 +1,6 @@
 # KamikazeOS Architecture
 
-Status: v2.5.0 "Privilege Boundary".
+Status: v2.6.0 "Ring 3 Seed".
 
 KamikazeOS is a small 32-bit x86 experimental OS research prototype that runs
 in QEMU. Its architecture is organized around observability, durable recovery
@@ -20,6 +20,8 @@ flowchart TD
   Kernel --> Apps["Kernel-managed app registry"]
   Kernel --> Privilege["DPL3 segments + TSS + ESP0 stack"]
   Privilege --> Syscalls["Readiness-gated DPL3 int 0x80 entry"]
+  Privilege --> Ring3["Fixed linked CPL3 routine + fixed user stack"]
+  Ring3 --> Syscalls
   Kernel --> Memory["RecoveryMemory: disk plus CMOS fallback"]
   Kernel --> Store["RecoveryStore: ATA PIO disk image"]
   Store --> Journal["Append-only durable journal"]
@@ -36,9 +38,9 @@ flowchart TD
 
 The kernel initializes in a fixed dependency order: console, serial, error log,
 kernel GDT, early exception IDT, TSS, recovery memory/store, memory map, heap,
-validated paging, TinyFS, PIC/PIT/IRQ gates, tasks, apps, the kernel syscall
-gate, keyboard IRQ, GhostAttach, package metadata, snapshots, report, and
-finally the shell.
+validated paging and minimal user PTEs, TinyFS, PIC/PIT/IRQ gates, tasks, apps,
+the syscall gate, Ring 3 readiness, keyboard IRQ, GhostAttach, package
+metadata, snapshots, report, and finally the shell.
 
 Important source areas:
 
@@ -60,6 +62,9 @@ Important source areas:
 - `kernel/src/app_policy.c`: app launch policy for compile-time entries only.
 - `kernel/src/syscall.c`: fixed syscall registry, dispatcher, and gate policy.
 - `kernel/src/syscall_stub.S`: normalized `int 0x80` entry and `iret` return.
+- `kernel/src/ring3.c`: final controlled-transition policy and evidence.
+- `kernel/src/ring3_entry.S`: `iretd` entry, fixed CPL3 routines, and original
+  Ring 0 context restoration.
 - `kernel/src/report.c`: serial report format.
 - `kernel/src/ata.c`: minimal ATA PIO storage driver.
 - `kernel/src/recovery_store.c`: disk-backed recovery state.
@@ -155,8 +160,10 @@ ESP0 stack, and paging validate; otherwise it remains DPL0. Calls use registers
 only: EAX is the call ID,
 EBX/ECX/EDX are bounded scalar or index arguments, EAX returns a result code,
 and EDX returns a scalar value. Text is copied only into kernel-owned buffers.
-No syscall accepts or dereferences a caller-provided pointer. There are no
-Ring 3 callers, per-process permissions, or stable userspace ABI in v2.5.
+No syscall accepts or dereferences a caller-provided pointer. v2.6 allows only
+`get_ticks`, `get_health`, `system_info`, and `user_exit` from CPL3. Other
+services are denied by caller origin. There are no per-process permissions or
+stable userspace ABI.
 
 ## Privilege Boundary
 
@@ -166,7 +173,20 @@ with `ltr`; `ss0` selects kernel data and `esp0` points at the top of a bounded,
 16 KiB dedicated privilege-transition stack. The TSS is not used for hardware
 task switching.
 
-`privilege_ready_for_ring3()` reports that these architectural prerequisites
-and the DPL3 syscall gate validate. It does not enable Ring 3 execution. There
-is no user stack, user-accessible page mapping, transition trampoline, ELF
-loader, process isolation, or per-process address space.
+`privilege_ready_for_ring3()` reports the architectural prerequisites. A
+separate v2.6 gate also validates the fixed code/stack PTEs, supervisor-only
+kernel/page structures, and the absence of broad user exposure before the
+linked routine may run.
+
+## v2.6 Ring 3 Boundary
+
+`ring3_enter_user()` saves the original Ring 0 context, loads DPL3 data
+selectors, and builds an `iretd` frame containing `SS=0x23`, the fixed user
+stack top, `EFLAGS=0x202`, `CS=0x1B`, and a linked user EIP. The routine calls
+safe scalar-only syscalls and exits through CPL3-only `SYS_USER_EXIT`. The CPU
+switches to TSS `SS0:ESP0` for `int 0x80`; the exit path then restores the
+saved original Ring 0 stack and returns to the shell.
+
+This is one trusted routine, not a loader or process model. There is no ELF,
+TinyFS execution, arbitrary user code, multiple processes, per-process page
+table, user/kernel copy API, stable ABI, demand paging, or guard page.

@@ -1,7 +1,8 @@
 # Privilege And TSS
 
-KamikazeOS v2.5 "Privilege Boundary" establishes the x86 structures needed for
-a future controlled Ring 3 transition. It does not execute Ring 3 code.
+KamikazeOS v2.5 "Privilege Boundary" established the x86 structures required
+for a controlled privilege transition. v2.6 uses them for one fixed linked
+CPL3 test routine.
 
 ## GDT Layout
 
@@ -46,23 +47,23 @@ If any check fails, the gate stays DPL0 and reports
 `syscall_user_gate=disabled`. The assembly stub preserves general and segment
 registers and switches to kernel data selectors before calling C code.
 
-No syscall accepts raw pointers. Current syscall tests originate in Ring 0 and
-exercise bounded scalars, fixed registry indexes, and kernel-owned buffers.
+No syscall accepts raw pointers. General syscall tests originate in Ring 0;
+the fixed CPL3 routine is limited to an explicit scalar-only allowlist.
 
 ## Readiness Meaning
 
-`privilege_ready_for_ring3()` and `readiness=foundation_ready` mean only that
-the descriptors, TSS, ESP0 stack, paging, and syscall gate are internally
-consistent. Reports always state `execution_enabled=no` in v2.5.
+`privilege_ready_for_ring3()` means the descriptors, TSS, ESP0 stack, paging,
+and syscall gate are internally consistent. v2.6 separately validates the
+fixed user code and stack mappings before reporting `controlled_test_ready`.
 
 Not implemented:
 
-- actual Ring 3 execution or return path testing
-- user stack or user-accessible page mappings
-- transition trampoline
 - ELF or executable loading
+- arbitrary or disk-supplied user code
+- multiple processes or scheduler-driven userspace tasks
 - process isolation or per-process address spaces
 - per-process permissions or stable userspace ABI
+- user/kernel copy helpers
 - TSS hardware task switching
 - paging guard pages
 
@@ -73,6 +74,10 @@ gdt
 tss
 privilege
 ring3-readiness
+user-memory
+ring3-test
+ring3
+user-fault-test confirm
 syscalls
 syscall-test
 ```
