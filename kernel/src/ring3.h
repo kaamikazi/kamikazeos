@@ -10,11 +10,14 @@ struct ring3_status {
     int prerequisites_valid;
     int execution_approved;
     int execution_enabled;
+    int approval_consumed;
+    int fault_test_approved;
     int test_running;
     int test_completed;
     int kernel_return_supported;
     int returned_to_kernel;
     int esp0_switch_observed;
+    int context_preservation_verified;
     uint32_t user_code_start;
     uint32_t user_code_end;
     uint32_t user_stack_start;

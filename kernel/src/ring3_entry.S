@@ -54,6 +54,9 @@ ring3_return_to_kernel:
 .global ring3_user_test_start
 .type ring3_user_test_start, @function
 ring3_user_test_start:
+    mov ebp, esp
+    mov esi, 0x2468ACE0
+    mov edi, 0x55AA55AA
     mov eax, 2                  /* SYS_GET_TICKS */
     xor ebx, ebx
     xor ecx, ecx
@@ -61,6 +64,38 @@ ring3_user_test_start:
     int 0x80
     test eax, eax
     jne ring3_user_test_failed
+    test ebx, ebx
+    jne ring3_user_test_failed
+    test ecx, ecx
+    jne ring3_user_test_failed
+    cmp esi, 0x2468ACE0
+    jne ring3_user_test_failed
+    cmp edi, 0x55AA55AA
+    jne ring3_user_test_failed
+    cmp ebp, esp
+    jne ring3_user_test_failed
+    mov ax, ds
+    cmp ax, GDT_USER_DATA_SELECTOR
+    jne ring3_user_test_failed
+    mov ax, es
+    cmp ax, GDT_USER_DATA_SELECTOR
+    jne ring3_user_test_failed
+    mov ax, fs
+    cmp ax, GDT_USER_DATA_SELECTOR
+    jne ring3_user_test_failed
+    mov ax, gs
+    cmp ax, GDT_USER_DATA_SELECTOR
+    jne ring3_user_test_failed
+    mov ax, cs
+    cmp ax, GDT_USER_CODE_SELECTOR
+    jne ring3_user_test_failed
+    mov ax, ss
+    cmp ax, GDT_USER_DATA_SELECTOR
+    jne ring3_user_test_failed
+    pushfd
+    pop eax
+    test eax, 0x200             /* IF restored by IRET from int 0x80 */
+    jz ring3_user_test_failed
     xor ebx, ebx               /* success result */
     xor ecx, ecx
     xor edx, edx

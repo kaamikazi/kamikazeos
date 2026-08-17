@@ -785,6 +785,8 @@ static void cmd_ring3(void)
     vga_print("  prerequisites valid  : "); vga_print(status.prerequisites_valid ? "yes" : "no"); vga_print("\n");
     vga_print("  execution approved   : "); vga_print(status.execution_approved ? "yes" : "no"); vga_print("\n");
     vga_print("  execution enabled    : "); vga_print(status.execution_enabled ? "yes" : "no"); vga_print("\n");
+    vga_print("  approval consumed    : "); vga_print(status.approval_consumed ? "yes" : "no"); vga_print("\n");
+    vga_print("  fault test approved  : "); vga_print(status.fault_test_approved ? "yes" : "no"); vga_print("\n");
     vga_print("  test status          : "); vga_print(status.test_status); vga_print("\n");
     vga_print("  last caller CPL      : "); vga_print_dec(status.last_cpl); vga_print("\n");
     vga_print("  last syscall         : ");
@@ -794,6 +796,7 @@ static void cmd_ring3(void)
     vga_print("  ESP0 switch observed : "); vga_print(status.esp0_switch_observed ? "yes" : "no"); vga_print("\n");
     vga_print("  kernel return        : "); vga_print(status.kernel_return_supported ? "supported" : "no"); vga_print("\n");
     vga_print("  returned to kernel   : "); vga_print(status.returned_to_kernel ? "yes" : "no"); vga_print("\n");
+    vga_print("  context preserved    : "); vga_print(status.context_preservation_verified ? "yes" : "no"); vga_print("\n");
     vga_print("  user faults observed : "); vga_print_dec(status.user_faults_observed); vga_print("\n");
 }
 

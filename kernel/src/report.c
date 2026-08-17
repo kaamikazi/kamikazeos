@@ -443,6 +443,8 @@ void report_send(void)
     serial_print("\nprerequisites_valid="); serial_print(ring3_state.prerequisites_valid ? "yes" : "no");
     serial_print("\nexecution_approved="); serial_print(ring3_state.execution_approved ? "yes" : "no");
     serial_print("\nexecution_enabled="); serial_print(ring3_state.execution_enabled ? "yes" : "no");
+    serial_print("\napproval_consumed="); serial_print(ring3_state.approval_consumed ? "yes" : "no");
+    serial_print("\nfault_test_approved="); serial_print(ring3_state.fault_test_approved ? "yes" : "no");
     serial_print("\ntest_status="); serial_print(ring3_state.test_status);
     serial_print("\nlast_cpl="); serial_print_dec(ring3_state.last_cpl);
     serial_print("\nlast_syscall=");
@@ -451,6 +453,7 @@ void report_send(void)
     serial_print("\nkernel_return_supported="); serial_print(ring3_state.kernel_return_supported ? "yes" : "no");
     serial_print("\nreturned_to_kernel="); serial_print(ring3_state.returned_to_kernel ? "yes" : "no");
     serial_print("\nesp0_switch_observed="); serial_print(ring3_state.esp0_switch_observed ? "yes" : "no");
+    serial_print("\ncontext_preservation_verified="); serial_print(ring3_state.context_preservation_verified ? "yes" : "no");
     serial_print("\nuser_faults_observed="); serial_print_dec(ring3_state.user_faults_observed);
     serial_print("\ntrusted_routine=builtin_linked_only\n");
 
@@ -476,6 +479,7 @@ void report_send(void)
     serial_print("\nexit_result="); serial_print_dec((uint32_t)ring3_state.last_result);
     serial_print("\nreturned_to_kernel="); serial_print(ring3_state.returned_to_kernel ? "yes" : "no");
     serial_print("\nesp0_switch_observed="); serial_print(ring3_state.esp0_switch_observed ? "yes" : "no");
+    serial_print("\ncontext_preservation_verified="); serial_print(ring3_state.context_preservation_verified ? "yes" : "no");
     serial_print("\n");
 
     serial_print("[USER_FAULT]\npresent="); serial_print(ring3_state.user_faults_observed ? "yes" : "no");

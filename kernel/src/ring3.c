@@ -7,6 +7,9 @@
 #include "syscall.h"
 #include "tss.h"
 
+/* Default release posture; a disposable test build may temporarily set this. */
+#define RING3_ROUNDTRIP_TEST_APPROVED 0
+
 extern char _user_code_start;
 extern char _user_code_end;
 extern char _user_stack_start;
@@ -44,17 +47,25 @@ void ring3_init(void)
         (uint32_t)&ring3_user_fault_start >= memory.code_start &&
         (uint32_t)&ring3_user_fault_start < memory.code_end &&
         memory.stack_end - memory.stack_start == 16384u;
-    /* Explicit audit hold: no IRET into CPL3 before post-hardening approval. */
-    state.execution_approved = 0;
-    state.execution_enabled = 0;
-    error_log(state.prerequisites_valid ? SEV_INFO : SEV_WARNING,
-              state.prerequisites_valid ? "RING3-HOLD" : "RING3-101", "Ring3",
-              state.prerequisites_valid
-                ? "CPL3 prerequisites valid; execution held for re-audit"
-                : "CPL3 execution disabled by readiness validation",
-              state.prerequisites_valid
-                ? "explicit approval is required before enabling any transition"
-                : "inspect user-memory and ring3-readiness");
+    state.execution_approved =
+        state.prerequisites_valid && RING3_ROUNDTRIP_TEST_APPROVED;
+    state.execution_enabled = state.execution_approved;
+    state.fault_test_approved = 0;
+    error_log(state.execution_enabled ? SEV_INFO :
+              (state.prerequisites_valid ? SEV_INFO : SEV_WARNING),
+              state.execution_enabled ? "RING3-READY" :
+              (state.prerequisites_valid ? "RING3-HOLD" : "RING3-101"),
+              "Ring3",
+              state.execution_enabled
+                ? "One fixed CPL3 round trip approved for this test build"
+                : (state.prerequisites_valid
+                    ? "CPL3 prerequisites valid; execution held for re-audit"
+                    : "CPL3 execution disabled by readiness validation"),
+              state.execution_enabled
+                ? "approval is consumed before entry; CPL3 fault test remains disabled"
+                : (state.prerequisites_valid
+                    ? "explicit approval is required before enabling any transition"
+                    : "inspect user-memory and ring3-readiness"));
 }
 
 int ring3_run_test(void)
@@ -68,7 +79,12 @@ int ring3_run_test(void)
     state.test_completed = 0;
     state.returned_to_kernel = 0;
     state.esp0_switch_observed = 0;
+    state.context_preservation_verified = 0;
     state.test_status = "running";
+    /* Consume approval before IRET so no second transition can be requested. */
+    state.approval_consumed = 1;
+    state.execution_approved = 0;
+    state.execution_enabled = 0;
     ring3_enter_user((uint32_t)&ring3_user_test_start,
                      (uint32_t)&_user_stack_end);
     if (!state.test_completed || !state.returned_to_kernel) {
@@ -88,9 +104,10 @@ int ring3_run_test(void)
 
 void ring3_run_fault_test(void)
 {
-    if (!state.execution_enabled || state.test_running) {
+    if (!state.fault_test_approved || state.test_running) {
         error_log(SEV_WARNING, "RING3-102", "Ring3",
-                  "Ring 3 fault test refused", "check readiness");
+                  "Ring 3 fault test refused",
+                  "fault-test approval is independent and remains disabled");
         return;
     }
     state.test_running = 1;
@@ -120,6 +137,7 @@ void ring3_complete_user_exit(uint32_t result, uint32_t kernel_esp)
     state.test_running = 0;
     state.test_completed = 1;
     state.returned_to_kernel = 1;
+    state.context_preservation_verified = result == 0;
     state.test_status = result == 0 ? "passed" : "failed";
     ring3_return_to_kernel();
 }
