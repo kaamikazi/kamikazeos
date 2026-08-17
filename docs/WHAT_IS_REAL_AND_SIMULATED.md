@@ -181,15 +181,22 @@ rather than a paging guard page.
 
 ## v2.6 Ring 3 Seed
 
-Real:
+Real in the current audited baseline:
 
-- `iretd` transition from CPL0 to one fixed build-time CPL3 routine
 - one read-only user code page and four writable fixed user-stack pages
-- TSS SS0:ESP0 stack switch on a CPL3 `int 0x80`
-- saved-CS caller-CPL policy and a narrow CPL3 syscall allowlist
-- CPL3-only controlled exit that restores the original Ring 0 shell context
-- CPL3 exception evidence including EIP, CS, EFLAGS, user ESP/SS, and CR2
+- loaded TSS SS0:ESP0 configuration and bounded transition stack
+- complete exception/syscall frame ABI with semantic origin validation
+- saved-selector caller policy and a narrow prepared CPL3 syscall allowlist
+- Ring 0 register/segment preservation tests through `int 0x80`
 - fail-closed validation that kernel and paging structures are supervisor-only
+- explicit `execution_approved=no` hardening hold
+
+Prepared but not re-enabled or live-tested after hardening:
+
+- `iretd` transition from CPL0 to the fixed build-time routine
+- TSS SS0:ESP0 stack switch caused by a CPL3 `int 0x80`
+- CPL3-only controlled exit to the original Ring 0 shell context
+- CPL3 fault evidence with user ESP/SS
 
 Still not implemented:
 
@@ -200,8 +207,8 @@ Still not implemented:
 - per-process address spaces, user/kernel copy helpers, or a stable ABI
 - demand paging, stack growth, or guard pages
 
-This is a real hardware privilege transition in QEMU, but only for one trusted
-linked diagnostic routine. It is not general userspace.
+This remains a prepared privilege-transition research boundary, not general
+userspace. A later disposable QEMU transition test requires explicit approval.
 
 ## Package Transaction Boundary
 

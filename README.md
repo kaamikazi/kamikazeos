@@ -16,9 +16,10 @@ KamikazeOS is not production-ready and not a general-purpose operating system.
 It has no process isolation, no networking stack, no real driver loading, and
 no production security guarantees.
 
-Current release: v2.6.0 "Ring 3 Seed". It performs one controlled CPL0-to-CPL3
-transition into a fixed linked test routine, enters the kernel through the TSS
-ESP0 stack and `int 0x80`, and returns to the original Ring 0 shell context.
+Development branch: v2.6.0 "Ring 3 Seed". The fixed transition routine,
+minimal user mappings, TSS stack, and origin-checked syscall path are prepared,
+but an explicit hardening hold keeps CPL3 execution disabled. The current
+audited baseline does not perform an `iretd` transition into Ring 3.
 
 ## Feature Overview
 
@@ -30,8 +31,8 @@ ESP0 stack and `int 0x80`, and returns to the original Ring 0 shell context.
   narrowly scoped user pages; all other mapped pages remain supervisor-only.
 - DPL3-capable `int 0x80` gate with nine fixed services and caller-CPL policy.
 - Flat DPL3 code/data descriptors and a loaded 32-bit TSS with bounded ESP0.
-- One build-time trusted CPL3 routine with a read-only code page and fixed
-  16 KiB user stack; no disk or TinyFS executable loading.
+- One build-time trusted CPL3 routine and fixed 16 KiB stack are linked and
+  mapped for inspection; execution remains disabled pending separate approval.
 - Fixed kernel task records and cooperative built-in task steps.
 - Fixed-sector TinyFS with bounded checksummed text files.
 - Fixed kernel-managed app registry with policy-gated built-in app runs.
@@ -62,7 +63,7 @@ flowchart TD
   Kernel --> Apps["Kernel-managed app registry"]
   Kernel --> Privilege["User descriptors + TSS + ESP0 stack"]
   Privilege --> Syscalls["Gated DPL3 syscall entry: int 0x80"]
-  Privilege --> Ring3["Fixed linked CPL3 test routine"]
+  Privilege --> Ring3["Prepared CPL3 routine: execution held"]
   Ring3 --> Syscalls
   Kernel --> Ghost["GhostAttach"]
   Kernel --> Errors["Structured error log"]
@@ -147,7 +148,6 @@ tss
 privilege
 ring3-readiness
 user-memory
-ring3-test
 ring3
 syscalls
 syscall-test
@@ -194,9 +194,9 @@ Real:
 - Kernel-side manifest checksum, trust-anchor, and policy enforcement.
 - DPL3-capable syscall gate, fixed dispatcher, registry, and reporting.
 - User segment descriptors, loaded TSS, and dedicated ESP0 kernel stack.
-- Controlled `iretd` transition to one linked CPL3 routine and safe return via
-  `SYS_USER_EXIT`, with caller-CPL and ESP0-switch evidence.
-- Minimal user code/stack PTEs and CPL3 exception-frame diagnostics.
+- Prepared `iretd`/return assembly for one linked CPL3 routine, held disabled
+  until a separately approved disposable transition test.
+- Minimal user code/stack PTEs and privilege-transition frame diagnostics.
 - Read-only analyzer and Recovery Center Pro dashboard.
 
 Simulated:
@@ -223,8 +223,8 @@ Simulated:
 
 ## Version History
 
-- v2.6.0 "Ring 3 Seed": controlled CPL3 entry, minimal user mappings, ESP0
-  syscall transition, safe kernel return, and CPL3 fault evidence.
+- v2.6.0 "Ring 3 Seed" (development): hardened transition structures and
+  minimal user mappings, with CPL3 execution held for explicit approval.
 - v2.5.0 "Privilege Boundary": DPL3 descriptors, TSS/ESP0 stack, and
   privilege-readiness reporting.
 - v2.4.0 "Syscall Door": fixed kernel-internal `int 0x80` service interface.

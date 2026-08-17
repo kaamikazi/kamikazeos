@@ -756,7 +756,7 @@ def main():
               f"{syscalls.get('origin_policy_self_test', '?')}")
         print(f"  * Register preservation test: "
               f"{syscalls.get('register_preservation_test', '?')}")
-        print("  * Boundary: CPL3 is limited to a fixed built-in routine and a small syscall allowlist; no pointer ABI exists.")
+        print("  * Boundary: a fixed CPL3 routine and narrow allowlist are prepared, but execution remains approval-gated; no pointer ABI exists.")
         if syscalls.get("initialized") != "yes":
             print("  !! WARNING: syscall gate is not initialized.")
         if (syscalls.get("origin_policy_self_test") != "pass" or
@@ -811,7 +811,7 @@ def main():
         print(f"  * Last CPL/syscall: {user_execution.get('last_cpl', '?')}/{user_execution.get('last_syscall', '?')}")
         print(f"  * ESP0 switch: {user_execution.get('esp0_switch_observed', '?')}")
         print(f"  * Returned to kernel: {user_execution.get('returned_to_kernel', '?')}")
-        print("  * Boundary: one linked trusted routine only; no ELF, TinyFS execution, or untrusted code.")
+        print("  * Boundary: one linked trusted routine is prepared and held; no ELF, TinyFS execution, or untrusted code.")
 
     if user_fault.get("present") == "yes":
         intentional = user_fault.get("intentional_test") == "yes"

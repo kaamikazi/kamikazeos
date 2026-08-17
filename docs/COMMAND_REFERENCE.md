@@ -52,8 +52,9 @@ address spaces.
 | `syscall-test` | Invoke every registered service with controlled kernel arguments |
 | `syscall <id>` | Invoke one ID using its safe built-in test arguments |
 
-The v2.6 syscall gate accepts the fixed CPL3 test routine after privilege and
-user-memory validation. Other shell tests originate in Ring 0. The dispatcher
+The v2.6 syscall gate is prepared for the fixed CPL3 test routine after
+privilege and user-memory validation, but the audit hold prevents entry.
+Shell tests originate in Ring 0. The dispatcher
 accepts bounded scalars and registry indexes, not raw pointers. Unknown IDs fail with
 `SYSCALL_ERR_UNKNOWN`; no syscall can approve packages, write disk sectors,
 change policy, load apps, or access arbitrary kernel memory.
@@ -68,13 +69,12 @@ change policy, load apps, or access arbitrary kernel memory.
 | `ring3-readiness` | Show privilege and minimal user-mapping readiness |
 | `ring3` | Show controlled execution state and last result |
 | `user-memory` | Show the fixed user code/stack bounds and permission checks |
-| `ring3-test` | Run the one build-time trusted CPL3 routine and return |
-| `user-fault-test confirm` | Deliberately fault from CPL3 and halt; disposable sessions only |
+| `ring3-test` | Refused while the explicit hardening hold is active |
+| `user-fault-test confirm` | Refused while held; future destructive CPL3 fault test only |
 
-`controlled_test_ready` means the v2.5 privilege foundation and every v2.6
-minimal user-page check passed. It authorizes only the linked test routine.
-`user-fault-test confirm` must be the final command in a VM using a copied
-recovery image.
+`prerequisites_valid=yes` means the privilege foundation and minimal user-page
+checks passed. It does not authorize execution. A future approved
+`user-fault-test confirm` must be the final command in a disposable VM.
 
 ## Kernel Tasks
 

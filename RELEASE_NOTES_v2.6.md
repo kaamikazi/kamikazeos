@@ -1,7 +1,9 @@
-# KamikazeOS v2.6.0 "Ring 3 Seed"
+# KamikazeOS v2.6.0 "Ring 3 Seed" (Draft)
 
-v2.6 is the first KamikazeOS release to execute a controlled routine at x86
-CPL3 and return safely to the original Ring 0 shell context.
+The v2.6 branch prepares a controlled routine for x86 CPL3. Following the
+v2.5 adversarial audit, `execution_approved=no` keeps the transition disabled.
+These notes are draft release metadata, not a claim that the hardened branch
+has executed or returned from CPL3.
 
 ## Highlights
 
@@ -9,11 +11,11 @@ CPL3 and return safely to the original Ring 0 shell context.
   and deliberate `EFLAGS=0x202`.
 - Maps one user/read-only code page and four user/writable stack pages while
   validating that all other low identity mappings remain supervisor-only.
-- Exercises the existing DPL3 `int 0x80` gate and observes the TSS ESP0 stack
-  transition.
-- Adds CPL3-only `SYS_USER_EXIT`, caller-origin enforcement, and controlled
+- Prepares the existing DPL3 `int 0x80` gate and TSS ESP0 stack transition.
+- Prepares CPL3-only `SYS_USER_EXIT`, caller-origin enforcement, and controlled
   restoration of the original kernel stack.
-- Captures CPL3 exception frames and CR2 page-fault evidence before halting.
+- Prepares CPL3 exception-frame capture; Ring 0 CR2 page-fault evidence remains
+  verified before halt.
 - Adds shell commands, serial report sections, analyzer interpretation, and
   read-only Recovery Center panels for the privilege boundary.
 
@@ -30,9 +32,10 @@ kernel, page-structure, and total USER-page checks all pass.
 
 ## Verification Boundary
 
-Normal boot and round-trip tests are non-destructive when run against a copied
-recovery image. `user-fault-test confirm` intentionally halts the VM and must
-be run last in a disposable session. It does not attempt fault recovery.
+Normal Ring 0 tests use copied recovery images. `ring3-test` and
+`user-fault-test confirm` are refused by the current audit hold. A future
+approved transition test must use a disposable image and run fault testing
+last; no fault recovery is planned.
 
 ## Still Not Implemented
 

@@ -1,8 +1,8 @@
 # Privilege And TSS
 
 KamikazeOS v2.5 "Privilege Boundary" established the x86 structures required
-for a controlled privilege transition. v2.6 uses them for one fixed linked
-CPL3 test routine.
+for a controlled privilege transition. v2.6 prepares one fixed linked CPL3
+test routine, but the current hardening hold keeps execution disabled.
 
 ## GDT Layout
 
@@ -48,7 +48,7 @@ If any check fails, the gate stays DPL0 and reports
 registers and switches to kernel data selectors before calling C code.
 
 No syscall accepts raw pointers. General syscall tests originate in Ring 0;
-the fixed CPL3 routine is limited to an explicit scalar-only allowlist.
+the prepared CPL3 routine is limited to an explicit scalar-only allowlist.
 
 ## Readiness Meaning
 
@@ -75,12 +75,13 @@ tss
 privilege
 ring3-readiness
 user-memory
-ring3-test
 ring3
-user-fault-test confirm
 syscalls
 syscall-test
 ```
+
+The transition and user-fault commands remain present but refuse execution
+while `execution_approved=no`.
 
 The serial report exports `[GDT]`, `[TSS]`, `[PRIVILEGE]`, and
 `[RING3_READINESS]`. The analyzer and Recovery Center consume these sections

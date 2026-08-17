@@ -1,19 +1,23 @@
 # Changelog
 
-## v2.6.0 - Ring 3 Seed
+## v2.6.0 - Ring 3 Seed (development)
 
-- Added a controlled `iretd` transition to one fixed linked CPL3 routine.
+- Prepared a controlled `iretd` transition to one fixed linked CPL3 routine;
+  current hardening policy keeps execution disabled pending approval.
 - Added a read-only user code page and fixed four-page, 16 KiB user stack.
 - Kept the kernel, heap, page structures, GDT/IDT/TSS, ATA buffers, and ESP0
   stack supervisor-only through exact PTE validation and USER-page counting.
 - Added CPL3 caller tracking and a four-call CPL3 syscall allowlist.
-- Added CPL3-only `SYS_USER_EXIT` and restoration of the original Ring 0 shell
-  stack/context after the TSS ESP0 syscall transition.
+- Added the held CPL3-only `SYS_USER_EXIT` return path and its validation.
 - Extended exception frames with saved CPL, user ESP, and user SS evidence.
 - Added `ring3`, `ring3-readiness`, `ring3-test`, `user-memory`, and guarded
   `user-fault-test confirm` commands.
 - Added `[RING3]`, `[USER_MEMORY]`, `[USER_EXECUTION]`, and `[USER_FAULT]`
   reports plus analyzer and read-only dashboard support.
+- Hardened semantic GDT validation, common exception frames, syscall caller
+  origin checks, register restoration tests, and Multiboot map normalization.
+- Added `execution_approved=no`; no Ring 3 transition is part of the current
+  audited regression suite.
 - Added no ELF loading, TinyFS execution, arbitrary user binaries, multiple
   processes, networking, downloads, automatic repair, or self-modification.
 

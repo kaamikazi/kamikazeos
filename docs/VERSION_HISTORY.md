@@ -2,13 +2,16 @@
 
 ## v2.6.0 "Ring 3 Seed"
 
-Added one controlled `iretd` transition from CPL0 into a build-time linked CPL3
-routine, one read-only user code page, a fixed 16 KiB user stack, strict
+Development milestone preparing one controlled `iretd` transition from CPL0
+into a build-time linked CPL3 routine, one read-only user code page, a fixed
+16 KiB user stack, strict
 supervisor-page validation, a CPL3-only `SYS_USER_EXIT`, syscall caller-origin
 policy, ESP0 stack-switch evidence, safe restoration of the original Ring 0
 shell context, and CPL3 exception-frame evidence. Added Ring 3 shell commands,
 four report sections, analyzer interpretation, and read-only Recovery Center
-panels. No ELF loader, TinyFS execution, arbitrary user code, multiple
+panels. The post-audit baseline keeps `execution_approved=no`; no hardened
+CPL3 transition is claimed until a separate approved test. No ELF loader,
+TinyFS execution, arbitrary user code, multiple
 processes, per-process address spaces, stable userspace ABI, user/kernel copy
 helpers, demand paging, or guard pages were added.
 

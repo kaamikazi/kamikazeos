@@ -1,12 +1,14 @@
-# Controlled Ring 3 Execution
+# Prepared Ring 3 Boundary
 
-KamikazeOS v2.6 "Ring 3 Seed" performs one real x86 CPL0-to-CPL3 transition.
-The target is a fixed trusted routine linked into the kernel image at build
-time. Nothing is loaded or executed from TinyFS, packages, or host input.
+KamikazeOS v2.6 "Ring 3 Seed" contains a fixed CPL0-to-CPL3 transition design.
+The target is a trusted routine linked into the kernel image at build time.
+The current audited baseline sets `execution_approved=no`, so the shell cannot
+perform the transition. Nothing is loaded or executed from TinyFS, packages,
+or host input.
 
 ## Transition Design
 
-`ring3_enter_user()` saves the original Ring 0 flags and registers, records the
+The held `ring3_enter_user()` path saves the original Ring 0 flags and registers, records the
 original kernel ESP, loads the DPL3 data selectors, and constructs this
 `iretd` frame:
 
@@ -66,7 +68,8 @@ is denied to CPL0, and all non-allowlisted calls are denied to CPL3.
 
 ## Fault Evidence
 
-`user-fault-test confirm` enters the fixed CPL3 fault routine and reads a
+After a separate approval removes the hold, `user-fault-test confirm` is
+designed to enter the fixed CPL3 fault routine and read a
 supervisor-only kernel address. Vector 14 records CR2, error code, EIP, CS,
 EFLAGS, caller CPL, user ESP, and user SS. The kernel does not recover; it
 exports `[USER_FAULT]` evidence and halts. Run this only as the final command in
@@ -81,17 +84,22 @@ CPL3 fault remains critical and causes a nonzero analyzer exit.
 ```text
 ring3-readiness
 user-memory
-ring3-test
 ring3
-user-fault-test confirm
 ```
+
+`ring3-test` and `user-fault-test confirm` currently refuse execution. They
+are intentionally omitted from the audited demo flow.
 
 Reports: `[RING3]`, `[USER_MEMORY]`, `[USER_EXECUTION]`, and `[USER_FAULT]`.
 
 ## Boundary
 
-Real: CPL3 execution, minimal user PTEs, TSS ESP0 entry, origin-checked
-syscalls, controlled kernel return, and CPL3 fault frames.
+Real now: minimal user PTEs, loaded TSS/ESP0, full privilege-transition frame
+layout, origin-checked syscall dispatch, register-preservation tests, and a
+fail-closed execution hold.
+
+Prepared but not re-enabled or live-tested: CPL3 entry, TSS stack switching
+from a user caller, controlled kernel return, and CPL3 fault capture.
 
 Not implemented: ELF loading, arbitrary programs, TinyFS execution, multiple
 processes, per-process page tables, process isolation, scheduler-driven
