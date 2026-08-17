@@ -415,6 +415,8 @@ void report_send(void)
     serial_print("\nuser_stack=fixed_bounded\nuser_page_mappings=minimal_explicit\nelf_loader=no\nprocess_isolation=no\n");
 
     serial_print("[RING3]\ninitialized="); serial_print(ring3_state.initialized ? "yes" : "no");
+    serial_print("\nprerequisites_valid="); serial_print(ring3_state.prerequisites_valid ? "yes" : "no");
+    serial_print("\nexecution_approved="); serial_print(ring3_state.execution_approved ? "yes" : "no");
     serial_print("\nexecution_enabled="); serial_print(ring3_state.execution_enabled ? "yes" : "no");
     serial_print("\ntest_status="); serial_print(ring3_state.test_status);
     serial_print("\nlast_cpl="); serial_print_dec(ring3_state.last_cpl);

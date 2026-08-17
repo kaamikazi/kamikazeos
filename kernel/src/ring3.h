@@ -7,6 +7,8 @@ struct interrupt_frame;
 
 struct ring3_status {
     int initialized;
+    int prerequisites_valid;
+    int execution_approved;
     int execution_enabled;
     int test_running;
     int test_completed;

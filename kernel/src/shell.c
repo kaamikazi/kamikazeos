@@ -767,6 +767,8 @@ static void cmd_ring3(void)
     vga_print("Ring 3 Seed Status:\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     vga_print("  initialized          : "); vga_print(status.initialized ? "yes" : "no"); vga_print("\n");
+    vga_print("  prerequisites valid  : "); vga_print(status.prerequisites_valid ? "yes" : "no"); vga_print("\n");
+    vga_print("  execution approved   : "); vga_print(status.execution_approved ? "yes" : "no"); vga_print("\n");
     vga_print("  execution enabled    : "); vga_print(status.execution_enabled ? "yes" : "no"); vga_print("\n");
     vga_print("  test status          : "); vga_print(status.test_status); vga_print("\n");
     vga_print("  last caller CPL      : "); vga_print_dec(status.last_cpl); vga_print("\n");

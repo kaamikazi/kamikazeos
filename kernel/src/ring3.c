@@ -38,19 +38,22 @@ void ring3_init(void)
     state.last_cpl = 0;
     state.last_syscall = 0xFFFFFFFFu;
     state.test_status = "never_run";
-    state.execution_enabled = privilege_ready_for_ring3() && memory.validated &&
+    state.prerequisites_valid = privilege_ready_for_ring3() && memory.validated &&
         (uint32_t)&ring3_user_test_start >= memory.code_start &&
         (uint32_t)&ring3_user_test_start < memory.code_end &&
         (uint32_t)&ring3_user_fault_start >= memory.code_start &&
         (uint32_t)&ring3_user_fault_start < memory.code_end &&
         memory.stack_end - memory.stack_start == 16384u;
-    error_log(state.execution_enabled ? SEV_INFO : SEV_WARNING,
-              state.execution_enabled ? "RING3-000" : "RING3-101", "Ring3",
-              state.execution_enabled
-                ? "Fixed built-in CPL3 test region validated"
+    /* Explicit audit hold: no IRET into CPL3 before post-hardening approval. */
+    state.execution_approved = 0;
+    state.execution_enabled = 0;
+    error_log(state.prerequisites_valid ? SEV_INFO : SEV_WARNING,
+              state.prerequisites_valid ? "RING3-HOLD" : "RING3-101", "Ring3",
+              state.prerequisites_valid
+                ? "CPL3 prerequisites valid; execution held for re-audit"
                 : "CPL3 execution disabled by readiness validation",
-              state.execution_enabled
-                ? "only ring3-test may enter the fixed routine"
+              state.prerequisites_valid
+                ? "explicit approval is required before enabling any transition"
                 : "inspect user-memory and ring3-readiness");
 }
 
