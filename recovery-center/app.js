@@ -432,6 +432,13 @@ function renderKernelFoundation(data) {
   ebox.appendChild(metric("Last exception", exceptions.last_exception || "none"));
   ebox.appendChild(metric("Vector", exceptions.last_vector || "none"));
   ebox.appendChild(metric("Error code", exceptions.last_error_code || "0"));
+  ebox.appendChild(metric("Frame ABI", exceptions.frame_layout_valid || "?"));
+  ebox.appendChild(metric("Caller CPL", exceptions.caller_cpl || "none"));
+  ebox.appendChild(metric("CS / EIP", `${exceptions.last_cs || "none"} / ${exceptions.last_eip || "none"}`));
+  ebox.appendChild(metric("EFLAGS", exceptions.last_eflags || "none"));
+  ebox.appendChild(metric("Origin valid", exceptions.origin_valid || "not applicable"));
+  ebox.appendChild(metric("User stack", exceptions.user_stack_present === "yes" ?
+    `${exceptions.user_ss || "?"}:${exceptions.user_esp || "?"}` : "not present (same CPL)"));
   ebox.appendChild(metric("Recovery attempted", exceptions.recovery_attempted || "no"));
   const hasException = exceptions.last_exception && exceptions.last_exception !== "none";
   setBadge("exception-status", hasException ? "exception recorded" : "none recorded",

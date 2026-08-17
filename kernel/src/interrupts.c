@@ -1,5 +1,6 @@
 #include "interrupts.h"
 #include "errors.h"
+#include "gdt.h"
 #include "idt.h"
 #include "keyboard.h"
 #include "panic.h"
@@ -24,6 +25,7 @@ static volatile uint32_t handled;
 static volatile uint32_t last_vector = 0xFFFFFFFFu;
 static volatile uint32_t last_exception = 0xFFFFFFFFu;
 static volatile uint32_t last_error;
+static struct interrupt_exception_evidence exception_evidence;
 static int enabled;
 
 static const char *const exception_names[32] = {
@@ -86,6 +88,22 @@ int interrupt_frame_layout_self_test(void)
            esp == sample.user.esp && ss == sample.user.ss;
 }
 
+static int exception_origin_valid(const struct interrupt_frame *frame,
+                                  int user_stack_present, uint32_t user_ss)
+{
+    uint8_t cpl = interrupt_frame_caller_cpl(frame);
+    if (cpl == 0u)
+        return frame->cs == GDT_KERNEL_CODE_SELECTOR && !user_stack_present;
+    return cpl == 3u && frame->cs == GDT_USER_CODE_SELECTOR &&
+           user_stack_present && user_ss == GDT_USER_DATA_SELECTOR;
+}
+
+void interrupt_exception_evidence(struct interrupt_exception_evidence *out)
+{
+    if (out)
+        *out = exception_evidence;
+}
+
 void interrupts_init(void)
 {
     interrupts_disable();
@@ -93,6 +111,7 @@ void interrupts_init(void)
     last_vector = 0xFFFFFFFFu;
     last_exception = 0xFFFFFFFFu;
     last_error = 0;
+    exception_evidence.present = 0;
     if (!interrupt_frame_layout_self_test()) {
         error_log(SEV_ERROR, "INT-102", "interrupts",
                   "Interrupt frame ABI self-test failed",
@@ -132,11 +151,21 @@ void interrupt_dispatch(struct interrupt_frame *frame)
         last_error = frame->error_code;
         uint32_t user_esp = 0;
         uint32_t user_ss = 0;
-        interrupt_frame_user_stack(frame, &user_esp, &user_ss);
-        kpanic_exception(frame->vector, frame->error_code,
-                         interrupt_exception_name(frame->vector), frame->eip,
-                         frame->cs, frame->eflags,
-                         user_esp, user_ss);
+        int user_stack_present =
+            interrupt_frame_user_stack(frame, &user_esp, &user_ss);
+        exception_evidence.present = 1;
+        exception_evidence.vector = frame->vector;
+        exception_evidence.error_code = frame->error_code;
+        exception_evidence.eip = frame->eip;
+        exception_evidence.cs = frame->cs;
+        exception_evidence.eflags = frame->eflags;
+        exception_evidence.caller_cpl = interrupt_frame_caller_cpl(frame);
+        exception_evidence.user_stack_present = user_stack_present;
+        exception_evidence.user_esp = user_stack_present ? user_esp : 0;
+        exception_evidence.user_ss = user_stack_present ? user_ss : 0;
+        exception_evidence.origin_valid =
+            exception_origin_valid(frame, user_stack_present, user_ss);
+        kpanic_exception(interrupt_exception_name(frame->vector), frame);
     }
 
     if (frame->vector == SYSCALL_VECTOR) {

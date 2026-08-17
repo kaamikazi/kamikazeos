@@ -23,6 +23,20 @@ struct interrupt_user_stack {
     uint32_t ss;
 };
 
+struct interrupt_exception_evidence {
+    int present;
+    uint32_t vector;
+    uint32_t error_code;
+    uint32_t eip;
+    uint32_t cs;
+    uint32_t eflags;
+    uint8_t caller_cpl;
+    int origin_valid;
+    int user_stack_present;
+    uint32_t user_esp;
+    uint32_t user_ss;
+};
+
 void interrupts_init(void);
 void interrupts_enable(void);
 void interrupts_disable(void);
@@ -31,6 +45,7 @@ uint8_t interrupt_frame_caller_cpl(const struct interrupt_frame *frame);
 int interrupt_frame_user_stack(const struct interrupt_frame *frame,
                                uint32_t *user_esp, uint32_t *user_ss);
 int interrupt_frame_layout_self_test(void);
+void interrupt_exception_evidence(struct interrupt_exception_evidence *out);
 uint32_t interrupts_handled(void);
 uint32_t interrupts_last_vector(void);
 uint32_t interrupts_last_exception(void);

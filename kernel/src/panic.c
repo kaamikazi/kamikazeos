@@ -1,6 +1,7 @@
 /* panic.c — diagnostic crash screen. See panic.h. */
 #include "panic.h"
 #include "errors.h"
+#include "interrupts.h"
 #include "paging.h"
 #include "recovery_memory.h"
 #include "recovery_store.h"
@@ -81,17 +82,27 @@ void kpanic(const char *code, const char *msg, const char *hint)
     halt_forever();
 }
 
-void kpanic_exception(uint32_t vector, uint32_t error_code,
-                      const char *name, uint32_t eip, uint32_t cs,
-                      uint32_t eflags, uint32_t user_esp, uint32_t user_ss)
+void kpanic_exception(const char *name, const struct interrupt_frame *frame)
 {
+    if (!frame)
+        kpanic("CPU-EXCEPTION", "Exception entry supplied no saved frame",
+               "halt and inspect the interrupt entry ABI");
+    uint32_t vector = frame->vector;
+    uint32_t error_code = frame->error_code;
+    uint32_t eip = frame->eip;
+    uint32_t cs = frame->cs;
+    uint32_t eflags = frame->eflags;
     uint32_t fault_address = 0;
-    uint32_t caller_cpl = cs & 3u;
+    uint32_t caller_cpl = interrupt_frame_caller_cpl(frame);
+    uint32_t user_esp = 0;
+    uint32_t user_ss = 0;
+    int user_stack_present =
+        interrupt_frame_user_stack(frame, &user_esp, &user_ss);
     if (vector == 14)
         __asm__ volatile ("mov %%cr2, %0" : "=r"(fault_address));
 
     __asm__ volatile ("cli");
-    if (caller_cpl == 3u)
+    if (user_stack_present)
         ring3_record_user_fault(vector, fault_address, eip, user_esp);
     if (vector == 14) {
         paging_record_page_fault(fault_address, error_code, eip);
@@ -110,7 +121,9 @@ void kpanic_exception(uint32_t vector, uint32_t error_code,
     serial_print(";cs="); serial_print_hex32(cs);
     serial_print(";eflags="); serial_print_hex32(eflags);
     serial_print(";caller_cpl="); serial_print_u32(caller_cpl);
-    if (caller_cpl == 3u) {
+    serial_print(";user_stack_present=");
+    serial_print(user_stack_present ? "yes" : "no");
+    if (user_stack_present) {
         serial_print(";user_esp="); serial_print_hex32(user_esp);
         serial_print(";user_ss="); serial_print_hex32(user_ss);
     }
@@ -126,7 +139,7 @@ void kpanic_exception(uint32_t vector, uint32_t error_code,
         serial_print("\neip="); serial_print_hex32(eip);
         serial_print("\nrecovery_attempted=no\n");
     }
-    if (caller_cpl == 3u) {
+    if (user_stack_present) {
         struct ring3_status ring3;
         ring3_status(&ring3);
         serial_print("[USER_FAULT]\npresent=yes\nfault_origin=cpl3");
@@ -155,7 +168,10 @@ void kpanic_exception(uint32_t vector, uint32_t error_code,
     vga_print("\n  Instruction   : "); vga_print_hex(eip);
     vga_print("\n  Caller CPL    : "); vga_print_dec(caller_cpl);
     vga_print("\n  Saved CS      : "); vga_print_hex(cs);
-    if (caller_cpl == 3u) {
+    vga_print("\n  Saved EFLAGS  : "); vga_print_hex(eflags);
+    vga_print("\n  User stack    : ");
+    vga_print(user_stack_present ? "present" : "not present (same CPL)");
+    if (user_stack_present) {
         vga_print("\n  User ESP      : "); vga_print_hex(user_esp);
         vga_print("\n  User SS       : "); vga_print_hex(user_ss);
     }

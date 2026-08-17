@@ -849,7 +849,20 @@ def main():
         print(f"  * Exception: {kernel_exceptions.get('last_exception', '?')}")
         print(f"  * Vector: {kernel_exceptions.get('last_vector', '?')}")
         print(f"  * Error code: {kernel_exceptions.get('last_error_code', '?')}")
+        print(f"  * CS:EIP / EFLAGS: {kernel_exceptions.get('last_cs', '?')}:"
+              f"{kernel_exceptions.get('last_eip', '?')} / "
+              f"{kernel_exceptions.get('last_eflags', '?')}")
+        print(f"  * Caller CPL: {kernel_exceptions.get('caller_cpl', '?')}")
+        print(f"  * User stack present: "
+              f"{kernel_exceptions.get('user_stack_present', 'no')}")
+        if kernel_exceptions.get("user_stack_present") == "yes":
+            print(f"  * User SS:ESP: {kernel_exceptions.get('user_ss', '?')}:"
+                  f"{kernel_exceptions.get('user_esp', '?')}")
+        if kernel_exceptions.get("origin_valid") != "yes":
+            print("  !! WARNING: saved exception selectors do not match the expected origin.")
         print("  * Recovery attempted: no (intentional v2.0 safety policy)")
+    if kernel_exceptions and kernel_exceptions.get("frame_layout_valid") != "yes":
+        print("\n  !! WARNING: interrupt frame ABI self-test did not pass.")
 
     if kernel_tasks:
         print("\nKernel task foundation:")

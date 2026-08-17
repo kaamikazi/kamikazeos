@@ -125,7 +125,9 @@ void report_send(void)
     struct privilege_status privilege_state;
     privilege_status(&privilege_state);
     struct ring3_status ring3_state;
+    struct interrupt_exception_evidence exception_state;
     ring3_status(&ring3_state);
+    interrupt_exception_evidence(&exception_state);
     struct user_memory_status user_memory;
     paging_user_memory_status(&user_memory);
     struct gdt_status gdt_state;
@@ -498,13 +500,25 @@ void report_send(void)
     serial_print("\nfrequency_hz=100\n");
 
     serial_print("[KERNEL_EXCEPTIONS]\n");
-    serial_print("last_exception=");
+    serial_print("frame_layout_valid="); serial_print(interrupt_frame_layout_self_test() ? "yes" : "no");
+    serial_print("\nlast_exception=");
     if (interrupts_last_exception() == 0xFFFFFFFFu) serial_print("none");
     else serial_print(interrupt_exception_name(interrupts_last_exception()));
     serial_print("\nlast_vector=");
     if (interrupts_last_exception() == 0xFFFFFFFFu) serial_print("none");
     else serial_print_dec(interrupts_last_exception());
     serial_print("\nlast_error_code="); serial_print_dec(interrupts_last_error_code());
+    serial_print("\nevidence_present="); serial_print(exception_state.present ? "yes" : "no");
+    serial_print("\nlast_eip="); serial_print_dec(exception_state.eip);
+    serial_print("\nlast_cs="); serial_print_dec(exception_state.cs);
+    serial_print("\nlast_eflags="); serial_print_dec(exception_state.eflags);
+    serial_print("\ncaller_cpl="); serial_print_dec(exception_state.caller_cpl);
+    serial_print("\norigin_valid="); serial_print(exception_state.origin_valid ? "yes" : "no");
+    serial_print("\nuser_stack_present="); serial_print(exception_state.user_stack_present ? "yes" : "no");
+    if (exception_state.user_stack_present) {
+        serial_print("\nuser_esp="); serial_print_dec(exception_state.user_esp);
+        serial_print("\nuser_ss="); serial_print_dec(exception_state.user_ss);
+    }
     serial_print("\nrecovery_attempted=no\n");
 
     serial_print("[KERNEL_TASKS]\n");
