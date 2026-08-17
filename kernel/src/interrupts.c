@@ -9,6 +9,17 @@
 #include "task.h"
 #include "syscall.h"
 
+typedef char interrupt_frame_size_must_be_68[
+    sizeof(struct interrupt_frame) == 68u ? 1 : -1];
+typedef char interrupt_frame_gs_offset_must_be_0[
+    __builtin_offsetof(struct interrupt_frame, gs) == 0u ? 1 : -1];
+typedef char interrupt_frame_edi_offset_must_be_16[
+    __builtin_offsetof(struct interrupt_frame, edi) == 16u ? 1 : -1];
+typedef char interrupt_frame_vector_offset_must_be_48[
+    __builtin_offsetof(struct interrupt_frame, vector) == 48u ? 1 : -1];
+typedef char interrupt_frame_eip_offset_must_be_56[
+    __builtin_offsetof(struct interrupt_frame, eip) == 56u ? 1 : -1];
+
 static volatile uint32_t handled;
 static volatile uint32_t last_vector = 0xFFFFFFFFu;
 static volatile uint32_t last_exception = 0xFFFFFFFFu;
@@ -32,6 +43,49 @@ const char *interrupt_exception_name(uint32_t vector)
     return vector < 32 ? exception_names[vector] : "Unknown exception";
 }
 
+uint8_t interrupt_frame_caller_cpl(const struct interrupt_frame *frame)
+{
+    return frame ? (uint8_t)(frame->cs & 3u) : 0xFFu;
+}
+
+int interrupt_frame_user_stack(const struct interrupt_frame *frame,
+                               uint32_t *user_esp, uint32_t *user_ss)
+{
+    if (!frame || interrupt_frame_caller_cpl(frame) != 3u)
+        return 0;
+    const struct interrupt_user_stack *tail =
+        (const struct interrupt_user_stack *)((const uint8_t *)frame +
+                                               sizeof(*frame));
+    if (user_esp)
+        *user_esp = tail->esp;
+    if (user_ss)
+        *user_ss = tail->ss;
+    return 1;
+}
+
+int interrupt_frame_layout_self_test(void)
+{
+    struct {
+        struct interrupt_frame frame;
+        struct interrupt_user_stack user;
+    } sample = {0};
+    uint32_t esp = 0xAAAAAAAAu;
+    uint32_t ss = 0xBBBBBBBBu;
+
+    sample.frame.cs = 0x08u;
+    sample.user.esp = 0x12345000u;
+    sample.user.ss = 0x23u;
+    if (interrupt_frame_caller_cpl(&sample.frame) != 0u ||
+        interrupt_frame_user_stack(&sample.frame, &esp, &ss) ||
+        esp != 0xAAAAAAAAu || ss != 0xBBBBBBBBu)
+        return 0;
+
+    sample.frame.cs = 0x1Bu;
+    return interrupt_frame_caller_cpl(&sample.frame) == 3u &&
+           interrupt_frame_user_stack(&sample.frame, &esp, &ss) &&
+           esp == sample.user.esp && ss == sample.user.ss;
+}
+
 void interrupts_init(void)
 {
     interrupts_disable();
@@ -39,6 +93,11 @@ void interrupts_init(void)
     last_vector = 0xFFFFFFFFu;
     last_exception = 0xFFFFFFFFu;
     last_error = 0;
+    if (!interrupt_frame_layout_self_test()) {
+        error_log(SEV_ERROR, "INT-102", "interrupts",
+                  "Interrupt frame ABI self-test failed",
+                  "keep Ring 3 execution disabled and inspect entry stubs");
+    }
     idt_install_irq_gates();
     pic_init();
     timer_init(100);
@@ -71,12 +130,13 @@ void interrupt_dispatch(struct interrupt_frame *frame)
     if (frame->vector < 32) {
         last_exception = frame->vector;
         last_error = frame->error_code;
-        uint8_t caller_cpl = (uint8_t)(frame->cs & 3u);
+        uint32_t user_esp = 0;
+        uint32_t user_ss = 0;
+        interrupt_frame_user_stack(frame, &user_esp, &user_ss);
         kpanic_exception(frame->vector, frame->error_code,
                          interrupt_exception_name(frame->vector), frame->eip,
                          frame->cs, frame->eflags,
-                         caller_cpl == 3u ? frame->user_esp : 0,
-                         caller_cpl == 3u ? frame->user_ss : 0);
+                         user_esp, user_ss);
     }
 
     if (frame->vector == SYSCALL_VECTOR) {

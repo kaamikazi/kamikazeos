@@ -13,29 +13,34 @@ syscall_isr:
     cld
     pusha
 
-    /* Preserve caller data selectors. A future CPL3 caller enters on the
-       TSS-selected stack but retains its user data selectors until we load
-       the kernel data selector for the C dispatcher. */
-    push ds
-    push es
-    push fs
-    push gs
+    /* Match interrupt_frame exactly with full 32-bit selector copies. */
+    xor eax, eax
+    mov ax, ds
+    push eax
+    mov ax, es
+    push eax
+    mov ax, fs
+    push eax
+    mov ax, gs
+    push eax
     mov ax, GDT_KERNEL_DATA_SELECTOR
     mov ds, ax
     mov es, ax
     mov fs, ax
     mov gs, ax
 
-    /* Segment-register pushes are 16-bit in this encoding: four saves use
-       eight bytes, so the normalized interrupt_frame begins at esp+8. */
-    lea eax, [esp + 8]
+    mov eax, esp
     push eax
     call interrupt_dispatch
     add esp, 4
-    pop gs
-    pop fs
-    pop es
-    pop ds
+    pop eax
+    mov gs, ax
+    pop eax
+    mov fs, ax
+    pop eax
+    mov es, ax
+    pop eax
+    mov ds, ax
     popa
     add esp, 8
     iretd

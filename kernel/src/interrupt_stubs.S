@@ -81,23 +81,39 @@ isr_unknown:
 interrupt_common:
     cld
     pusha
-    push ds
-    push es
-    push fs
-    push gs
+
+    /*
+     * Build the exact interrupt_frame prefix consumed by C. Segment-register
+     * PUSH encodings are 16-bit and therefore unsuitable for a stable C ABI;
+     * copy each selector into a full 32-bit slot instead. Final stack order:
+     * gs fs es ds, pusha, vector, error, eip, cs, eflags, [user_esp user_ss].
+     */
+    xor eax, eax
+    mov ax, ds
+    push eax
+    mov ax, es
+    push eax
+    mov ax, fs
+    push eax
+    mov ax, gs
+    push eax
     mov ax, GDT_KERNEL_DATA_SELECTOR
     mov ds, ax
     mov es, ax
     mov fs, ax
     mov gs, ax
-    lea eax, [esp + 8]
+    mov eax, esp
     push eax
     call interrupt_dispatch
     add esp, 4
-    pop gs
-    pop fs
-    pop es
-    pop ds
+    pop eax
+    mov gs, ax
+    pop eax
+    mov fs, ax
+    pop eax
+    mov es, ax
+    pop eax
+    mov ds, ax
     popa
     add esp, 8
     iretd

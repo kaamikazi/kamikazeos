@@ -4,18 +4,33 @@
 #include <stdint.h>
 
 struct interrupt_frame {
+    /* Explicit 32-bit copies pushed by the common assembly entry. */
+    uint32_t gs, fs, es, ds;
     uint32_t edi, esi, ebp, esp;
     uint32_t ebx, edx, ecx, eax;
     uint32_t vector, error_code;
     uint32_t eip, cs, eflags;
-    /* Present only when saved CS indicates a transition from CPL3. */
-    uint32_t user_esp, user_ss;
+};
+
+/*
+ * The CPU appends this tail only when an interrupt changes privilege level.
+ * KamikazeOS currently accepts CPL3-to-CPL0 as the only such transition.
+ * Ring 0 faults end at interrupt_frame. Code must use the helpers below and
+ * must never read this tail for a same-CPL frame.
+ */
+struct interrupt_user_stack {
+    uint32_t esp;
+    uint32_t ss;
 };
 
 void interrupts_init(void);
 void interrupts_enable(void);
 void interrupts_disable(void);
 void interrupt_dispatch(struct interrupt_frame *frame);
+uint8_t interrupt_frame_caller_cpl(const struct interrupt_frame *frame);
+int interrupt_frame_user_stack(const struct interrupt_frame *frame,
+                               uint32_t *user_esp, uint32_t *user_ss);
+int interrupt_frame_layout_self_test(void);
 uint32_t interrupts_handled(void);
 uint32_t interrupts_last_vector(void);
 uint32_t interrupts_last_exception(void);
