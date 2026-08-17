@@ -3,7 +3,8 @@
 KamikazeOS v2.4 "Syscall Door" introduced a controlled kernel service
 interface. v2.5 made its IDT gate DPL3-capable, and v2.6 prepares it for one
 fixed linked routine after strict privilege and page-permission validation.
-The current audit hold prevents that routine from executing.
+One approved disposable run verified two CPL3 calls and the controlled exit;
+the default one-shot execution gate is held after that run.
 
 ## ABI
 
@@ -57,7 +58,9 @@ Real now: the DPL3-capable IDT gate, assembly stub with segment/register
 preservation, fixed dispatcher, semantic caller-origin policy, defensive
 self-tests, statistics, reports, analyzer, and dashboard.
 
-Prepared but held: a TSS stack switch from CPL3 and controlled CPL3 exit.
+Verified for the fixed linked routine: a TSS stack switch from CPL3, exact
+saved-selector origin validation, and controlled CPL3 exit. Additional runs
+remain approval-gated.
 
 Not implemented: userspace pointers, user/kernel copy helpers, process
 isolation, per-process permissions, executable loading, ELF, syscalls from

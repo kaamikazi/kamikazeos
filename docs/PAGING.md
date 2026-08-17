@@ -40,9 +40,11 @@ pagefault-test confirm
 
 `pagefault-test confirm` deliberately reads an unmapped high address and must
 only be run last in a disposable QEMU session using a copied recovery image.
-`user-fault-test confirm` enters CPL3 and reads supervisor-only kernel memory;
-its error code, saved CPL3 frame, CR2 address, user ESP, and user SS are
-reported before the kernel halts.
+`user-fault-test confirm` is prepared to enter CPL3 and read supervisor-only
+kernel memory; its error code, saved CPL3 frame, CR2 address, user ESP, and
+user SS would be reported before halt. The post-hardening baseline keeps this
+independent destructive-test gate disabled; it was not part of the approved
+round-trip test.
 
 ## Boundaries
 

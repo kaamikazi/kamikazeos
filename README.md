@@ -16,10 +16,10 @@ KamikazeOS is not production-ready and not a general-purpose operating system.
 It has no process isolation, no networking stack, no real driver loading, and
 no production security guarantees.
 
-Development branch: v2.6.0 "Ring 3 Seed". The fixed transition routine,
-minimal user mappings, TSS stack, and origin-checked syscall path are prepared,
-but an explicit hardening hold keeps CPL3 execution disabled. The current
-audited baseline does not perform an `iretd` transition into Ring 3.
+Development branch: v2.6.0 "Ring 3 Seed". One explicitly approved disposable
+QEMU run completed the fixed CPL3 round trip after the pre-execution hardening
+audit. The approval was consumed and the default build returned to
+`execution_approved=no`; general user execution remains unavailable.
 
 ## Feature Overview
 
@@ -31,8 +31,9 @@ audited baseline does not perform an `iretd` transition into Ring 3.
   narrowly scoped user pages; all other mapped pages remain supervisor-only.
 - DPL3-capable `int 0x80` gate with nine fixed services and caller-CPL policy.
 - Flat DPL3 code/data descriptors and a loaded 32-bit TSS with bounded ESP0.
-- One build-time trusted CPL3 routine and fixed 16 KiB stack are linked and
-  mapped for inspection; execution remains disabled pending separate approval.
+- One build-time trusted CPL3 routine and fixed 16 KiB stack completed a
+  controlled `iretd`/`int 0x80`/`SYS_USER_EXIT` round trip in disposable QEMU;
+  the default build keeps the one-shot gate disabled.
 - Fixed kernel task records and cooperative built-in task steps.
 - Fixed-sector TinyFS with bounded checksummed text files.
 - Fixed kernel-managed app registry with policy-gated built-in app runs.
@@ -194,8 +195,8 @@ Real:
 - Kernel-side manifest checksum, trust-anchor, and policy enforcement.
 - DPL3-capable syscall gate, fixed dispatcher, registry, and reporting.
 - User segment descriptors, loaded TSS, and dedicated ESP0 kernel stack.
-- Prepared `iretd`/return assembly for one linked CPL3 routine, held disabled
-  until a separately approved disposable transition test.
+- Verified `iretd`/return assembly for one linked CPL3 routine, with the
+  one-shot approval consumed and the default gate held disabled.
 - Minimal user code/stack PTEs and privilege-transition frame diagnostics.
 - Read-only analyzer and Recovery Center Pro dashboard.
 
@@ -223,8 +224,8 @@ Simulated:
 
 ## Version History
 
-- v2.6.0 "Ring 3 Seed" (development): hardened transition structures and
-  minimal user mappings, with CPL3 execution held for explicit approval.
+- v2.6.0 "Ring 3 Seed" (development): one hardened fixed-routine CPL3 round
+  trip verified in disposable QEMU; no general or default user execution.
 - v2.5.0 "Privilege Boundary": DPL3 descriptors, TSS/ESP0 stack, and
   privilege-readiness reporting.
 - v2.4.0 "Syscall Door": fixed kernel-internal `int 0x80` service interface.

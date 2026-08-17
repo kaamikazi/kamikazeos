@@ -69,11 +69,12 @@ change policy, load apps, or access arbitrary kernel memory.
 | `ring3-readiness` | Show privilege and minimal user-mapping readiness |
 | `ring3` | Show controlled execution state and last result |
 | `user-memory` | Show the fixed user code/stack bounds and permission checks |
-| `ring3-test` | Refused while the explicit hardening hold is active |
-| `user-fault-test confirm` | Refused while held; future destructive CPL3 fault test only |
+| `ring3-test` | Fixed linked routine; refused by the default post-verification hold |
+| `user-fault-test confirm` | Independently disabled; future destructive CPL3 fault test only |
 
 `prerequisites_valid=yes` means the privilege foundation and minimal user-page
-checks passed. It does not authorize execution. A future approved
+checks passed. It does not authorize execution. One disposable round trip was
+approved and verified; another run or an approved
 `user-fault-test confirm` must be the final command in a disposable VM.
 
 ## Kernel Tasks

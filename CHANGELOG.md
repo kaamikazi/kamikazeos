@@ -2,8 +2,8 @@
 
 ## v2.6.0 - Ring 3 Seed (development)
 
-- Prepared a controlled `iretd` transition to one fixed linked CPL3 routine;
-  current hardening policy keeps execution disabled pending approval.
+- Verified one explicitly approved disposable-QEMU `iretd` transition to the
+  fixed linked CPL3 routine and return through `SYS_USER_EXIT`.
 - Added a read-only user code page and fixed four-page, 16 KiB user stack.
 - Kept the kernel, heap, page structures, GDT/IDT/TSS, ATA buffers, and ESP0
   stack supervisor-only through exact PTE validation and USER-page counting.
@@ -16,8 +16,9 @@
   reports plus analyzer and read-only dashboard support.
 - Hardened semantic GDT validation, common exception frames, syscall caller
   origin checks, register restoration tests, and Multiboot map normalization.
-- Added `execution_approved=no`; no Ring 3 transition is part of the current
-  audited regression suite.
+- Added single-use approval consumption, an independent disabled fault-test
+  gate, and user-side GPR, segment, stack, and IF preservation checks. The
+  default build is restored to `execution_approved=no` after verification.
 - Added no ELF loading, TinyFS execution, arbitrary user binaries, multiple
   processes, networking, downloads, automatic repair, or self-modification.
 

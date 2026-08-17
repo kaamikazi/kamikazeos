@@ -180,16 +180,18 @@ linked routine may run.
 
 ## v2.6 Ring 3 Boundary
 
-The held `ring3_enter_user()` path saves the original Ring 0 context, loads DPL3 data
+The `ring3_enter_user()` path saves the original Ring 0 context, loads DPL3 data
 selectors, and builds an `iretd` frame containing `SS=0x23`, the fixed user
 stack top, `EFLAGS=0x202`, `CS=0x1B`, and a linked user EIP. The routine calls
 safe scalar-only syscalls and exits through CPL3-only `SYS_USER_EXIT`. The CPU
 switches to TSS `SS0:ESP0` for `int 0x80`; the exit path then restores the
-saved original Ring 0 stack and returns to the shell. In the current audited
-baseline `execution_approved=no`, so this path is not entered.
+saved original Ring 0 stack and returns to the shell. One approved disposable
+QEMU run verified this path after hardening. Approval is consumed before
+entry, and the default audited baseline is restored to
+`execution_approved=no` afterward.
 
-This is prepared code for one trusted routine, not a loader or process model.
-Live CPL3 entry and return still require a separately approved disposable
-test. There is no ELF,
+This is one verified trusted routine, not a loader or process model. Any
+additional live CPL3 entry still requires a separately approved disposable
+test build. There is no ELF,
 TinyFS execution, arbitrary user code, multiple processes, per-process page
 table, user/kernel copy API, stable ABI, demand paging, or guard page.

@@ -189,13 +189,15 @@ Real in the current audited baseline:
 - saved-selector caller policy and a narrow prepared CPL3 syscall allowlist
 - Ring 0 register/segment preservation tests through `int 0x80`
 - fail-closed validation that kernel and paging structures are supervisor-only
-- explicit `execution_approved=no` hardening hold
+- one approved disposable-QEMU CPL3 `iretd` transition
+- TSS SS0:ESP0 switch caused by CPL3 `int 0x80`
+- exact CPL3 selector-origin validation and two allowed syscall dispatches
+- CPL3-only `SYS_USER_EXIT` restoring the original Ring 0 shell context
+- user-side GPR, segment, stack, and IF preservation checks
+- consumed single-use approval and restored `execution_approved=no` hold
 
-Prepared but not re-enabled or live-tested after hardening:
+Prepared but not post-hardening tested:
 
-- `iretd` transition from CPL0 to the fixed build-time routine
-- TSS SS0:ESP0 stack switch caused by a CPL3 `int 0x80`
-- CPL3-only controlled exit to the original Ring 0 shell context
 - CPL3 fault evidence with user ESP/SS
 
 Still not implemented:
@@ -207,8 +209,9 @@ Still not implemented:
 - per-process address spaces, user/kernel copy helpers, or a stable ABI
 - demand paging, stack growth, or guard pages
 
-This remains a prepared privilege-transition research boundary, not general
-userspace. A later disposable QEMU transition test requires explicit approval.
+This remains a fixed-routine privilege-transition research boundary, not
+general userspace. Any further CPL3 transition or fault test requires explicit
+approval and a disposable QEMU session.
 
 ## Package Transaction Boundary
 

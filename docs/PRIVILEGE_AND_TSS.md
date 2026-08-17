@@ -80,8 +80,9 @@ syscalls
 syscall-test
 ```
 
-The transition and user-fault commands remain present but refuse execution
-while `execution_approved=no`.
+The hardened transition completed one approved disposable round trip. Its
+single-use approval was consumed, so the default build again refuses
+`ring3-test`. The independently gated user-fault command remains disabled.
 
 The serial report exports `[GDT]`, `[TSS]`, `[PRIVILEGE]`, and
 `[RING3_READINESS]`. The analyzer and Recovery Center consume these sections

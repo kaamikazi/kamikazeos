@@ -2,13 +2,14 @@
 
 KamikazeOS v2.6 "Ring 3 Seed" contains a fixed CPL0-to-CPL3 transition design.
 The target is a trusted routine linked into the kernel image at build time.
-The current audited baseline sets `execution_approved=no`, so the shell cannot
-perform the transition. Nothing is loaded or executed from TinyFS, packages,
-or host input.
+One explicitly approved disposable-QEMU run verified the hardened round trip.
+Approval was consumed before entry, and the default audited build is restored
+to `execution_approved=no`. Nothing is loaded or executed from TinyFS,
+packages, or host input.
 
 ## Transition Design
 
-The held `ring3_enter_user()` path saves the original Ring 0 flags and registers, records the
+The `ring3_enter_user()` path saves the original Ring 0 flags and registers, records the
 original kernel ESP, loads the DPL3 data selectors, and constructs this
 `iretd` frame:
 
@@ -24,7 +25,8 @@ Interrupts remain enabled so PIT and keyboard IRQ handling continue. IOPL is
 zero, so CPL3 cannot perform port I/O or change interrupt state with privileged
 instructions.
 
-The test routine calls `SYS_GET_TICKS`, then `SYS_USER_EXIT`. On `int 0x80`,
+The test routine calls `SYS_GET_TICKS`, verifies preserved GPRs, segment
+selectors, stack position, and IF, then calls `SYS_USER_EXIT`. On `int 0x80`,
 the CPU uses TSS `SS0:ESP0` to enter the dedicated 16 KiB kernel transition
 stack. The syscall stub preserves general and segment registers and switches
 to kernel data selectors before dispatching C code.
@@ -68,8 +70,9 @@ is denied to CPL0, and all non-allowlisted calls are denied to CPL3.
 
 ## Fault Evidence
 
-After a separate approval removes the hold, `user-fault-test confirm` is
-designed to enter the fixed CPL3 fault routine and read a
+`user-fault-test confirm` is independently gated and remains disabled. After
+a separate destructive-test approval, it is designed to enter the fixed CPL3
+fault routine and read a
 supervisor-only kernel address. Vector 14 records CR2, error code, EIP, CS,
 EFLAGS, caller CPL, user ESP, and user SS. The kernel does not recover; it
 exports `[USER_FAULT]` evidence and halts. Run this only as the final command in
@@ -87,19 +90,21 @@ user-memory
 ring3
 ```
 
-`ring3-test` and `user-fault-test confirm` currently refuse execution. They
-are intentionally omitted from the audited demo flow.
+`ring3-test` currently refuses execution because the approved one-shot token
+was consumed and the release gate was restored. `user-fault-test confirm`
+refuses through a separate gate. Both remain omitted from the normal demo.
 
 Reports: `[RING3]`, `[USER_MEMORY]`, `[USER_EXECUTION]`, and `[USER_FAULT]`.
 
 ## Boundary
 
-Real now: minimal user PTEs, loaded TSS/ESP0, full privilege-transition frame
-layout, origin-checked syscall dispatch, register-preservation tests, and a
-fail-closed execution hold.
+Real and verified for one fixed routine: minimal user PTEs, `iretd` entry,
+loaded TSS/ESP0 stack switching, full privilege-transition frames,
+origin-checked CPL3 syscalls, register/segment/stack preservation checks,
+`SYS_USER_EXIT`, and restoration of the original Ring 0 shell context.
 
-Prepared but not re-enabled or live-tested: CPL3 entry, TSS stack switching
-from a user caller, controlled kernel return, and CPL3 fault capture.
+Prepared but not post-hardening tested: CPL3 fault capture. The independent
+fault-test gate remains disabled.
 
 Not implemented: ELF loading, arbitrary programs, TinyFS execution, multiple
 processes, per-process page tables, process isolation, scheduler-driven

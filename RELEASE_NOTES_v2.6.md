@@ -1,9 +1,10 @@
 # KamikazeOS v2.6.0 "Ring 3 Seed" (Draft)
 
-The v2.6 branch prepares a controlled routine for x86 CPL3. Following the
-v2.5 adversarial audit, `execution_approved=no` keeps the transition disabled.
-These notes are draft release metadata, not a claim that the hardened branch
-has executed or returned from CPL3.
+The v2.6 branch contains a controlled routine for x86 CPL3. Following the
+pre-execution hardening audit, one explicitly approved disposable-QEMU run
+entered CPL3, invoked the origin-checked syscall gate on the TSS ESP0 stack,
+and returned to the original Ring 0 shell through `SYS_USER_EXIT`. The
+single-use approval was consumed; the default build remains held.
 
 ## Highlights
 
@@ -11,9 +12,9 @@ has executed or returned from CPL3.
   and deliberate `EFLAGS=0x202`.
 - Maps one user/read-only code page and four user/writable stack pages while
   validating that all other low identity mappings remain supervisor-only.
-- Prepares the existing DPL3 `int 0x80` gate and TSS ESP0 stack transition.
-- Prepares CPL3-only `SYS_USER_EXIT`, caller-origin enforcement, and controlled
-  restoration of the original kernel stack.
+- Verifies the DPL3 `int 0x80` gate and TSS ESP0 stack transition.
+- Verifies CPL3-only `SYS_USER_EXIT`, caller-origin enforcement, register and
+  segment preservation, and restoration of the original kernel stack.
 - Prepares CPL3 exception-frame capture; Ring 0 CR2 page-fault evidence remains
   verified before halt.
 - Adds shell commands, serial report sections, analyzer interpretation, and
@@ -32,10 +33,11 @@ kernel, page-structure, and total USER-page checks all pass.
 
 ## Verification Boundary
 
-Normal Ring 0 tests use copied recovery images. `ring3-test` and
-`user-fault-test confirm` are refused by the current audit hold. A future
-approved transition test must use a disposable image and run fault testing
-last; no fault recovery is planned.
+Normal Ring 0 tests use copied recovery images. The approved `ring3-test`
+completed once, reported `CS=0x1B`, data selectors `0x23`, two validated CPL3
+syscalls, an ESP0 switch, context preservation, and continued shell activity.
+The release posture again refuses `ring3-test`. `user-fault-test confirm`
+remained independently disabled and was not run after the hardening audit.
 
 ## Still Not Implemented
 

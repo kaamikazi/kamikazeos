@@ -9,8 +9,9 @@ supervisor-page validation, a CPL3-only `SYS_USER_EXIT`, syscall caller-origin
 policy, ESP0 stack-switch evidence, safe restoration of the original Ring 0
 shell context, and CPL3 exception-frame evidence. Added Ring 3 shell commands,
 four report sections, analyzer interpretation, and read-only Recovery Center
-panels. The post-audit baseline keeps `execution_approved=no`; no hardened
-CPL3 transition is claimed until a separate approved test. No ELF loader,
+panels. One separately approved disposable-QEMU run verified the hardened
+CPL3 transition and return; the approval was consumed and the baseline was
+restored to `execution_approved=no`. No ELF loader,
 TinyFS execution, arbitrary user code, multiple
 processes, per-process address spaces, stable userspace ABI, user/kernel copy
 helpers, demand paging, or guard pages were added.
