@@ -415,6 +415,16 @@ static void cmd_mem(void)
     if (m->fallback_used)
         vga_print(" (safe fallback)");
     vga_print("\n  regions          : "); vga_print_dec(m->region_count);
+    vga_print("\n  raw regions      : "); vga_print_dec(m->raw_region_count);
+    vga_print("\n  map validated    : "); vga_print(m->map_validated ? "yes" : "no");
+    vga_print("\n  normalized       : "); vga_print(m->normalized ? "yes" : "no");
+    vga_print("\n  parser self-test : "); vga_print(m->hardening_self_test ? "pass" : "fail");
+    vga_print("\n  bitmap consistent: "); vga_print(m->bitmap_consistent ? "yes" : "no");
+    vga_print("\n  critical reserved: "); vga_print(m->critical_ranges_reserved ? "yes" : "no");
+    vga_print("\n  malformed entries: "); vga_print_dec(m->malformed_entries);
+    vga_print("\n  ignored high map : "); vga_print_dec(m->ignored_high_regions);
+    vga_print("\n  tracked endpoint : "); vga_print_hex(m->tracked_end);
+    vga_print("\n  validation result: "); vga_print(m->validation_error);
     vga_print("\n  total memory     : "); vga_print_dec(m->total_kib); vga_print(" KiB");
     vga_print("\n  usable memory    : "); vga_print_dec(m->usable_kib); vga_print(" KiB");
     vga_print("\n  reserved memory  : "); vga_print_dec(m->reserved_kib); vga_print(" KiB");
@@ -470,6 +480,8 @@ static void cmd_pages(void)
     vga_print("  used/reserved pages   : "); vga_print_dec(p.used_pages); vga_print("\n");
     vga_print("  low-memory reserved   : "); vga_print_dec(p.reserved_low_pages); vga_print("\n");
     vga_print("  kernel reserved       : "); vga_print_dec(p.reserved_kernel_pages); vga_print("\n");
+    vga_print("  bitmap consistent     : "); vga_print(p.bitmap_consistent ? "yes" : "no"); vga_print("\n");
+    vga_print("  critical ranges       : "); vga_print(p.critical_ranges_reserved ? "reserved" : "INVALID"); vga_print("\n");
     vga_print("  heap reserved         : "); vga_print_dec(p.reserved_heap_pages); vga_print("\n");
     vga_print("No virtual memory or page allocation API is active yet.\n");
 }

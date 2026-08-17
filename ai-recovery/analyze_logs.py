@@ -683,6 +683,20 @@ def main():
         print(f"  * Total: {kernel_memory.get('total_kib', '?')} KiB")
         print(f"  * Usable: {kernel_memory.get('usable_kib', '?')} KiB")
         print(f"  * Allocation mode: {kernel_memory.get('allocation_mode', '?')}")
+        print(f"  * Map validated/normalized: "
+              f"{kernel_memory.get('map_validated', '?')}/"
+              f"{kernel_memory.get('normalized', '?')}")
+        print(f"  * Defensive parser test: "
+              f"{kernel_memory.get('hardening_self_test', '?')}")
+        print(f"  * Bitmap/critical reservations: "
+              f"{kernel_memory.get('bitmap_consistent', '?')}/"
+              f"{kernel_memory.get('critical_ranges_reserved', '?')}")
+        print(f"  * Map validation result: "
+              f"{kernel_memory.get('validation_error', '?')}")
+        if (kernel_memory.get("hardening_self_test") != "pass" or
+                kernel_memory.get("bitmap_consistent") != "yes" or
+                kernel_memory.get("critical_ranges_reserved") != "yes"):
+            print("  !! WARNING: physical memory tracking is not safe for allocation.")
         print(f"  * Page tracker: {pages.get('free_pages', '?')} free / "
               f"{pages.get('total_pages', '?')} tracked pages")
         if kernel_memory.get("map_available") != "yes":

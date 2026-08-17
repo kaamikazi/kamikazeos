@@ -228,7 +228,15 @@ void report_send(void)
     serial_print("[MEMORY]\n");
     serial_print("map_available="); serial_print(mem_status->map_available ? "yes" : "no");
     serial_print("\nfallback_used="); serial_print(mem_status->fallback_used ? "yes" : "no");
+    serial_print("\nmap_validated="); serial_print(mem_status->map_validated ? "yes" : "no");
+    serial_print("\nnormalized="); serial_print(mem_status->normalized ? "yes" : "no");
+    serial_print("\nbitmap_consistent="); serial_print(mem_status->bitmap_consistent ? "yes" : "no");
+    serial_print("\ncritical_ranges_reserved="); serial_print(mem_status->critical_ranges_reserved ? "yes" : "no");
+    serial_print("\nhardening_self_test="); serial_print(mem_status->hardening_self_test ? "pass" : "fail");
     serial_print("\nregion_count="); serial_print_dec(mem_status->region_count);
+    serial_print("\nraw_region_count="); serial_print_dec(mem_status->raw_region_count);
+    serial_print("\nmalformed_entries="); serial_print_dec(mem_status->malformed_entries);
+    serial_print("\nignored_high_regions="); serial_print_dec(mem_status->ignored_high_regions);
     serial_print("\ntotal_kib="); serial_print_dec(mem_status->total_kib);
     serial_print("\nusable_kib="); serial_print_dec(mem_status->usable_kib);
     serial_print("\nreserved_kib="); serial_print_dec(mem_status->reserved_kib);
@@ -236,6 +244,10 @@ void report_send(void)
     serial_print("\nkernel_end="); serial_print_dec(mem_status->kernel_end);
     serial_print("\nheap_start="); serial_print_dec(mem_status->heap_start);
     serial_print("\nheap_end="); serial_print_dec(mem_status->heap_end);
+    serial_print("\nhighest_address_low="); serial_print_dec(mem_status->highest_address_low);
+    serial_print("\nhighest_address_high="); serial_print_dec(mem_status->highest_address_high);
+    serial_print("\ntracked_end="); serial_print_dec(mem_status->tracked_end);
+    serial_print("\nvalidation_error="); serial_print(mem_status->validation_error);
     serial_print("\nallocation_mode="); serial_print(mem_status->allocation_mode);
     serial_print("\nvirtual_memory=no\nheap_allocator=");
     serial_print(heap_status.available ? "bounded_bump" : "no");
@@ -263,6 +275,8 @@ void report_send(void)
     serial_print("\nreserved_kernel_pages="); serial_print_dec(page_status.reserved_kernel_pages);
     serial_print("\nreserved_heap_pages="); serial_print_dec(page_status.reserved_heap_pages);
     serial_print("\ntracked_limit_kib="); serial_print_dec(page_status.tracked_limit_kib);
+    serial_print("\nbitmap_consistent="); serial_print(page_status.bitmap_consistent ? "yes" : "no");
+    serial_print("\ncritical_ranges_reserved="); serial_print(page_status.critical_ranges_reserved ? "yes" : "no");
     serial_print("\nvirtual_memory=no\n");
 
     serial_print("[KERNEL_HEAP]\n");

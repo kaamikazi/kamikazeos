@@ -10,7 +10,8 @@
 
 #include <stdint.h>
 
-#define MEMORY_MAX_REGIONS 16
+/* 64 raw ranges can produce up to 128 boundaries plus kernel reservations. */
+#define MEMORY_MAX_REGIONS 144
 #define MEMORY_PAGE_SIZE   4096u
 
 enum memory_region_type {
@@ -27,7 +28,15 @@ struct memory_region {
 struct memory_status {
     int map_available;
     int fallback_used;
+    int map_validated;
+    int normalized;
+    int bitmap_consistent;
+    int critical_ranges_reserved;
+    int hardening_self_test;
     uint32_t region_count;
+    uint32_t raw_region_count;
+    uint32_t malformed_entries;
+    uint32_t ignored_high_regions;
     uint32_t total_kib;
     uint32_t usable_kib;
     uint32_t reserved_kib;
@@ -35,7 +44,11 @@ struct memory_status {
     uint32_t kernel_end;
     uint32_t heap_start;
     uint32_t heap_end;
+    uint32_t highest_address_low;
+    uint32_t highest_address_high;
+    uint32_t tracked_end;
     const char *allocation_mode;
+    const char *validation_error;
 };
 
 struct page_status {
@@ -47,6 +60,8 @@ struct page_status {
     uint32_t reserved_kernel_pages;
     uint32_t reserved_heap_pages;
     uint32_t tracked_limit_kib;
+    int bitmap_consistent;
+    int critical_ranges_reserved;
 };
 
 void memory_init(uint32_t mb_magic, uint32_t mb_info);
@@ -56,5 +71,6 @@ uint32_t memory_region_count(void);
 int memory_region_get(uint32_t index, struct memory_region *out);
 const char *memory_region_type_name(uint32_t type);
 int memory_map_available(void);
+int memory_hardening_self_test(void);
 
 #endif /* KMZ_MEMORY_H */

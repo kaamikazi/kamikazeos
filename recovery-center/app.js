@@ -340,6 +340,12 @@ function renderMemory(data) {
   box.innerHTML = "";
   box.appendChild(metric("Map available", mem.map_available || "?"));
   box.appendChild(metric("Fallback used", mem.fallback_used || "?"));
+  box.appendChild(metric("Map validated", mem.map_validated || "?"));
+  box.appendChild(metric("Normalized", mem.normalized || "?"));
+  box.appendChild(metric("Parser self-test", mem.hardening_self_test || "?"));
+  box.appendChild(metric("Bitmap consistent", mem.bitmap_consistent || "?"));
+  box.appendChild(metric("Critical ranges", mem.critical_ranges_reserved || "?"));
+  box.appendChild(metric("Validation result", mem.validation_error || "?"));
   box.appendChild(metric("Regions", mem.region_count || "0"));
   box.appendChild(metric("Usable", mem.usable_kib ? `${mem.usable_kib} KiB` : "?"));
   box.appendChild(metric("Reserved", mem.reserved_kib ? `${mem.reserved_kib} KiB` : "?"));
@@ -347,6 +353,8 @@ function renderMemory(data) {
   box.appendChild(metric("Kernel pages", pages.reserved_kernel_pages || "?"));
   box.appendChild(metric("Mode", mem.allocation_mode || "physical_page_tracker_only"));
   const healthy = (mem.map_available === "yes" || mem.fallback_used === "yes") &&
+    mem.bitmap_consistent === "yes" && mem.critical_ranges_reserved === "yes" &&
+    mem.hardening_self_test === "pass" &&
     parseInt(pages.free_pages || "0", 10) > 0;
   setBadge("memory-status", mem.map_available === "yes" ? "multiboot map" :
     mem.fallback_used === "yes" ? "fallback map" : "missing",
