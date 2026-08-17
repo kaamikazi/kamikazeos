@@ -640,6 +640,24 @@ def main():
         events.append({"code": "RING3-VALIDATION", "severity": "panic",
                        "component": "Ring3", "message": "CPL3 enabled without complete validation",
                        "hint": "keep execution disabled until every check passes"})
+    roundtrip_claimed = ring3.get("test_status") == "passed"
+    roundtrip_valid = roundtrip_claimed and all((
+        ring3.get("approval_consumed") == "yes",
+        ring3.get("returned_to_kernel") == "yes",
+        ring3.get("esp0_switch_observed") == "yes",
+        ring3.get("context_preservation_verified") == "yes",
+        user_execution.get("last_cpl") == "3",
+        user_execution.get("last_syscall") == "9",
+        user_execution.get("exit_result") == "0",
+        user_fault.get("present") != "yes",
+        memory_safe,
+    ))
+    if roundtrip_claimed and not roundtrip_valid:
+        events.append({"code": "RING3-VALIDATION", "severity": "panic",
+                       "component": "Ring3", "message": "Incomplete CPL3 round-trip success evidence",
+                       "hint": "keep execution disabled and inspect saved origin, ESP0, return, and mapping evidence"})
+    if roundtrip_valid:
+        ring3_readiness["readiness"] = "roundtrip_verified"
 
     if meta:
         print(f"\nKernel version : {meta.get('version', '?')}")
@@ -797,12 +815,15 @@ def main():
             print("  !! WARNING: TSS or ESP0 kernel stack is invalid.")
         if privilege.get("current_cpl") not in (None, "0"):
             print("  !! WARNING: exported kernel shell CPL is not Ring 0.")
-        if ring3_readiness.get("readiness") not in ("foundation_ready", "controlled_test_ready"):
+        if ring3_readiness.get("readiness") not in (
+                "foundation_ready", "controlled_test_ready", "roundtrip_verified"):
             print("  !! WARNING: Ring 3 controlled-test readiness is incomplete.")
 
     if ring3 or user_memory or user_execution:
         print("\nControlled Ring 3 seed:")
         print(f"  * Execution enabled: {ring3.get('execution_enabled', 'no')}")
+        print(f"  * Approval consumed: {ring3.get('approval_consumed', 'no')}")
+        print(f"  * Fault test approved: {ring3.get('fault_test_approved', 'no')}")
         print(f"  * Test status: {ring3.get('test_status', '?')}")
         print(f"  * User code: {user_memory.get('user_code_start', '?')} - {user_memory.get('user_code_end', '?')} (read-only)")
         print(f"  * User stack: {user_memory.get('user_stack_start', '?')} - {user_memory.get('user_stack_end', '?')} (fixed)")
@@ -811,7 +832,11 @@ def main():
         print(f"  * Last CPL/syscall: {user_execution.get('last_cpl', '?')}/{user_execution.get('last_syscall', '?')}")
         print(f"  * ESP0 switch: {user_execution.get('esp0_switch_observed', '?')}")
         print(f"  * Returned to kernel: {user_execution.get('returned_to_kernel', '?')}")
-        print("  * Boundary: one linked trusted routine is prepared and held; no ELF, TinyFS execution, or untrusted code.")
+        print(f"  * Context preserved: {user_execution.get('context_preservation_verified', '?')}")
+        if roundtrip_valid:
+            print("  * Boundary: the fixed linked routine completed one verified round trip; its approval was consumed and the gate is held.")
+        else:
+            print("  * Boundary: one linked trusted routine is prepared and held; no ELF, TinyFS execution, or untrusted code.")
 
     if user_fault.get("present") == "yes":
         intentional = user_fault.get("intentional_test") == "yes"

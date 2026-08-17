@@ -134,7 +134,7 @@ function renderV20Overview(data) {
     (status.heap_available || data.kernel_heap?.available) === "yes" &&
     (status.paging_prepared || data.paging?.prepared) === "yes" &&
     (data.paging?.identity_map_valid || "yes") === "yes" &&
-    (privilegeFoundation === "ready" || privilegeFoundation === "foundation_ready") &&
+    ["ready", "foundation_ready", "controlled_test_ready", "roundtrip_verified"].includes(privilegeFoundation) &&
     status.tinyfs_status === "formatted" &&
     (status.recovery_backend || "").includes("disk") &&
     parseInt(status.app_registry || "0", 10) > 0;
@@ -258,7 +258,7 @@ function renderPrivilege(data) {
   pbox.appendChild(metric("ELF loader", readiness.elf_loader || "no"));
   pbox.appendChild(metric("Process isolation", readiness.process_isolation || "no"));
   pbox.appendChild(metric("Ring 3 execution", readiness.execution_enabled || "no"));
-  const foundationReady = ["foundation_ready", "controlled_test_ready"].includes(readiness.readiness);
+  const foundationReady = ["foundation_ready", "controlled_test_ready", "roundtrip_verified"].includes(readiness.readiness);
   setBadge("privilege-status", foundationReady ? "privilege foundation ready" : "not ready",
     foundationReady ? "good" : "warn");
 }
@@ -273,6 +273,8 @@ function renderRing3(data) {
   rbox.innerHTML = "";
   rbox.appendChild(metric("Initialized", ring3.initialized || "?"));
   rbox.appendChild(metric("Execution enabled", ring3.execution_enabled || "no"));
+  rbox.appendChild(metric("Approval consumed", ring3.approval_consumed || "no"));
+  rbox.appendChild(metric("Fault test approved", ring3.fault_test_approved || "no"));
   rbox.appendChild(metric("Trusted routine", ring3.trusted_routine || "builtin_linked_only"));
   rbox.appendChild(metric("Test status", ring3.test_status || execution.test_status || "never_run"));
   rbox.appendChild(metric("Last caller CPL", execution.last_cpl || ring3.last_cpl || "0"));
@@ -280,9 +282,13 @@ function renderRing3(data) {
   rbox.appendChild(metric("Exit result", execution.exit_result || ring3.exit_result || "0"));
   rbox.appendChild(metric("ESP0 switch", execution.esp0_switch_observed || ring3.esp0_switch_observed || "no"));
   rbox.appendChild(metric("Returned to kernel", execution.returned_to_kernel || ring3.returned_to_kernel || "no"));
-  setBadge("ring3-status", ring3.execution_enabled === "yes" ?
-    (execution.test_status === "passed" ? "CPL3 round trip passed" : "fixed test enabled") :
-    "execution disabled", ring3.execution_enabled === "yes" ? "good" : "warn");
+  rbox.appendChild(metric("Context preserved", execution.context_preservation_verified || ring3.context_preservation_verified || "no"));
+  const roundtripVerified = (ring3.test_status || execution.test_status) === "passed" &&
+    (execution.returned_to_kernel || ring3.returned_to_kernel) === "yes" &&
+    (execution.context_preservation_verified || ring3.context_preservation_verified) === "yes";
+  setBadge("ring3-status", roundtripVerified ? "CPL3 verified; gate held" :
+    (ring3.execution_enabled === "yes" ? "fixed test enabled" : "execution disabled"),
+    roundtripVerified || ring3.execution_enabled === "yes" ? "good" : "warn");
 
   const mbox = $("user-memory-panel");
   mbox.innerHTML = "";

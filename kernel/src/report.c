@@ -435,7 +435,16 @@ void report_send(void)
     serial_print("\nesp0_ready="); serial_print(privilege_state.kernel_stack_valid ? "yes" : "no");
     serial_print("\npaging_ready="); serial_print(privilege_state.paging_enabled ? "yes" : "no");
     serial_print("\nsyscall_gate_dpl="); serial_print_dec(privilege_state.syscall_gate_dpl);
-    serial_print("\nreadiness="); serial_print(ring3_state.execution_enabled ? "controlled_test_ready" : "not_ready");
+    serial_print("\nreadiness=");
+    if (ring3_state.test_completed && ring3_state.returned_to_kernel &&
+        ring3_state.context_preservation_verified)
+        serial_print("roundtrip_verified");
+    else if (ring3_state.execution_enabled)
+        serial_print("controlled_test_ready");
+    else if (ring3_state.prerequisites_valid)
+        serial_print("foundation_ready");
+    else
+        serial_print("not_ready");
     serial_print("\nexecution_enabled="); serial_print(ring3_state.execution_enabled ? "yes" : "no");
     serial_print("\nuser_stack=fixed_bounded\nuser_page_mappings=minimal_explicit\nelf_loader=no\nprocess_isolation=no\n");
 

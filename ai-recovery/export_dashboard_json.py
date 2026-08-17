@@ -111,6 +111,17 @@ def main():
     post_user_fault = parse_section_evidence(raw_text, "[USER_FAULT]")
     if post_user_fault:
         user_fault.update(post_user_fault)
+    if all((
+            ring3.get("test_status") == "passed",
+            ring3.get("approval_consumed") == "yes",
+            ring3.get("returned_to_kernel") == "yes",
+            ring3.get("esp0_switch_observed") == "yes",
+            ring3.get("context_preservation_verified") == "yes",
+            user_execution.get("last_cpl") == "3",
+            user_execution.get("last_syscall") == "9",
+            user_execution.get("exit_result") == "0",
+            user_fault.get("present") != "yes")):
+        ring3_readiness["readiness"] = "roundtrip_verified"
 
     # Package recommendations: same catalog-only rule as actions.
     pkg_recs = []
