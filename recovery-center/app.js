@@ -228,6 +228,7 @@ function renderPrivilege(data) {
   gbox.appendChild(metric("User data", `${gdt.user_data_selector || "?"} / DPL ${gdt.user_data_dpl || "3"}`));
   gbox.appendChild(metric("TSS selector", gdt.tss_selector || "?"));
   gbox.appendChild(metric("User segments", gdt.user_segments_valid || "?"));
+  gbox.appendChild(metric("Accessed-bit validation", gdt.accessed_bit_validation || "?"));
   setBadge("gdt-status", gdt.loaded === "yes" && gdt.user_segments_valid === "yes" ? "segments valid" : "review",
     gdt.loaded === "yes" && gdt.user_segments_valid === "yes" ? "good" : "bad");
 

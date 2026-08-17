@@ -684,6 +684,7 @@ static void cmd_gdt(void)
     vga_print("  user data selector  : "); vga_print_hex(status.user_data_selector); vga_print(" DPL 3\n");
     vga_print("  TSS selector        : "); vga_print_hex(status.tss_selector); vga_print("\n");
     vga_print("  user segments valid : "); vga_print(status.user_segments_valid ? "yes" : "no"); vga_print("\n");
+    vga_print("  accessed-bit check  : "); vga_print(status.accessed_bit_validation ? "pass" : "fail"); vga_print("\n");
     vga_print("  TSS descriptor valid: "); vga_print(status.tss_descriptor_valid ? "yes" : "no"); vga_print("\n");
 }
 

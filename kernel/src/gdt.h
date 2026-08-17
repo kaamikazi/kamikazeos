@@ -16,6 +16,7 @@
 struct gdt_status {
     int loaded;
     int user_segments_valid;
+    int accessed_bit_validation;
     int tss_descriptor_valid;
     uint16_t kernel_code_selector;
     uint16_t kernel_data_selector;

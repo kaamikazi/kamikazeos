@@ -385,6 +385,7 @@ void report_send(void)
     serial_print("\nuser_data_dpl="); serial_print_dec(gdt_state.user_data_dpl);
     serial_print("\ntss_selector="); serial_print_dec(gdt_state.tss_selector);
     serial_print("\nuser_segments_valid="); serial_print(gdt_state.user_segments_valid ? "yes" : "no");
+    serial_print("\naccessed_bit_validation="); serial_print(gdt_state.accessed_bit_validation ? "pass" : "fail");
     serial_print("\ntss_descriptor_valid="); serial_print(gdt_state.tss_descriptor_valid ? "yes" : "no");
     serial_print("\n");
 
