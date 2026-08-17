@@ -8,7 +8,7 @@
 #include "tss.h"
 
 /* Default release posture; a disposable test build may temporarily set this. */
-#define RING3_ROUNDTRIP_TEST_APPROVED 0
+#define RING3_ROUNDTRIP_TEST_APPROVED 1
 
 extern char _user_code_start;
 extern char _user_code_end;
