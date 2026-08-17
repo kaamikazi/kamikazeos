@@ -45,6 +45,7 @@ static const struct syscall_entry table[] = {
 
 static struct syscall_stats stats;
 static char last_text[SYSCALL_TEXT_MAX + 1u];
+extern int syscall_register_preservation_test_asm(void);
 
 static const struct syscall_entry *find_entry(uint32_t id)
 {
@@ -185,14 +186,95 @@ static int32_t handle_user_exit(uint32_t a, uint32_t b, uint32_t c,
     return SYSCALL_ERR_DENIED;
 }
 
-static int syscall_origin_allowed(uint32_t id, uint8_t cpl)
+static int frame_data_selectors_match(const struct interrupt_frame *frame,
+                                      uint32_t selector)
 {
+    return frame->ds == selector && frame->es == selector &&
+           frame->fs == selector && frame->gs == selector;
+}
+
+static enum syscall_origin classify_syscall_origin(
+    const struct interrupt_frame *frame, int require_runtime_stack)
+{
+    if (!frame)
+        return SYSCALL_ORIGIN_INVALID;
+    uint8_t cpl = interrupt_frame_caller_cpl(frame);
     if (cpl == 0u)
+        return frame->cs == GDT_KERNEL_CODE_SELECTOR &&
+               frame_data_selectors_match(frame, GDT_KERNEL_DATA_SELECTOR)
+            ? SYSCALL_ORIGIN_KERNEL : SYSCALL_ORIGIN_INVALID;
+    if (cpl != 3u || frame->cs != GDT_USER_CODE_SELECTOR ||
+        !frame_data_selectors_match(frame, GDT_USER_DATA_SELECTOR))
+        return SYSCALL_ORIGIN_INVALID;
+
+    uint32_t user_esp = 0;
+    uint32_t user_ss = 0;
+    if (!interrupt_frame_user_stack(frame, &user_esp, &user_ss) ||
+        user_ss != GDT_USER_DATA_SELECTOR)
+        return SYSCALL_ORIGIN_INVALID;
+    struct user_memory_status memory;
+    paging_user_memory_status(&memory);
+    if (!memory.validated || user_esp <= memory.stack_start ||
+        user_esp > memory.stack_end)
+        return SYSCALL_ORIGIN_INVALID;
+    if (require_runtime_stack) {
+        uint32_t frame_start = (uint32_t)frame;
+        uint32_t frame_end = frame_start + sizeof(*frame) +
+                             sizeof(struct interrupt_user_stack);
+        if (frame_end < frame_start ||
+            frame_start < tss_privilege_stack_bottom() ||
+            frame_end > tss_privilege_stack_top())
+            return SYSCALL_ORIGIN_INVALID;
+    }
+    return SYSCALL_ORIGIN_USER;
+}
+
+static int syscall_origin_allowed(uint32_t id, enum syscall_origin origin)
+{
+    if (origin == SYSCALL_ORIGIN_KERNEL)
         return id != SYS_USER_EXIT;
-    if (cpl != 3u)
+    if (origin != SYSCALL_ORIGIN_USER)
         return 0;
     return id == SYS_GET_TICKS || id == SYS_GET_HEALTH ||
            id == SYS_SYSTEM_INFO || id == SYS_USER_EXIT;
+}
+
+static int syscall_origin_policy_self_test(void)
+{
+    struct {
+        struct interrupt_frame frame;
+        struct interrupt_user_stack user;
+    } sample;
+    kmemset(&sample, 0, sizeof(sample));
+
+    sample.frame.cs = GDT_KERNEL_CODE_SELECTOR;
+    sample.frame.ds = GDT_KERNEL_DATA_SELECTOR;
+    sample.frame.es = GDT_KERNEL_DATA_SELECTOR;
+    sample.frame.fs = GDT_KERNEL_DATA_SELECTOR;
+    sample.frame.gs = GDT_KERNEL_DATA_SELECTOR;
+    if (classify_syscall_origin(&sample.frame, 0) != SYSCALL_ORIGIN_KERNEL)
+        return 0;
+    sample.frame.cs = GDT_KERNEL_CODE_SELECTOR | 1u;
+    if (classify_syscall_origin(&sample.frame, 0) != SYSCALL_ORIGIN_INVALID)
+        return 0;
+
+    struct user_memory_status memory;
+    paging_user_memory_status(&memory);
+    sample.frame.cs = GDT_USER_CODE_SELECTOR;
+    sample.frame.ds = GDT_USER_DATA_SELECTOR;
+    sample.frame.es = GDT_USER_DATA_SELECTOR;
+    sample.frame.fs = GDT_USER_DATA_SELECTOR;
+    sample.frame.gs = GDT_USER_DATA_SELECTOR;
+    sample.user.ss = GDT_USER_DATA_SELECTOR;
+    sample.user.esp = memory.stack_end;
+    if (classify_syscall_origin(&sample.frame, 0) != SYSCALL_ORIGIN_USER)
+        return 0;
+    sample.frame.ds = GDT_KERNEL_DATA_SELECTOR;
+    if (classify_syscall_origin(&sample.frame, 0) != SYSCALL_ORIGIN_INVALID)
+        return 0;
+    sample.frame.ds = GDT_USER_DATA_SELECTOR;
+    sample.user.ss = GDT_KERNEL_DATA_SELECTOR;
+    return classify_syscall_origin(&sample.frame, 0) == SYSCALL_ORIGIN_INVALID;
 }
 
 void syscall_init(void)
@@ -203,6 +285,7 @@ void syscall_init(void)
     stats.registered_count = syscall_table_count();
     stats.last_id = 0xFFFFFFFFu;
     stats.last_result = SYSCALL_OK;
+    stats.last_origin = SYSCALL_ORIGIN_INVALID;
     stats.user_mode_available = 0;
     uint8_t requested_dpl = (gdt_user_segments_valid() &&
                              tss_is_loaded() &&
@@ -212,6 +295,14 @@ void syscall_init(void)
     stats.initialized = idt_syscall_gate_installed();
     stats.gate_dpl = idt_syscall_gate_dpl();
     stats.syscall_user_gate = stats.initialized && stats.gate_dpl == 3u;
+    stats.origin_policy_self_test = syscall_origin_policy_self_test();
+    stats.register_preservation_test = stats.initialized &&
+        stats.origin_policy_self_test && syscall_register_preservation_test_asm();
+    if (!stats.origin_policy_self_test || !stats.register_preservation_test) {
+        error_log(SEV_ERROR, "SYS-ERR-005", "Syscalls",
+                  "Syscall origin or register-preservation self-test failed",
+                  "keep Ring 3 execution disabled and inspect vector 128 entry");
+    }
     error_log(stats.initialized ? SEV_INFO : SEV_ERROR,
               stats.initialized ? "SYS-000" : "SYS-ERR-003", "Syscalls",
               stats.initialized ? (stats.syscall_user_gate
@@ -234,23 +325,39 @@ void syscall_dispatch(struct interrupt_frame *frame)
     stats.total_calls++;
     stats.last_id = id;
     uint8_t caller_cpl = (uint8_t)(frame->cs & 3u);
+    enum syscall_origin origin = classify_syscall_origin(frame, 1);
     stats.last_caller_cpl = caller_cpl;
+    stats.last_origin = (uint8_t)origin;
+    stats.last_origin_valid = origin != SYSCALL_ORIGIN_INVALID;
+    stats.last_cs = frame->cs;
+    stats.last_ds = frame->ds;
+    stats.last_es = frame->es;
+    stats.last_fs = frame->fs;
+    stats.last_gs = frame->gs;
     stats.last_kernel_esp = (uint32_t)frame;
-    if (caller_cpl == 0u) stats.cpl0_calls++;
-    else if (caller_cpl == 3u) stats.cpl3_calls++;
-    ring3_note_syscall(caller_cpl, id, (uint32_t)frame);
-    if (caller_cpl == 3u && (uint32_t)frame >= tss_privilege_stack_bottom() &&
+    if (origin == SYSCALL_ORIGIN_KERNEL) stats.cpl0_calls++;
+    else if (origin == SYSCALL_ORIGIN_USER) stats.cpl3_calls++;
+    if (origin != SYSCALL_ORIGIN_INVALID)
+        ring3_note_syscall(caller_cpl, id, (uint32_t)frame);
+    if (origin == SYSCALL_ORIGIN_USER &&
+        (uint32_t)frame >= tss_privilege_stack_bottom() &&
         (uint32_t)frame < tss_privilege_stack_top())
         stats.esp0_switch_observed = 1;
     last_text[0] = '\0';
     const struct syscall_entry *entry = find_entry(id);
     if (!stats.initialized) {
         result = SYSCALL_ERR_UNAVAILABLE;
+    } else if (origin == SYSCALL_ORIGIN_INVALID) {
+        result = SYSCALL_ERR_DENIED;
+        stats.origin_denied_calls++;
+        error_log(SEV_WARNING, "SYS-ERR-004", "Syscalls",
+                  "Syscall rejected invalid saved selector origin",
+                  "inspect CS data selectors and privilege-transition stack");
     } else if (!entry) {
         result = SYSCALL_ERR_UNKNOWN;
         error_log(SEV_WARNING, "SYS-ERR-001", "Syscalls",
                   "Unknown syscall ID rejected", "use the fixed syscall table");
-    } else if (!syscall_origin_allowed(id, caller_cpl)) {
+    } else if (!syscall_origin_allowed(id, origin)) {
         result = SYSCALL_ERR_DENIED;
         stats.origin_denied_calls++;
         error_log(SEV_WARNING, "SYS-ERR-004", "Syscalls",
@@ -310,6 +417,15 @@ const char *syscall_result_name(int32_t result)
     case SYSCALL_ERR_DENIED: return "denied";
     case SYSCALL_ERR_UNAVAILABLE: return "unavailable";
     default: return "invalid_result";
+    }
+}
+
+const char *syscall_origin_name(uint8_t origin)
+{
+    switch (origin) {
+    case SYSCALL_ORIGIN_KERNEL: return "kernel_cpl0";
+    case SYSCALL_ORIGIN_USER: return "validated_user_cpl3";
+    default: return "invalid";
     }
 }
 

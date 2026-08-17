@@ -26,6 +26,12 @@ enum syscall_result {
     SYSCALL_ERR_UNAVAILABLE = -4,
 };
 
+enum syscall_origin {
+    SYSCALL_ORIGIN_INVALID = 0,
+    SYSCALL_ORIGIN_KERNEL = 1,
+    SYSCALL_ORIGIN_USER = 2,
+};
+
 struct interrupt_frame;
 
 struct syscall_descriptor {
@@ -47,11 +53,20 @@ struct syscall_stats {
     int syscall_user_gate;
     uint8_t gate_dpl;
     uint8_t last_caller_cpl;
+    uint8_t last_origin;
+    int last_origin_valid;
+    uint32_t last_cs;
+    uint32_t last_ds;
+    uint32_t last_es;
+    uint32_t last_fs;
+    uint32_t last_gs;
     uint32_t cpl0_calls;
     uint32_t cpl3_calls;
     uint32_t origin_denied_calls;
     uint32_t last_kernel_esp;
     int esp0_switch_observed;
+    int origin_policy_self_test;
+    int register_preservation_test;
 };
 
 void syscall_init(void);
@@ -60,6 +75,7 @@ int32_t syscall_invoke_test(uint32_t id, uint32_t arg0, uint32_t arg1,
                             uint32_t arg2, uint32_t *value_out);
 const char *syscall_name(uint32_t id);
 const char *syscall_result_name(int32_t result);
+const char *syscall_origin_name(uint8_t origin);
 void syscall_stats(struct syscall_stats *out);
 uint32_t syscall_table_count(void);
 const struct syscall_descriptor *syscall_table_get(uint32_t index);

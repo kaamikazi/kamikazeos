@@ -196,6 +196,9 @@ function renderSyscalls(data) {
   box.appendChild(metric("Failed calls", syscalls.failed_calls || "0"));
   box.appendChild(metric("Last syscall", `${syscalls.last_id || "none"} ${syscalls.last_name || ""}`.trim()));
   box.appendChild(metric("Last result", syscalls.last_result || "?"));
+  box.appendChild(metric("Validated origin", `${syscalls.last_origin || "?"} / ${syscalls.last_origin_valid || "?"}`));
+  box.appendChild(metric("Origin policy test", syscalls.origin_policy_self_test || "?"));
+  box.appendChild(metric("Register restore test", syscalls.register_preservation_test || "?"));
   box.appendChild(metric("User mode", syscalls.user_mode_available || "no"));
   box.appendChild(metric("Gate DPL", syscalls.syscall_gate_dpl || "?"));
   box.appendChild(metric("User gate", syscalls.syscall_user_gate || "disabled"));

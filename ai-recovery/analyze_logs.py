@@ -733,12 +733,21 @@ def main():
         print(f"  * Gate DPL: {syscalls.get('syscall_gate_dpl', '?')}")
         print(f"  * User-callable gate: {syscalls.get('syscall_user_gate', 'disabled')}")
         print(f"  * Last caller CPL: {syscalls.get('last_caller_cpl', '?')}")
+        print(f"  * Last validated origin: {syscalls.get('last_origin', '?')} "
+              f"(valid={syscalls.get('last_origin_valid', '?')})")
         print(f"  * CPL0/CPL3 calls: {syscalls.get('cpl0_calls', '0')}/"
               f"{syscalls.get('cpl3_calls', '0')}")
         print(f"  * ESP0 switch observed: {syscalls.get('esp0_switch_observed', 'no')}")
+        print(f"  * Origin policy self-test: "
+              f"{syscalls.get('origin_policy_self_test', '?')}")
+        print(f"  * Register preservation test: "
+              f"{syscalls.get('register_preservation_test', '?')}")
         print("  * Boundary: CPL3 is limited to a fixed built-in routine and a small syscall allowlist; no pointer ABI exists.")
         if syscalls.get("initialized") != "yes":
             print("  !! WARNING: syscall gate is not initialized.")
+        if (syscalls.get("origin_policy_self_test") != "pass" or
+                syscalls.get("register_preservation_test") != "pass"):
+            print("  !! WARNING: syscall boundary defensive self-tests failed.")
         try:
             if int(syscalls.get("failed_calls", "0") or 0) > 0:
                 print("  !! WARNING: failed or unknown syscall attempts were recorded.")

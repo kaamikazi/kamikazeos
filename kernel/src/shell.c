@@ -657,6 +657,9 @@ static void cmd_syscalls(void)
     vga_print("  last result        : ");
     vga_print(stats.last_id == 0xFFFFFFFFu ? "none" : syscall_result_name(stats.last_result));
     vga_print("\n");
+    vga_print("  last origin        : "); vga_print(syscall_origin_name(stats.last_origin)); vga_print("\n");
+    vga_print("  origin self-test   : "); vga_print(stats.origin_policy_self_test ? "pass" : "fail"); vga_print("\n");
+    vga_print("  register restore   : "); vga_print(stats.register_preservation_test ? "pass" : "fail"); vga_print("\n");
     vga_print("  user mode available: no\n");
     vga_print("  gate DPL           : "); vga_print_dec(stats.gate_dpl); vga_print("\n");
     vga_print("  syscall user gate  : "); vga_print(stats.syscall_user_gate ? "enabled" : "disabled"); vga_print("\n");

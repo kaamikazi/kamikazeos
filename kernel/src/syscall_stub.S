@@ -45,4 +45,69 @@ syscall_isr:
     add esp, 8
     iretd
 
+/*
+ * Ring 0 ABI regression: EAX and EDX are documented syscall outputs. This
+ * helper verifies every other GPR, ESP, and all data selectors survive the
+ * interrupt round trip. It never changes privilege level.
+ */
+.global syscall_register_preservation_test_asm
+.type syscall_register_preservation_test_asm, @function
+syscall_register_preservation_test_asm:
+    push ebp
+    push ebx
+    push esi
+    push edi
+    sub esp, 8
+    mov dword ptr [esp], esp
+    mov dword ptr [esp + 4], 1
+
+    mov ebp, 0x13579BDF
+    xor ebx, ebx
+    xor ecx, ecx
+    mov esi, 0x2468ACE0
+    mov edi, 0x55AA55AA
+    xor edx, edx
+    mov eax, 2                 /* SYS_GET_TICKS */
+    int 0x80
+
+    cmp eax, 0                /* SYSCALL_OK */
+    jne syscall_preservation_failed
+    cmp ebx, 0
+    jne syscall_preservation_failed
+    cmp ecx, 0
+    jne syscall_preservation_failed
+    cmp esi, 0x2468ACE0
+    jne syscall_preservation_failed
+    cmp edi, 0x55AA55AA
+    jne syscall_preservation_failed
+    cmp ebp, 0x13579BDF
+    jne syscall_preservation_failed
+    cmp esp, dword ptr [esp]
+    jne syscall_preservation_failed
+    mov ax, ds
+    cmp ax, GDT_KERNEL_DATA_SELECTOR
+    jne syscall_preservation_failed
+    mov ax, es
+    cmp ax, GDT_KERNEL_DATA_SELECTOR
+    jne syscall_preservation_failed
+    mov ax, fs
+    cmp ax, GDT_KERNEL_DATA_SELECTOR
+    jne syscall_preservation_failed
+    mov ax, gs
+    cmp ax, GDT_KERNEL_DATA_SELECTOR
+    jne syscall_preservation_failed
+    jmp syscall_preservation_done
+
+syscall_preservation_failed:
+    mov dword ptr [esp + 4], 0
+syscall_preservation_done:
+    mov eax, dword ptr [esp + 4]
+    add esp, 8
+    pop edi
+    pop esi
+    pop ebx
+    pop ebp
+    ret
+.size syscall_register_preservation_test_asm, . - syscall_register_preservation_test_asm
+
 .section .note.GNU-stack,"",@progbits
