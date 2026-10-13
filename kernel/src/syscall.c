@@ -175,7 +175,7 @@ static int32_t handle_system_info(uint32_t a, uint32_t b, uint32_t c,
     if (timer_is_enabled()) flags |= 2u;
     if (tinyfs_status()->formatted) flags |= 4u;
     *value = flags;
-    set_text("KamikazeOS 2.4 kernel_internal_syscalls");
+    set_text("KamikazeOS 2.6.1 kernel_internal_syscalls");
     return SYSCALL_OK;
 }
 

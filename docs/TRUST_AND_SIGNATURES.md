@@ -92,6 +92,31 @@ Because full Ed25519 is not implemented in the kernel, report fields say
 responsible for real signature verification before import, and the kernel is
 still responsible for rejecting unsafe manifests at boot.
 
+## Manifest Origins (v2.6.1)
+
+The kernel decides trust per manifest, by where it came from:
+
+| `source` | Accepted when | `signature_mode` |
+|---|---|---|
+| `built_in_seed` | compiled into the kernel (no disk manifests present) | `built_in_placeholder` |
+| `disk_seed_copy` | every field equals a compiled-in seed, the checksum is intact, and the sector carries **no** signature metadata | `built_in_seed_identity_match_no_signature` |
+| `disk_imported` | `signature_status=trusted`, host-verified marker, Ed25519 algorithm id, **and** the recorded signer key hash equals the pinned KMZ-ROOT-1 fingerprint prefix | `simulated_kernel_check_host_ed25519` |
+
+A disk seed copy is trusted because the kernel image already contains the
+identical manifest. It is never reported as signed or as Ed25519. Changing
+any field of a seed copy (for example its description) makes it an
+ordinary import, which is blocked without real signature metadata.
+
+The key-hash comparison is a consistency check on host-written metadata.
+It is **not** cryptographic verification, and the kernel still runs no
+Ed25519 math.
+
+`seed-manifests confirm` writes only the seeds that are missing, and only
+into all-zero manifest slots. It never overwrites an imported manifest or
+an unparseable sector (`MAN-003` reports seeds that found no free slot).
+Afterwards it re-runs package initialisation, so manifests, A/B slots,
+lifecycle state, and package status agree.
+
 ## Public Demo Wording
 
 Use this exact distinction when presenting the project:

@@ -164,9 +164,9 @@ limited to 2048 bytes. TinyFS never interprets file contents as code.
 | `approve-pkg <id>` | Approve package if policy allows |
 | `apply-pkg <id>` | Apply simulated metadata update |
 | `verify-pkg <id>` | Verify applied package |
-| `rollback-pkg <id>` | Return to known-good slot |
+| `rollback-pkg <id>` | Return to known-good slot; refused (`PKG-REJECT-001`) unless this package still owns the running slot and its from-version is still in the rollback slot |
 | `manifests` | Package manifest table |
 | `slots` | Module A/B slot metadata |
 | `trust` | Trust anchor and signature mode |
-| `seed-manifests confirm` | Persist built-in manifests to disk |
+| `seed-manifests confirm` | Persist missing built-in manifests into empty manifest slots (never overwrites), then re-evaluate packages |
 | `reset-packages confirm` | Clear package states and reset slots |

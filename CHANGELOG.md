@@ -1,5 +1,32 @@
 # Changelog
 
+## v2.6.1 - Integrity Gate (hardening)
+
+Closes the storage, package, manifest, and health-scoring defects found by
+the independent read-only audit. No new OS features; Ring 3 stays held.
+
+- Recovery journal evidence is never overwritten. The append position is
+  rebuilt from the journal itself, and torn, corrupt, and claimed slots are
+  never reused. See `docs/STORAGE_INTEGRITY.md`.
+- Recovery state is generation-aware and redundant: a CRC-32 + generation
+  extension in LBA 1's reserved bytes, plus a full mirror at LBA 50.
+  Ambiguous or unreadable state makes the store read-only for that boot.
+- A full journal warns once per boot and counts refused appends.
+  Unchanged suggestions are no longer re-journaled every boot.
+- `rollback-pkg` requires the package to own the running slot
+  (`PKG-REJECT-001`). `apply-pkg` refuses while an update awaits
+  verification (`PKG-REJECT-002`).
+- `seed-manifests confirm` keeps built-in packages usable (disk seed
+  copies are trusted by exact identity with the compiled-in seeds, never
+  labelled as signed), fills only empty slots, and re-runs package init.
+  Imported manifests must also name the pinned anchor's key hash.
+- Health counts only classified production faults with per-boot counters.
+  Typos, refused operator requests, compiled-in canaries, intentional
+  tests, and device-state duplicates are logged but excluded. See
+  `docs/HEALTH_MODEL.md`.
+- Added a headless QEMU regression suite with failure injection on
+  disposable images (`make test`, `scripts/run-tests.ps1`, `tests/`).
+
 ## v2.6.0 - Ring 3 Seed (development)
 
 - Verified one explicitly approved disposable-QEMU `iretd` transition to the

@@ -267,7 +267,7 @@ static void cmd_about(void)
     cpu_vendor(vendor);
 
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
-    vga_print("KamikazeOS v2.6.0 \"Ring 3 Seed\"\n");
+    vga_print("KamikazeOS v2.6.1 \"Integrity Gate\"\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     vga_print("Experimental OS research prototype for auditable recovery.\n");
     vga_print("v2.6: one fixed linked CPL3 routine, bounded user stack, and gated int 0x80.\n");

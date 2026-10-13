@@ -658,7 +658,7 @@ def main():
     lines, after_lines, found = extract_last_boot_report(text)
 
     print("=" * 72)
-    print(" KamikazeOS AI RECOVERY CORE - recovery report (v2.6, rule-based)")
+    print(" KamikazeOS AI RECOVERY CORE - recovery report (v2.6.1, rule-based)")
     print("=" * 72)
 
     if not found:
