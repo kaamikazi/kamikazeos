@@ -493,6 +493,12 @@ class R1Regression(KmzCase):
         actions = self.rows(rep, "RECOVERY_ACTIONS")
         self.assertEqual(actions["ACT-999"]["status"], "blocked")
 
+    def test_host_manifest_tooling_unit_tests(self):
+        out = subprocess.run([sys.executable, str(ROOT / "tools" / "package-builder" /
+                                                  "test_manifest_validation.py")],
+                             capture_output=True, text=True, cwd=str(ROOT))
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+
     def test_analyzer_and_dashboard_consume_report(self):
         with self.boot() as q:
             q.run("approve ACT-001", r"code=REC-ACT-003")

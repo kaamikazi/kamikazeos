@@ -38,7 +38,7 @@ OBJS    := $(BUILD)/boot.o \
            $(patsubst $(KERNEL)/src/%.S,$(BUILD)/%.o,$(ASM_SRCS)) \
            $(patsubst $(KERNEL)/src/%.c,$(BUILD)/%.o,$(SRCS))
 
-.PHONY: all run run-serial clean reset-store analyze dashboard-json dashboard-open import-example-package export-manifests
+.PHONY: all run run-serial clean reset-store analyze dashboard-json dashboard-open import-example-package export-manifests test
 
 # The durable recovery disk: a 1 MiB raw image QEMU attaches as the primary
 # IDE disk. The kernel keeps its RecoveryStore here (state + journal), so
@@ -110,3 +110,9 @@ import-example-package: $(STORE)
 
 export-manifests:
 	python tools/package-builder/export_manifests.py $(STORE) --out build/exported-manifests.json
+
+# v2.6.1 headless regression suite: boots the kernel in QEMU against
+# DISPOSABLE images under build/test-runs/ (never build/recovery.img) and
+# injects storage failures between power-ons. Exit code != 0 on failure.
+test: $(ELF)
+	python tests/run_regression.py --no-build --elf $(ELF)
