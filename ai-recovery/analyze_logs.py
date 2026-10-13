@@ -258,6 +258,71 @@ RULES = {
         "action": "This is the correct safety behavior. Request less memory or "
                   "reboot the demo to reset the bump heap.",
     },
+    # v2.6.1 Integrity Gate: durable store integrity events.
+    "STORE-WARN-004": {
+        "cause":  "The 448-entry append-only recovery journal is full. New "
+                  "events are refused (counted as journal_dropped) instead of "
+                  "overwriting history. Logged once per boot.",
+        "action": "Export and archive the journal, then decide manually "
+                  "whether to run `clear-store confirm`. Nothing is erased "
+                  "automatically.",
+    },
+    "STORE-WARN-008": {
+        "cause":  "The journal append position was rebuilt from the journal's "
+                  "own entries because the state block recorded fewer entries "
+                  "(torn append) or no valid state existed.",
+        "action": "No repair needed: existing entries were preserved and new "
+                  "entries go after them. Investigate why the state write was lost.",
+    },
+    "STORE-WARN-009": {
+        "cause":  "The primary recovery state sector (LBA 1) failed validation; "
+                  "the mirror copy (LBA 50) was loaded instead.",
+        "action": "The next save rewrites both copies. Repeated occurrences "
+                  "point at unreliable storage - inspect the disk image.",
+    },
+    "STORE-WARN-010": {
+        "cause":  "The state block records more journal entries than the disk "
+                  "holds. The missing slots stay reserved and are never reused.",
+        "action": "Treat the missing entries as lost evidence and inspect how "
+                  "the journal sectors were modified.",
+    },
+    "STORE-WARN-011": {
+        "cause":  "One or more occupied journal slots fail their checksum. They "
+                  "are kept in place as evidence and skipped when reading.",
+        "action": "Do not clear the store until the damaged entries are "
+                  "examined with an exported image.",
+    },
+    "STORE-WARN-012": {
+        "cause":  "Only one of the two recovery state copies could be written.",
+        "action": "State is durable but not redundant. Check the disk image.",
+    },
+    "STORE-WARN-013": {
+        "cause":  "A journal append was refused because the store is read-only "
+                  "this boot (see STORE-ERR-011/012/014).",
+        "action": "Events from this boot exist only in the serial log - keep it.",
+    },
+    "STORE-ERR-010": {
+        "cause":  "Both recovery state copies are damaged. Flags were taken from "
+                  "the CMOS fallback and the journal position from the journal.",
+        "action": "Review quarantines and safe-mode flags manually; history "
+                  "entries were preserved.",
+    },
+    "STORE-ERR-011": {
+        "cause":  "Both state copies are internally valid with the same "
+                  "generation but different contents, so neither can be trusted.",
+        "action": "The store is read-only this boot. Export the image and decide "
+                  "manually which copy is correct before any `clear-store`.",
+    },
+    "STORE-ERR-012": {
+        "cause":  "A recovery state or journal sector could not be read, so the "
+                  "append position is unknown.",
+        "action": "The journal is read-only this boot. Check the disk attachment.",
+    },
+    "STORE-ERR-014": {
+        "cause":  "The journal slot chosen for an append already held data, which "
+                  "means something wrote the journal outside the kernel.",
+        "action": "Appends stopped for this boot; inspect the disk image.",
+    },
 }
 
 # severity (kernel) -> classification (report)
@@ -1090,6 +1155,18 @@ def main():
         print(f"  * Durable boot count: {store.get('durable_boot_count', '?')}")
         if store.get("cmos_fallback_used") == "1":
             print("  * NOTE: state was hydrated from the CMOS fallback this boot.")
+        if "state_source" in store:
+            print(f"  * State copy used: {store.get('state_source')} "
+                  f"(generation {store.get('state_generation', '?')}, "
+                  f"{store.get('state_redundancy', '?')})")
+            print(f"  * Journal: {store.get('journal_count', '?')}/"
+                  f"{store.get('journal_capacity', '?')} slots, "
+                  f"full={store.get('journal_full', '?')}, "
+                  f"appends refused this boot={store.get('journal_dropped', '?')}, "
+                  f"corrupt entries preserved={store.get('journal_corrupt_entries', '?')}")
+            if store.get("state_locked") == "1" or store.get("journal_locked") == "1":
+                print("  * WARNING: store is READ-ONLY this boot (ambiguous or "
+                      "unreadable state) - nothing was overwritten.")
         print()
 
     if journal:

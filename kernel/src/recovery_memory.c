@@ -161,10 +161,15 @@ void recovery_memory_init(void)
         backend = "disk+CMOS";
         cmos_fallback_used = 0;
     } else if (recovery_store_available()) {
-        /* Disk exists but holds no valid state (fresh image). Whatever
-           CMOS knew carries over and the first save makes it durable. */
+        /* Disk exists but holds no valid state (fresh image, or both
+           copies damaged). Whatever CMOS knew carries over and the first
+           save makes it durable. Boot numbers must keep moving forward
+           past every boot the journal already recorded, or new evidence
+           would be filed under an old boot's number. */
         backend = "disk+CMOS";
         cmos_fallback_used = cmos_valid;
+        if (recovery_store_max_journal_boot() > mem.boot_count)
+            mem.boot_count = recovery_store_max_journal_boot();
     } else {
         backend = cmos_valid ? "CMOS_only" : "fresh";
         cmos_fallback_used = cmos_valid;

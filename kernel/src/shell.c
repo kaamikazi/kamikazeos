@@ -1684,9 +1684,26 @@ static void cmd_store(void)
     vga_print_dec(recovery_memory_get()->boot_count);
     vga_print("\n  CMOS fallback used    : ");
     vga_print(recovery_memory_used_cmos_fallback() ? "yes\n" : "no\n");
+    {
+        struct recovery_store_integrity integ;
+        recovery_store_integrity(&integ);
+        vga_print("  state copy used       : ");
+        vga_print(integ.state_source);
+        vga_print(" (generation ");
+        vga_print_dec(integ.generation);
+        vga_print(")\n  journal appends       : ");
+        vga_print(integ.journal_locked ? "REFUSED - store read-only this boot\n"
+                  : integ.journal_full ? "stopped - journal full\n" : "open\n");
+        vga_print("  refused this boot     : ");
+        vga_print_dec(integ.dropped_appends);
+        vga_print("\n  corrupt entries kept  : ");
+        vga_print_dec(integ.corrupt_entries);
+        vga_print("\n");
+    }
 
     vga_set_color(VGA_DARK_GREY, VGA_BLACK);
-    vga_print("\nDisk layout: LBA 1 = state block, LBA 2-15 = append-only journal.\n");
+    vga_print("\nDisk layout: LBA 1 = state block (mirror at LBA 50),\n");
+    vga_print("LBA 2-15 = append-only journal (never overwritten).\n");
     vga_print("Survives: shell reboot, QEMU reset, AND full QEMU close/restart.\n");
     vga_print("Does not survive: deleting build/recovery.img (make reset-store).\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);

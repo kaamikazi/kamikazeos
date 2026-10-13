@@ -8,7 +8,8 @@
 /* ------------------------------------------------------------------ */
 /* On-disk format constants (part of the format — change = new version) */
 /* ------------------------------------------------------------------ */
-#define LBA_STATE      1
+#define LBA_STATE        1
+#define LBA_STATE_MIRROR 50   /* v2.6.1: full copy of the LBA 1 sector     */
 #define LBA_JOURNAL    2
 #define JOURNAL_SECTORS 14
 #define ENTRY_SIZE     16
@@ -37,16 +38,42 @@
 #define SB_JCOUNT_LO 15  /* journal entry count, little-endian 16 bits  */
 #define SB_JCOUNT_HI 16
 #define SB_CHECKSUM  17  /* two's complement over bytes 0..16           */
-#define SB_USED      18  /* bytes 18..511 stay zero (reserved)          */
+
+/*
+ * v2.6.1 generation extension. It lives in bytes that v1 kernels always
+ * wrote as zero and never read, so LBA 1 stays a valid v1 block: older
+ * kernels load it unchanged (and simply zero the extension when they
+ * save). The CRC-32 covers the v1 fields AND the extension.
+ */
+#define EXT_OFF      32
+#define EXT_MAGIC    "KSX1"
+#define EXT_VERSION  (EXT_OFF + 4)
+#define EXT_FLAGS    (EXT_OFF + 5)
+#define EXT_GEN      (EXT_OFF + 8)   /* uint32 LE, +1 per save            */
+#define EXT_JCOUNT   (EXT_OFF + 12)  /* uint16 LE copy of SB_JCOUNT       */
+#define EXT_CRC      48              /* CRC-32 (IEEE) over bytes 0..47    */
+#define EXT_FMT      1
 
 /* Journal entry layout (16 bytes). */
 #define JE_MAGIC_BYTE 0xA7
 /* offsets: 0 magic, 1 version, 2 boot, 3 event, 4 action, 5 result,
             6 risk, 7 reversible, 8..13 short_code, 14 reserved, 15 csum */
 
-static int      valid;            /* state block passed validation       */
-static uint16_t jcount;           /* journal entries currently on disk   */
-static uint8_t  sector[ATA_SECTOR_SIZE];   /* shared fixed I/O buffer    */
+static int      valid;            /* a trusted state copy was loaded     */
+static uint16_t jcount;           /* next journal slot (append position) */
+static uint32_t generation;       /* generation of the trusted copy      */
+static uint8_t  ext_flags;        /* extension flags of the loaded copy  */
+static int      state_locked;     /* ambiguous/unreadable: never write   */
+static int      journal_locked;   /* ambiguous/unreadable: never append  */
+static int      full_warned;      /* STORE-WARN-004 logged this boot     */
+static int      locked_warned;
+static int      redundancy_warned;
+static uint32_t dropped;          /* appends refused this boot           */
+static uint32_t corrupt_slots;    /* occupied slots failing validation   */
+static uint8_t  max_journal_boot; /* highest boot number in valid entries */
+static const char *state_source = "none";
+static uint8_t  loaded[ATA_SECTOR_SIZE];   /* the trusted state copy     */
+static uint8_t  sector[ATA_SECTOR_SIZE];   /* scratch I/O buffer         */
 
 const char *journal_event_name(enum journal_event ev)
 {
@@ -71,7 +98,7 @@ const char *journal_event_name(enum journal_event ev)
 }
 
 /* ------------------------------------------------------------------ */
-/* State block                                                          */
+/* Encoding helpers                                                     */
 /* ------------------------------------------------------------------ */
 
 static uint8_t checksum_over(const uint8_t *bytes, int n)
@@ -82,43 +109,245 @@ static uint8_t checksum_over(const uint8_t *bytes, int n)
     return (uint8_t)(0u - sum);     /* byte that makes the total 0 */
 }
 
+static uint32_t crc32(const uint8_t *data, uint32_t length)
+{
+    uint32_t crc = 0xFFFFFFFFu;
+    for (uint32_t i = 0; i < length; i++) {
+        crc ^= data[i];
+        for (int bit = 0; bit < 8; bit++)
+            crc = (crc >> 1) ^ (0xEDB88320u & (0u - (crc & 1u)));
+    }
+    return ~crc;
+}
+
+static void put_u32(uint8_t *p, uint32_t v)
+{
+    p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8);
+    p[2] = (uint8_t)(v >> 16); p[3] = (uint8_t)(v >> 24);
+}
+
+static uint32_t get_u32(const uint8_t *p)
+{
+    return (uint32_t)p[0] | ((uint32_t)p[1] << 8) |
+           ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
+}
+
+static int all_zero(const uint8_t *p, uint32_t n)
+{
+    for (uint32_t i = 0; i < n; i++)
+        if (p[i])
+            return 0;
+    return 1;
+}
+
+static int v1_valid(const uint8_t *s)
+{
+    uint8_t sum = 0;
+    for (int i = 0; i <= SB_CHECKSUM; i++)
+        sum = (uint8_t)(sum + s[i]);
+    return s[SB_MAGIC] == ST_MAGIC0 && s[SB_MAGIC + 1] == ST_MAGIC1 &&
+           s[SB_MAGIC + 2] == ST_MAGIC2 && s[SB_MAGIC + 3] == ST_MAGIC3 &&
+           s[SB_VERSION] == ST_VERSION && sum == 0;
+}
+
+static int ext_magic_present(const uint8_t *s)
+{
+    return s[EXT_OFF] == 'K' && s[EXT_OFF + 1] == 'S' &&
+           s[EXT_OFF + 2] == 'X' && s[EXT_OFF + 3] == '1';
+}
+
+static int ext_valid(const uint8_t *s)
+{
+    return v1_valid(s) && ext_magic_present(s) && s[EXT_VERSION] == EXT_FMT &&
+           get_u32(s + EXT_CRC) == crc32(s, EXT_CRC);
+}
+
+/* Wrap-aware "a was written after b". */
+static int generation_newer(uint32_t a, uint32_t b)
+{
+    return (int32_t)(a - b) > 0;
+}
+
+static int sectors_equal(const uint8_t *a, const uint8_t *b)
+{
+    for (int i = 0; i < ATA_SECTOR_SIZE; i++)
+        if (a[i] != b[i])
+            return 0;
+    return 1;
+}
+
+/* ------------------------------------------------------------------ */
+/* Init: choose a trusted state copy, then rebuild the journal position */
+/* ------------------------------------------------------------------ */
+
+enum state_choice { CHOICE_NONE, CHOICE_PRIMARY, CHOICE_MIRROR, CHOICE_AMBIGUOUS };
+
+static enum state_choice choose_state(const uint8_t *p, const uint8_t *m,
+                                      int *primary_damaged)
+{
+    int pe = ext_valid(p);
+    int me = ext_valid(m);
+    /* A primary carrying the extension magic whose CRC fails was written
+       by this format and then damaged — its weak v1 checksum alone must
+       not outvote a fully valid mirror. */
+    int p_legacy = v1_valid(p) && !ext_magic_present(p);
+    *primary_damaged = !pe && !p_legacy && !all_zero(p, ATA_SECTOR_SIZE);
+
+    if (pe && me) {
+        uint32_t gp = get_u32(p + EXT_GEN);
+        uint32_t gm = get_u32(m + EXT_GEN);
+        if (gp == gm)
+            return sectors_equal(p, m) ? CHOICE_PRIMARY : CHOICE_AMBIGUOUS;
+        return generation_newer(gm, gp) ? CHOICE_MIRROR : CHOICE_PRIMARY;
+    }
+    if (pe)
+        return CHOICE_PRIMARY;
+    /* A legacy (pre-2.6.1) writer is always the most recent writer of a
+       primary without the extension: newer kernels always write it. */
+    if (p_legacy)
+        return CHOICE_PRIMARY;
+    if (me)
+        return CHOICE_MIRROR;
+    return CHOICE_NONE;
+}
+
+/*
+ * Rebuild the append position from the journal itself. The position is
+ * one past the LAST occupied (non-zero) slot, so no byte of existing
+ * evidence — valid, torn, or corrupt — is ever overwritten. Returns 0 if
+ * any journal sector is unreadable (position unknown).
+ */
+static int scan_journal(uint32_t *last_used, uint32_t *corrupt, uint8_t *max_boot)
+{
+    *last_used = 0;
+    *corrupt = 0;
+    *max_boot = 0;
+    for (uint32_t s = 0; s < JOURNAL_SECTORS; s++) {
+        if (!ata_read_sector(LBA_JOURNAL + s, sector))
+            return 0;
+        for (uint32_t i = 0; i < ENTRIES_PER_SECTOR; i++) {
+            const uint8_t *e = sector + i * ENTRY_SIZE;
+            if (all_zero(e, ENTRY_SIZE))
+                continue;
+            *last_used = s * ENTRIES_PER_SECTOR + i + 1;
+            uint8_t sum = 0;
+            for (int b = 0; b < ENTRY_SIZE; b++)
+                sum = (uint8_t)(sum + e[b]);
+            if (e[0] != JE_MAGIC_BYTE || sum != 0) {
+                (*corrupt)++;
+                continue;
+            }
+            if (e[2] > *max_boot)
+                *max_boot = e[2];
+        }
+    }
+    return 1;
+}
+
+static void lock_store(const char *code, const char *message)
+{
+    state_locked = 1;
+    journal_locked = 1;
+    valid = 0;
+    error_log(SEV_ERROR, code, "RecoveryStore", message,
+              "store read-only this boot - inspect disk before clear-store");
+}
+
 void recovery_store_init(void)
 {
-    valid  = 0;
+    valid = 0;
     jcount = 0;
+    generation = 0;
+    ext_flags = 0;
+    state_locked = journal_locked = 0;
+    full_warned = locked_warned = redundancy_warned = 0;
+    dropped = corrupt_slots = 0;
+    max_journal_boot = 0;
+    state_source = "none";
+    kmemset(loaded, 0, sizeof(loaded));
 
     ata_init();
     if (!ata_available())
         return;                     /* STORE-WARN already logged by ata  */
 
-    if (!ata_read_sector(LBA_STATE, sector)) {
-        error_log(SEV_WARNING, "STORE-WARN-003", "RecoveryStore",
-                  "Could not read recovery state sector",
-                  "durable store ignored - CMOS fallback in use");
+    static uint8_t primary[ATA_SECTOR_SIZE];
+    static uint8_t mirror[ATA_SECTOR_SIZE];
+    if (!ata_read_sector(LBA_STATE, primary) ||
+        !ata_read_sector(LBA_STATE_MIRROR, mirror)) {
+        state_source = "unreadable";
+        lock_store("STORE-ERR-012", "Recovery state sector unreadable - position unknown");
         return;
     }
 
-    /* Validate: magic, version, checksum. Fail any -> fresh store. */
-    uint8_t sum = 0;
-    for (int i = 0; i <= SB_CHECKSUM; i++)
-        sum = (uint8_t)(sum + sector[i]);
+    int primary_damaged = 0;
+    enum state_choice choice = choose_state(primary, mirror, &primary_damaged);
+    if (choice == CHOICE_AMBIGUOUS) {
+        state_source = "ambiguous";
+        lock_store("STORE-ERR-011",
+                   "State copies conflict at the same generation");
+        return;
+    }
 
-    if (sector[SB_MAGIC]   != ST_MAGIC0 || sector[SB_MAGIC+1] != ST_MAGIC1 ||
-        sector[SB_MAGIC+2] != ST_MAGIC2 || sector[SB_MAGIC+3] != ST_MAGIC3 ||
-        sector[SB_VERSION] != ST_VERSION || sum != 0) {
+    uint16_t recorded = 0;
+    if (choice != CHOICE_NONE) {
+        memcpy(loaded, choice == CHOICE_MIRROR ? mirror : primary, sizeof(loaded));
+        valid = 1;
+        recorded = (uint16_t)(loaded[SB_JCOUNT_LO] | (loaded[SB_JCOUNT_HI] << 8));
+        if (ext_valid(loaded)) {
+            generation = get_u32(loaded + EXT_GEN);
+            ext_flags = loaded[EXT_FLAGS];
+            state_source = choice == CHOICE_MIRROR ? "mirror" : "primary";
+        } else {
+            state_source = "legacy_primary";
+        }
+        if (choice == CHOICE_MIRROR)
+            error_log(SEV_WARNING, "STORE-WARN-009", "RecoveryStore",
+                      "Primary recovery state damaged - mirror copy loaded",
+                      "next save rewrites both copies from the mirror");
+        else
+            error_log(SEV_INFO, "STORE-002", "RecoveryStore",
+                      "Durable recovery state loaded from disk",
+                      "recovery now survives full emulator restarts");
+    } else if (primary_damaged || !all_zero(mirror, ATA_SECTOR_SIZE)) {
+        state_source = "damaged";
+        error_log(SEV_ERROR, "STORE-ERR-010", "RecoveryStore",
+                  "Both recovery state copies damaged",
+                  "flags from CMOS - journal position rebuilt from entries");
+    } else {
         error_log(SEV_INFO, "STORE-001", "RecoveryStore",
                   "No valid recovery state on disk - starting fresh",
                   "normal for a new recovery image");
+    }
+
+    uint32_t last_used = 0;
+    if (!scan_journal(&last_used, &corrupt_slots, &max_journal_boot)) {
+        state_locked = 0;            /* state itself was read fine */
+        journal_locked = 1;
+        error_log(SEV_ERROR, "STORE-ERR-012", "RecoveryStore",
+                  "Journal sector unreadable - append position unknown",
+                  "journal read-only this boot - no history overwritten");
+        jcount = recorded > JOURNAL_CAPACITY ? JOURNAL_CAPACITY : recorded;
         return;
     }
 
-    jcount = (uint16_t)(sector[SB_JCOUNT_LO] | (sector[SB_JCOUNT_HI] << 8));
-    if (jcount > JOURNAL_CAPACITY)
-        jcount = JOURNAL_CAPACITY;     /* never trust counts blindly */
-    valid = 1;
-    error_log(SEV_INFO, "STORE-002", "RecoveryStore",
-              "Durable recovery state loaded from disk",
-              "recovery now survives full emulator restarts");
+    uint32_t position = last_used;
+    if (valid && recorded > position) {
+        /* The state says more entries exist than the disk shows. Never
+           hand those slots out again: they may be someone's evidence. */
+        position = recorded > JOURNAL_CAPACITY ? JOURNAL_CAPACITY : recorded;
+        error_log(SEV_WARNING, "STORE-WARN-010", "RecoveryStore",
+                  "Journal has fewer entries than recorded",
+                  "claimed slots stay reserved - nothing reused");
+    } else if (position > recorded) {
+        error_log(SEV_WARNING, "STORE-WARN-008", "RecoveryStore",
+                  "Journal position rebuilt from validated entries",
+                  "torn append or lost state - existing entries preserved");
+    }
+    if (corrupt_slots)
+        error_log(SEV_WARNING, "STORE-WARN-011", "RecoveryStore",
+                  "Corrupt journal entries preserved in place",
+                  "entries fail checksum - kept as evidence never reused");
+    jcount = (uint16_t)position;
 }
 
 int recovery_store_available(void) { return ata_available(); }
@@ -128,22 +357,21 @@ int recovery_store_load(struct recovery_memory *into)
 {
     if (!valid)
         return 0;
-    /* `sector` still holds the validated state block from init. */
-    into->boot_count           = sector[SB_BOOTCNT];
-    into->last_boot_panic      = sector[SB_PANIC];
-    into->safe_mode_next_boot  = sector[SB_SAFENEXT];
-    into->network_quarantined  = sector[SB_NETQ];
-    into->audio_quarantined    = sector[SB_AUDQ];
-    into->rollback_available   = sector[SB_RBAVAIL];
-    into->last_action_id       = sector[SB_LASTACT];
-    into->prior_network_status = sector[SB_PRIORNET];
-    into->prior_audio_status   = sector[SB_PRIORAUD];
+    into->boot_count           = loaded[SB_BOOTCNT];
+    into->last_boot_panic      = loaded[SB_PANIC];
+    into->safe_mode_next_boot  = loaded[SB_SAFENEXT];
+    into->network_quarantined  = loaded[SB_NETQ];
+    into->audio_quarantined    = loaded[SB_AUDQ];
+    into->rollback_available   = loaded[SB_RBAVAIL];
+    into->last_action_id       = loaded[SB_LASTACT];
+    into->prior_network_status = loaded[SB_PRIORNET];
+    into->prior_audio_status   = loaded[SB_PRIORAUD];
     return 1;
 }
 
 int recovery_store_save(const struct recovery_memory *from)
 {
-    if (!ata_available())
+    if (!ata_available() || state_locked)
         return 0;
 
     kmemset(sector, 0, sizeof(sector));
@@ -167,8 +395,30 @@ int recovery_store_save(const struct recovery_memory *from)
     sector[SB_JCOUNT_HI] = (uint8_t)(jcount >> 8);
     sector[SB_CHECKSUM]  = checksum_over(sector, SB_CHECKSUM);
 
-    if (!ata_write_sector(LBA_STATE, sector))
+    uint32_t next_generation = generation + 1u;
+    sector[EXT_OFF]     = 'K'; sector[EXT_OFF + 1] = 'S';
+    sector[EXT_OFF + 2] = 'X'; sector[EXT_OFF + 3] = '1';
+    sector[EXT_VERSION] = EXT_FMT;
+    sector[EXT_FLAGS]   = ext_flags;
+    put_u32(sector + EXT_GEN, next_generation);
+    sector[EXT_JCOUNT]     = (uint8_t)(jcount & 0xFF);
+    sector[EXT_JCOUNT + 1] = (uint8_t)(jcount >> 8);
+    put_u32(sector + EXT_CRC, crc32(sector, EXT_CRC));
+
+    /* Mirror first: a crash between the two writes leaves a NEWER mirror,
+       which init selects; a torn primary fails its CRC and loses too. */
+    int mirror_ok  = ata_write_sector(LBA_STATE_MIRROR, sector);
+    int primary_ok = ata_write_sector(LBA_STATE, sector);
+    if (!mirror_ok && !primary_ok)
         return 0;
+    if ((!mirror_ok || !primary_ok) && !redundancy_warned) {
+        redundancy_warned = 1;
+        error_log(SEV_WARNING, "STORE-WARN-012", "RecoveryStore",
+                  "Only one recovery state copy was written",
+                  "state is durable but redundancy is degraded");
+    }
+    generation = next_generation;
+    memcpy(loaded, sector, sizeof(loaded));
     valid = 1;
     return 1;
 }
@@ -179,13 +429,21 @@ void recovery_store_clear(void)
         return;
     kmemset(sector, 0, sizeof(sector));
     ata_write_sector(LBA_STATE, sector);                 /* zero the state */
+    ata_write_sector(LBA_STATE_MIRROR, sector);
     for (int s = 0; s < JOURNAL_SECTORS; s++)            /* zero the log   */
         ata_write_sector((uint32_t)(LBA_JOURNAL + s), sector);
     valid  = 0;
     jcount = 0;
+    generation = 0;
+    ext_flags = 0;
+    state_locked = journal_locked = 0;
+    full_warned = locked_warned = 0;
+    corrupt_slots = 0;
+    max_journal_boot = 0;
+    state_source = "cleared";
     error_log(SEV_INFO, "STORE-100", "RecoveryStore",
               "Durable recovery store cleared by user",
-              "state block and journal zeroed");
+              "state blocks and journal zeroed");
 }
 
 /* ------------------------------------------------------------------ */
@@ -198,11 +456,26 @@ void recovery_journal_append(enum journal_event ev, uint8_t action_id,
 {
     if (!ata_available())
         return;
+    if (journal_locked) {
+        dropped++;
+        if (!locked_warned) {
+            locked_warned = 1;
+            error_log(SEV_WARNING, "STORE-WARN-013", "RecoveryStore",
+                      "Journal append refused while store is read-only",
+                      "events stay in the serial log only this boot");
+        }
+        return;
+    }
     if (jcount >= JOURNAL_CAPACITY) {
-        /* Append-only means FULL means STOP — history is never rewritten. */
-        error_log(SEV_WARNING, "STORE-WARN-004", "RecoveryStore",
-                  "Recovery journal is full - history preserved, appends stopped",
-                  "clear-store confirm to start a fresh journal");
+        /* Append-only means FULL means STOP — history is never rewritten.
+           Say so once per boot; count every refused append. */
+        dropped++;
+        if (!full_warned) {
+            full_warned = 1;
+            error_log(SEV_WARNING, "STORE-WARN-004", "RecoveryStore",
+                      "Recovery journal is full - history preserved, appends stopped",
+                      "clear-store confirm to start a fresh journal");
+        }
         return;
     }
 
@@ -214,6 +487,7 @@ void recovery_journal_append(enum journal_event ev, uint8_t action_id,
        serial only; error_log never re-enters the journal. */
     uint8_t buf[ATA_SECTOR_SIZE];
     if (!ata_read_sector(lba, buf)) {
+        dropped++;
         error_log(SEV_WARNING, "STORE-WARN-005", "RecoveryStore",
                   "Journal sector read failed - entry not recorded",
                   "event lost from durable journal");
@@ -221,7 +495,16 @@ void recovery_journal_append(enum journal_event ev, uint8_t action_id,
     }
 
     uint8_t *e = buf + offset;
-    kmemset(e, 0, ENTRY_SIZE);
+    if (!all_zero(e, ENTRY_SIZE)) {
+        /* The scan placed the position after every occupied slot, so this
+           means something wrote behind our back. Stop, don't overwrite. */
+        dropped++;
+        journal_locked = 1;
+        error_log(SEV_ERROR, "STORE-ERR-014", "RecoveryStore",
+                  "Journal slot unexpectedly occupied - append refused",
+                  "journal read-only this boot - no history overwritten");
+        return;
+    }
     e[0] = JE_MAGIC_BYTE;
     e[1] = ST_VERSION;
     e[2] = recovery_memory_get()->boot_count;
@@ -235,6 +518,7 @@ void recovery_journal_append(enum journal_event ev, uint8_t action_id,
     e[15] = checksum_over(e, 15);
 
     if (!ata_write_sector(lba, buf)) {
+        dropped++;
         error_log(SEV_WARNING, "STORE-WARN-006", "RecoveryStore",
                   "Journal sector write failed - entry not recorded",
                   "event lost from durable journal");
@@ -242,7 +526,8 @@ void recovery_journal_append(enum journal_event ev, uint8_t action_id,
     }
 
     jcount++;
-    /* Persist the new count (it lives in the state block). */
+    /* Persist the new count (it lives in the state block). If this save
+       is lost, the next boot's scan still finds the entry. */
     recovery_store_save(recovery_memory_get());
 }
 
@@ -280,4 +565,27 @@ int recovery_journal_get(uint32_t index, struct journal_entry *out)
         out->short_code[i] = (char)e[8 + i];
     out->short_code[6] = '\0';
     return 1;
+}
+
+/* ------------------------------------------------------------------ */
+/* Integrity status (report / shell)                                    */
+/* ------------------------------------------------------------------ */
+
+void recovery_store_integrity(struct recovery_store_integrity *out)
+{
+    if (!out)
+        return;
+    out->state_source = state_source;
+    out->generation = generation;
+    out->state_locked = state_locked;
+    out->journal_locked = journal_locked;
+    out->journal_full = jcount >= JOURNAL_CAPACITY;
+    out->journal_capacity = JOURNAL_CAPACITY;
+    out->dropped_appends = dropped;
+    out->corrupt_entries = corrupt_slots;
+}
+
+uint8_t recovery_store_max_journal_boot(void)
+{
+    return max_journal_boot;
 }

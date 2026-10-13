@@ -84,4 +84,22 @@ int      recovery_journal_get(uint32_t index, struct journal_entry *out);
 
 const char *journal_event_name(enum journal_event ev);
 
+/* v2.6.1 integrity view for the report and shell. */
+struct recovery_store_integrity {
+    const char *state_source;   /* primary / mirror / legacy_primary /
+                                   damaged / ambiguous / unreadable / none */
+    uint32_t generation;        /* generation of the trusted state copy   */
+    int state_locked;           /* state writes refused this boot         */
+    int journal_locked;         /* journal appends refused this boot      */
+    int journal_full;
+    uint32_t journal_capacity;
+    uint32_t dropped_appends;   /* appends refused (full/locked/failed)   */
+    uint32_t corrupt_entries;   /* occupied slots failing validation      */
+};
+void recovery_store_integrity(struct recovery_store_integrity *out);
+
+/* Highest boot number found in a valid journal entry (0 if none). Used to
+   keep boot numbers moving forward when both state copies are lost. */
+uint8_t recovery_store_max_journal_boot(void);
+
 #endif /* KMZ_RECOVERY_STORE_H */

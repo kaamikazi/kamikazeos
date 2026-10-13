@@ -683,6 +683,20 @@ void report_send(void)
     serial_print("\ndurable_boot_count=");serial_print_dec(m->boot_count);
     serial_print("\ncmos_fallback_used=");
     serial_print(recovery_memory_used_cmos_fallback() ? "1" : "0");
+    {
+        struct recovery_store_integrity integ;
+        recovery_store_integrity(&integ);
+        serial_print("\nstate_source=");    serial_print(integ.state_source);
+        serial_print("\nstate_generation=");serial_print_dec(integ.generation);
+        serial_print("\nstate_redundancy=mirror_lba50");
+        serial_print("\nstate_locked=");    serial_print(integ.state_locked ? "1" : "0");
+        serial_print("\njournal_locked=");  serial_print(integ.journal_locked ? "1" : "0");
+        serial_print("\njournal_capacity=");serial_print_dec(integ.journal_capacity);
+        serial_print("\njournal_full=");    serial_print(integ.journal_full ? "1" : "0");
+        serial_print("\njournal_dropped="); serial_print_dec(integ.dropped_appends);
+        serial_print("\njournal_corrupt_entries=");
+        serial_print_dec(integ.corrupt_entries);
+    }
     serial_print("\n");
 
     /* --- Durable journal (latest 12 entries) ------------------------ */
