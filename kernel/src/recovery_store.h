@@ -86,8 +86,9 @@ const char *journal_event_name(enum journal_event ev);
 
 /* v2.6.1 integrity view for the report and shell. */
 struct recovery_store_integrity {
-    const char *state_source;   /* primary / mirror / legacy_primary /
-                                   damaged / ambiguous / unreadable / none */
+    const char *state_source;   /* copy loaded at boot: primary / mirror /
+                                   legacy_primary / fresh / damaged /
+                                   ambiguous / unreadable / cleared       */
     uint32_t generation;        /* generation of the trusted state copy   */
     int state_locked;           /* state writes refused this boot         */
     int journal_locked;         /* journal appends refused this boot      */

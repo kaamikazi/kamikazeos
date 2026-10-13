@@ -315,6 +315,7 @@ void recovery_store_init(void)
                   "Both recovery state copies damaged",
                   "flags from CMOS - journal position rebuilt from entries");
     } else {
+        state_source = "fresh";
         error_log(SEV_INFO, "STORE-001", "RecoveryStore",
                   "No valid recovery state on disk - starting fresh",
                   "normal for a new recovery image");
