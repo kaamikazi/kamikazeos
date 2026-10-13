@@ -1996,7 +1996,7 @@ static void cmd_packages(void)
             kstrcpy(ver + l + 1, m->to_version, sizeof(ver) - l - 1); }
         print_col(ver, 11);
         print_col(risk_level_name(m->risk_level), 8);
-        print_col(manifest_source_name(), 14);
+        print_col(manifest_origin_name(m), 14);
         print_col(manifest_policy_result(m), 9);
 
         vga_set_color(st == PKGST_VERIFIED  ? VGA_LIGHT_GREEN :
@@ -2034,7 +2034,7 @@ static void cmd_package(const char *arg)
     vga_print("  versions    : "); vga_print(m->from_version);
     vga_print(" -> ");             vga_print(m->to_version);       vga_print("\n");
     vga_print("  payload     : "); vga_print(payload_type_name(m->payload_type)); vga_print("\n");
-    vga_print("  source      : "); vga_print(manifest_source_name());             vga_print("\n");
+    vga_print("  source      : "); vga_print(manifest_origin_name(m));             vga_print("\n");
     vga_print("  risk        : "); vga_print(risk_level_name(m->risk_level));     vga_print("\n");
     vga_print("  reversible  : "); vga_print(m->reversible ? "yes" : "no");       vga_print("\n");
     vga_print("  signature   : "); vga_print(signature_status_name(m->signature_status));
@@ -2132,7 +2132,7 @@ static void cmd_manifests(void)
         const struct pkg_manifest *m = manifest_get(i);
         print_col(m->package_id, 9);
         print_col(m->name, 24);
-        print_col(manifest_source_name(), 14);
+        print_col(manifest_origin_name(m), 14);
         print_col(manifest_checksum_valid(m) ? "yes" : "no", 5);
         print_col(manifest_trust_valid(m) ? "yes" : "no", 7);
         print_col(manifest_signature_valid(m) ? "yes" : "no", 5);
@@ -2207,14 +2207,24 @@ static void cmd_seed_manifests(const char *arg)
         vga_print("To proceed, type exactly:  seed-manifests confirm\n");
         return;
     }
-    int n = manifest_seed_to_disk();
-    if (n > 0) {
-        vga_print("Seeded ");
-        vga_print_dec((uint32_t)n);
-        vga_print(" manifests to disk. They now persist across restarts.\n");
-    } else {
+    if (!ata_available()) {
         vga_print("No disk available - cannot seed manifests.\n");
+        return;
     }
+    uint32_t written = 0, present = 0, unplaced = 0;
+    manifest_seed_to_disk(&written, &present, &unplaced);
+    vga_print("Seeded ");
+    vga_print_dec(written);
+    vga_print(" manifest(s) into empty slots; ");
+    vga_print_dec(present);
+    vga_print(" already on disk; ");
+    vga_print_dec(unplaced);
+    vga_print(" without a free slot.\nOccupied slots are never overwritten.\n");
+
+    /* The manifest set may have changed: rebuild manifests, slots, package
+       state and per-package status together, exactly as at boot. */
+    recovery_package_init();
+    vga_print("Package registry re-evaluated - see `packages`.\n");
 }
 
 /* reset-packages confirm — clear persistent package state + slots. */

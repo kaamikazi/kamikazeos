@@ -62,23 +62,23 @@ static const struct pkg_manifest seeds[SEED_COUNT] = {
       "Update GhostAttach attach-policy 0.3 to 0.4",
       "GhostAttach", MOD_GHOSTATTACH, "0.3", "0.4",
       RISK_LOW, 1, 1, 0, SIG_PLACEHOLDER, TRUST_ANCHOR_ID, 1,
-      PAYLOAD_SLOT_SWITCH_SIM, 0, 0, 0, "", "" },
+      PAYLOAD_SLOT_SWITCH_SIM, 0, 0, 0, "", "", MANIFEST_ORIGIN_BUILTIN },
     { "PKG-002", "recovery_analyzer_rules_update",
       "Update analyzer rule revision 0.4 to 0.5",
       "AI Recovery Core", MOD_AI_RULES, "0.4", "0.5",
       RISK_LOW, 1, 1, 0, SIG_PLACEHOLDER, TRUST_ANCHOR_ID, 1,
-      PAYLOAD_SLOT_SWITCH_SIM, 0, 0, 0, "", "" },
+      PAYLOAD_SLOT_SWITCH_SIM, 0, 0, 0, "", "", MANIFEST_ORIGIN_BUILTIN },
     { /* the canary: wrong on every axis, must always be blocked */
       "PKG-003", "install_unknown_network_driver",
       "Install unverified net driver (FORBIDDEN)",
       "GhostAttach/network", MOD_GHOSTATTACH, "0.3", "?",
       RISK_HIGH, 0, 1, 0, SIG_UNSIGNED, 0 /* unknown anchor too! */, 1,
-      PAYLOAD_BLOCKED_DRIVER_INSTALL, 0, 0, 0, "", "" },
+      PAYLOAD_BLOCKED_DRIVER_INSTALL, 0, 0, 0, "", "", MANIFEST_ORIGIN_BUILTIN },
     { "PKG-004", "safe_mode_policy_update",
       "Update safe-mode policy 0.5 to 0.6",
       "RecoveryEngine", MOD_RECOVERY_ENGINE, "0.5", "0.6",
       RISK_MEDIUM, 1, 1, 0, SIG_PLACEHOLDER, TRUST_ANCHOR_ID, 1,
-      PAYLOAD_SLOT_SWITCH_SIM, 0, 0, 0, "", "" },
+      PAYLOAD_SLOT_SWITCH_SIM, 0, 0, 0, "", "", MANIFEST_ORIGIN_BUILTIN },
 };
 
 /* Checksum over every field that defines the manifest's meaning. */
@@ -123,6 +123,54 @@ uint32_t manifest_identity(const struct pkg_manifest *m)
         hash *= 16777619u;
     }
     return hash;
+}
+
+/*
+ * Is this (disk) manifest exactly one of the compiled-in seeds? Every
+ * meaning-bearing field must match, the checksum must be intact, and the
+ * sector must carry NO signature metadata: a seed copy is trusted only
+ * because the kernel image already contains the identical manifest.
+ */
+static int seed_index_of(const struct pkg_manifest *m)
+{
+    if (!m->checksum_ok || m->signature_present != 0 ||
+        m->signature_algorithm != 0 || m->signer_key_hash[0] ||
+        m->signed_payload_hash[0])
+        return -1;
+    for (int i = 0; i < SEED_COUNT; i++) {
+        const struct pkg_manifest *seed = &seeds[i];
+        if (kstrcmp(m->package_id, seed->package_id) == 0 &&
+            kstrcmp(m->name, seed->name) == 0 &&
+            kstrcmp(m->description, seed->description) == 0 &&
+            kstrcmp(m->target_component, seed->target_component) == 0 &&
+            kstrcmp(m->from_version, seed->from_version) == 0 &&
+            kstrcmp(m->to_version, seed->to_version) == 0 &&
+            m->target_module == seed->target_module &&
+            m->risk_level == seed->risk_level &&
+            m->reversible == seed->reversible &&
+            m->requires_approval == seed->requires_approval &&
+            m->signature_status == seed->signature_status &&
+            m->trust_anchor_id == seed->trust_anchor_id &&
+            m->manifest_version == seed->manifest_version &&
+            m->payload_type == seed->payload_type)
+            return i;
+    }
+    return -1;
+}
+
+/* Does the recorded signer key hash equal the pinned anchor's prefix (the
+   first 16 hex chars, exactly as the host tools write it)? */
+static int signer_is_trust_anchor(const struct pkg_manifest *m)
+{
+    const char *fp = TRUST_ANCHOR_FINGERPRINT;
+    while (*fp && *fp != ':')
+        fp++;
+    if (*fp == ':')
+        fp++;
+    for (int i = 0; i < 16; i++)
+        if (m->signer_key_hash[i] != fp[i])
+            return 0;
+    return m->signer_key_hash[16] == 0;
 }
 
 /* ------------------------------------------------------------------ */
@@ -207,6 +255,8 @@ static int read_manifest_sector(uint32_t slot, struct pkg_manifest *m)
     /* The stored checksum must match a recomputation over the fields.
        checksum_ok feeds the verification chain (a mismatch = blocked). */
     m->checksum_ok = (m->checksum == manifest_checksum(m));
+    m->origin = seed_index_of(m) >= 0 ? MANIFEST_ORIGIN_DISK_SEED
+                                      : MANIFEST_ORIGIN_DISK_IMPORT;
     return 1;
 }
 
@@ -221,6 +271,7 @@ static void load_builtin(void)
         manifests[i] = seeds[i];
         manifests[i].checksum    = manifest_checksum(&manifests[i]);
         manifests[i].checksum_ok = 1;
+        manifests[i].origin      = MANIFEST_ORIGIN_BUILTIN;
     }
     from_disk = 0;
 }
@@ -251,23 +302,68 @@ void package_manifest_init(void)
     }
 }
 
-int manifest_seed_to_disk(void)
+int manifest_seed_to_disk(uint32_t *written, uint32_t *present,
+                          uint32_t *unplaced)
 {
+    *written = *present = *unplaced = 0;
     if (!ata_available())
         return 0;
-    int written = 0;
-    for (uint32_t i = 0; i < SEED_COUNT; i++) {
+
+    /* Survey the slots first. Only an all-zero sector is free: anything
+       else (a manifest, or bytes we cannot parse) may be data to keep. */
+    uint8_t occupied[MANIFEST_MAX];
+    int seed_on_disk[SEED_COUNT];
+    for (int i = 0; i < SEED_COUNT; i++)
+        seed_on_disk[i] = 0;
+    for (uint32_t slot = 0; slot < MANIFEST_MAX; slot++) {
+        uint8_t sec[ATA_SECTOR_SIZE];
+        if (!ata_read_sector(LBA_MANIFESTS + slot, sec)) {
+            occupied[slot] = 1;            /* unreadable: never write it */
+            continue;
+        }
+        occupied[slot] = 0;
+        for (int b = 0; b < ATA_SECTOR_SIZE; b++)
+            if (sec[b]) { occupied[slot] = 1; break; }
+        struct pkg_manifest m;
+        if (occupied[slot] && read_manifest_sector(slot, &m)) {
+            int idx = seed_index_of(&m);
+            if (idx >= 0)
+                seed_on_disk[idx] = 1;
+        }
+    }
+
+    uint32_t next = 0;
+    for (int i = 0; i < SEED_COUNT; i++) {
+        if (seed_on_disk[i]) {
+            (*present)++;
+            continue;
+        }
+        while (next < MANIFEST_MAX && occupied[next])
+            next++;
+        if (next >= MANIFEST_MAX) {
+            (*unplaced)++;
+            continue;
+        }
         struct pkg_manifest m = seeds[i];
         m.checksum = manifest_checksum(&m);
-        if (write_manifest_sector(i, &m))
-            written++;
+        if (write_manifest_sector(next, &m)) {
+            occupied[next] = 1;
+            (*written)++;
+        } else {
+            (*unplaced)++;
+        }
     }
-    /* Reload so RAM state == disk state, marked as disk-sourced. */
-    package_manifest_init();
+
+    if (*unplaced) {
+        error_log(SEV_WARNING, "MAN-003", "PackageManifest",
+                  "Some built-in manifests were not seeded - no free slot",
+                  "occupied manifest slots are never overwritten");
+        return 0;
+    }
     error_log(SEV_INFO, "MAN-002", "PackageManifest",
-              "Built-in manifests seeded to disk sectors",
+              "Built-in manifests seeded to empty disk sectors",
               "manifests now persist across emulator restarts");
-    return written;
+    return 1;
 }
 
 uint32_t manifest_count(void) { return count; }
@@ -292,6 +388,16 @@ int manifest_source_is_disk(void) { return from_disk; }
 const char *manifest_source_name(void)
 {
     return from_disk ? "disk_imported" : "built_in_seed";
+}
+
+const char *manifest_origin_name(const struct pkg_manifest *m)
+{
+    switch (m->origin) {
+    case MANIFEST_ORIGIN_BUILTIN:     return "built_in_seed";
+    case MANIFEST_ORIGIN_DISK_SEED:   return "disk_seed_copy";
+    case MANIFEST_ORIGIN_DISK_IMPORT: return "disk_imported";
+    }
+    return "unknown";
 }
 
 /* ------------------------------------------------------------------ */
@@ -399,11 +505,12 @@ int manifest_verify(const struct pkg_manifest *m, const char **reason)
         *reason = "signature invalid";
         return 0;
     }
-    if (from_disk && m->signature_status != SIG_TRUSTED) {
+    if (m->origin == MANIFEST_ORIGIN_DISK_IMPORT &&
+        m->signature_status != SIG_TRUSTED) {
         *reason = "imported manifests require trusted Ed25519 signature metadata";
         return 0;
     }
-    if (from_disk && !manifest_signature_valid(m)) {
+    if (m->origin == MANIFEST_ORIGIN_DISK_IMPORT && !manifest_signature_valid(m)) {
         *reason = "signature metadata missing or not host-verified";
         return 0;
     }
@@ -445,18 +552,27 @@ int manifest_trust_valid(const struct pkg_manifest *m)
 
 int manifest_signature_valid(const struct pkg_manifest *m)
 {
-    if (!from_disk)
+    /* Built-in seeds (in RAM, or an identical copy on disk) are vouched
+       for by the kernel image itself; no signature is involved. */
+    if (m->origin != MANIFEST_ORIGIN_DISK_IMPORT)
         return m->signature_status == SIG_PLACEHOLDER ||
                m->signature_status == SIG_TRUSTED;
+    /* Imported: the host-verified marker AND the pinned anchor's key
+       hash. Still a SIMULATED kernel check - no Ed25519 math runs here. */
     return m->signature_status == SIG_TRUSTED &&
            m->signature_present == 2 &&
-           m->signature_algorithm == SIG_ALG_ED25519;
+           m->signature_algorithm == SIG_ALG_ED25519 &&
+           signer_is_trust_anchor(m);
 }
 
 const char *manifest_signature_mode(const struct pkg_manifest *m)
 {
-    if (!from_disk && m->signature_status == SIG_PLACEHOLDER)
+    if (m->origin == MANIFEST_ORIGIN_BUILTIN &&
+        m->signature_status == SIG_PLACEHOLDER)
         return "built_in_placeholder";
+    if (m->origin == MANIFEST_ORIGIN_DISK_SEED &&
+        m->signature_status == SIG_PLACEHOLDER)
+        return "built_in_seed_identity_match_no_signature";
     if (manifest_signature_valid(m))
         return "simulated_kernel_check_host_ed25519";
     if (m->signature_present)

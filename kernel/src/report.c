@@ -853,7 +853,7 @@ void report_send(void)
         serial_print(";reversible=");serial_print(p->reversible ? "yes" : "no");
         serial_print(";signature=");serial_print(signature_status_name(p->signature_status));
         serial_print(";checksum=");serial_print(p->checksum_ok ? "ok" : "mismatch");
-        serial_print(";source=");  serial_print(manifest_source_name());
+        serial_print(";source=");  serial_print(manifest_origin_name(p));
         serial_print(";checksum_valid=");
         serial_print(manifest_checksum_valid(p) ? "yes" : "no");
         serial_print(";trust_valid=");
@@ -885,7 +885,7 @@ void report_send(void)
         serial_print(";trust_anchor=");
         serial_print(p->trust_anchor_id == TRUST_ANCHOR_ID ? TRUST_ANCHOR_NAME
                                                            : "unknown");
-        serial_print(";source=");      serial_print(manifest_source_name());
+        serial_print(";source=");      serial_print(manifest_origin_name(p));
         serial_print(";checksum_valid=");
         serial_print(manifest_checksum_valid(p) ? "yes" : "no");
         serial_print(";trust_valid=");

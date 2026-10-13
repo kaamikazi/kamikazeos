@@ -72,6 +72,23 @@ struct pkg_manifest {
     uint8_t            signature_algorithm; /* 1 = ed25519 */
     char               signer_key_hash[17]; /* first 16 hex chars + NUL */
     char               signed_payload_hash[17];
+    uint8_t            origin;              /* enum manifest_origin        */
+};
+
+/*
+ * Where a manifest came from decides what may vouch for it:
+ *   BUILTIN    compiled into this kernel (no disk involved)
+ *   DISK_SEED  a disk sector whose every field equals a compiled-in seed;
+ *              trusted because the kernel image already contains it — NOT
+ *              because of any signature metadata on disk
+ *   DISK_IMPORT anything else on disk: requires the host-verified Ed25519
+ *              marker for the pinned KMZ-ROOT-1 key (kernel check of that
+ *              marker is simulated - see docs/TRUST_AND_SIGNATURES.md)
+ */
+enum manifest_origin {
+    MANIFEST_ORIGIN_BUILTIN = 0,
+    MANIFEST_ORIGIN_DISK_SEED,
+    MANIFEST_ORIGIN_DISK_IMPORT,
 };
 
 /* Load manifests: disk sectors first; if none are valid, fall back to
@@ -83,10 +100,16 @@ struct pkg_manifest      *manifest_get(uint32_t index);
 struct pkg_manifest      *manifest_find(const char *package_id);
 int  manifest_source_is_disk(void);     /* 1 = loaded from disk sectors */
 const char *manifest_source_name(void);  /* disk_imported or built_in_seed */
+const char *manifest_origin_name(const struct pkg_manifest *m);
 
-/* Write the BUILT-IN SEED manifests to the disk sectors (seed-manifests
-   confirm). Only the safe fixed set is ever written; returns count. */
-int  manifest_seed_to_disk(void);
+/* Write the BUILT-IN SEED manifests to EMPTY disk sectors (seed-manifests
+   confirm). Seeds already on disk are skipped; occupied slots are never
+   overwritten. Does NOT reload: the caller must re-run
+   recovery_package_init() so manifests, slots and package state agree.
+   Returns 1 if every seed is now on disk, 0 if any could not be placed
+   (or no disk). *written / *present / *unplaced report what happened. */
+int  manifest_seed_to_disk(uint32_t *written, uint32_t *present,
+                           uint32_t *unplaced);
 
 /* Full verification chain. Returns 1 = passes; on failure *reason names
    the first failed rule (for logs, shell, and the analyzer). */
