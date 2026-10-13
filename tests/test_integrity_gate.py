@@ -400,6 +400,18 @@ class F5JournalLongevity(KmzCase):
         act1 = [e for e in suggested if e["event"] == "SUGGESTED" and e["action"] == 1]
         self.assertEqual(len(act1), 1, f"ACT-001 suggestion journaled {len(act1)} times")
 
+    def test_steady_state_journal_growth_is_one_entry_per_boot(self):
+        self.boot_once()
+        self.boot_once()
+        before = disk.journal_used_slots(self.img)
+        self.boot_once()
+        self.boot_once()
+        grown = disk.journal_used_slots(self.img) - before
+        events_added = [disk.decode_entry(e)["event"]
+                        for e in disk.journal_entries(self.img)[before:]]
+        self.assertEqual(events_added, ["CLEAN_BOOT", "CLEAN_BOOT"],
+                         f"unchanged boots appended {grown} entries: {events_added}")
+
     def test_suggestion_rejournaled_after_state_change(self):
         with self.boot() as q:
             q.run("approve ACT-001", r"code=REC-ACT-003")

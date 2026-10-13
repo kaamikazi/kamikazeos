@@ -108,6 +108,12 @@ static uint8_t act_byte(const struct recovery_action *a)
     return (uint8_t)(a->action_id[6] - '0');   /* "ACT-00N" -> N */
 }
 
+/* Journal a suggestion only when it is NEW information: if the action's
+   latest recorded lifecycle event is already SUGGESTED, the durable
+   history says exactly the same thing and re-appending it every boot
+   would only fill the journal. The suggestion is still logged live. */
+static void journal_suggestion(const struct recovery_action *a);
+
 /* Append one durable journal record for an action event. */
 static void journal_action(enum journal_event ev,
                            const struct recovery_action *a,
@@ -116,6 +122,13 @@ static void journal_action(enum journal_event ev,
     recovery_journal_append(ev, act_byte(a), result,
                             (uint8_t)a->risk_level,
                             (uint8_t)a->reversible, code6);
+}
+
+static void journal_suggestion(const struct recovery_action *a)
+{
+    if (recovery_journal_last_action_event(act_byte(a)) == JE_SUGGESTED)
+        return;
+    journal_action(JE_SUGGESTED, a, 1, "REC001");
 }
 
 /* Log "<verb> action ACT-xxx <name>" with a given code/severity/hint. */
@@ -271,7 +284,7 @@ void recovery_suggest_scan(void)
             a->status = ACTST_SUGGESTED;
             log_action(SEV_INFO, "REC-ACT-001", "RecoveryEngine",
                        "Suggested action", a, a->suggest_hint);
-            journal_action(JE_SUGGESTED, a, 1, "REC001");
+            journal_suggestion(a);
         }
     }
 
@@ -287,7 +300,7 @@ void recovery_suggest_scan(void)
                              "BOOT-WARN-001", "RecoveryEngine",
                        "Previous boot ended in panic - suggested", a,
                        "approve ACT-004 to investigate in safe mode");
-            journal_action(JE_SUGGESTED, a, 1, "REC001");
+            journal_suggestion(a);
         }
     }
 
@@ -303,7 +316,7 @@ void recovery_suggest_scan(void)
             a->status = ACTST_SUGGESTED;
             log_action(SEV_INFO, "REC-ACT-001", "RecoveryEngine",
                        "Suggested action", a, a->suggest_hint);
-            journal_action(JE_SUGGESTED, a, 1, "REC001");
+            journal_suggestion(a);
         }
     }
 }

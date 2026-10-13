@@ -591,6 +591,31 @@ void recovery_store_integrity(struct recovery_store_integrity *out)
     out->corrupt_entries = corrupt_slots;
 }
 
+uint8_t recovery_journal_last_action_event(uint8_t action_id)
+{
+    if (!ata_available() || jcount == 0)
+        return 0;
+    uint8_t buf[ATA_SECTOR_SIZE];
+    uint32_t cached = 0xFFFFFFFFu;
+    for (uint32_t i = jcount; i-- > 0;) {
+        uint32_t lba = LBA_JOURNAL + i / ENTRIES_PER_SECTOR;
+        if (lba != cached) {
+            if (!ata_read_sector(lba, buf))
+                return 0;
+            cached = lba;
+        }
+        const uint8_t *e = buf + (i % ENTRIES_PER_SECTOR) * ENTRY_SIZE;
+        uint8_t sum = 0;
+        for (int b = 0; b < ENTRY_SIZE; b++)
+            sum = (uint8_t)(sum + e[b]);
+        if (e[0] != JE_MAGIC_BYTE || sum != 0)
+            continue;                  /* corrupt slots are skipped, kept */
+        if (e[4] == action_id && e[3] >= JE_SUGGESTED && e[3] <= JE_BLOCKED)
+            return e[3];
+    }
+    return 0;
+}
+
 uint8_t recovery_store_max_journal_boot(void)
 {
     return max_journal_boot;

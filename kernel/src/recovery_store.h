@@ -98,6 +98,11 @@ struct recovery_store_integrity {
 };
 void recovery_store_integrity(struct recovery_store_integrity *out);
 
+/* Event type (JE_SUGGESTED..JE_BLOCKED) of the most recent valid action
+   lifecycle entry for this action id, or 0 if none / unreadable. Package
+   events are not considered (their id byte is a package number). */
+uint8_t recovery_journal_last_action_event(uint8_t action_id);
+
 /* Highest boot number found in a valid journal entry (0 if none). Used to
    keep boot numbers moving forward when both state copies are lost. */
 uint8_t recovery_store_max_journal_boot(void);
