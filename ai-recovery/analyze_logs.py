@@ -258,6 +258,19 @@ RULES = {
         "action": "This is the correct safety behavior. Request less memory or "
                   "reboot the demo to reset the bump heap.",
     },
+    # v2.6.1 Integrity Gate: package lifecycle refusals.
+    "PKG-REJECT-001": {
+        "cause":  "A rollback was requested for a package that no longer owns "
+                  "its module's active slot (a later update replaced it), or "
+                  "whose known-good from_version is no longer in the rollback slot.",
+        "action": "Roll back the update that is actually running (see `slots` "
+                  "and `packages`). Nothing was changed.",
+    },
+    "PKG-REJECT-002": {
+        "cause":  "An apply was refused because the module still has an "
+                  "unverified or failed update pending.",
+        "action": "Run verify-pkg or rollback-pkg for the pending update first.",
+    },
     # v2.6.1 Integrity Gate: durable store integrity events.
     "STORE-WARN-004": {
         "cause":  "The 448-entry append-only recovery journal is full. New "

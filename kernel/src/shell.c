@@ -2276,6 +2276,20 @@ static void report_pkg_result(int r, const char *ok_msg)
         vga_print(" The transaction was not reported as committed.\n");
         vga_print("Inspect `errors`; a staged transition is reconciled on reboot.\n");
         break;
+    case -5:
+        vga_set_color(VGA_LIGHT_RED, VGA_BLACK);
+        vga_print("Stale rollback refused.");
+        vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+        vga_print(" This package no longer owns the module's active\n");
+        vga_print("slot (a later update replaced it). Nothing was changed.\n");
+        break;
+    case -6:
+        vga_set_color(VGA_LIGHT_RED, VGA_BLACK);
+        vga_print("Apply refused.");
+        vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+        vga_print(" The module still has an unverified update pending.\n");
+        vga_print("Run verify-pkg or rollback-pkg for it first. Nothing changed.\n");
+        break;
     }
 }
 

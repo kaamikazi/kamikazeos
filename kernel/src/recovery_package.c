@@ -346,6 +346,15 @@ int pkg_apply(const char *id)
     /* The active slot must run the version this package upgrades FROM. */
     if (kstrcmp(module_slot_active_version(slot), m->from_version) != 0)
         return -3;
+    /* An unverified (or failed) update is still pending on this module.
+       Applying over it would overwrite the inactive slot — the ONLY
+       verified known-good version — and leave nothing to roll back to. */
+    if (slot->pending_verify) {
+        log_pkg(SEV_WARNING, "PKG-REJECT-002",
+                "Apply refused - pending verification on module of", m,
+                "verify-pkg or rollback-pkg the previous update first");
+        return -6;
+    }
 
     /* THE A/B SWITCH: stage the new version in the INACTIVE slot, flip
        the active pointer, keep the old slot untouched as the way back. */
@@ -463,12 +472,30 @@ int pkg_rollback(const char *id)
         return -1;
 
     struct module_slot *slot = module_slot_for(m->target_module);
-    if (!slot || slot->rollback_slot == SLOT_NONE)
+    struct pkg_pstate *s = package_state_find(m->package_id);
+    if (!slot || !s || !binding_matches(s, m))
         return -1;
 
-    struct pkg_pstate *s = package_state_find(m->package_id);
-    if (!s || !binding_matches(s, m))
-        return -1;
+    /* Ownership: roll back only the update that is ACTUALLY running. A
+       later package for the same module may have switched slots since;
+       its rollback pointer then belongs to it, not to this package. */
+    const char *stale = 0;
+    if (slot->active_slot != s->slot_after_apply ||
+        kstrcmp(module_slot_active_version(slot), m->to_version) != 0)
+        stale = "module no longer runs this package - another update owns it";
+    else if (slot->rollback_slot == SLOT_NONE ||
+             slot->rollback_slot != s->slot_before_apply)
+        stale = "no rollback slot recorded for this package's apply";
+    else if (kstrcmp(slot->rollback_slot == SLOT_A ? slot->slot_a_version
+                                                   : slot->slot_b_version,
+                     m->from_version) != 0)
+        stale = "known-good from_version is no longer in the rollback slot";
+    if (stale) {
+        log_pkg(SEV_WARNING, "PKG-REJECT-001", "Stale rollback refused", m, stale);
+        journal_pkg(JE_PKG_ROLLED_BACK, m, 0, "PKGRBX");
+        return -5;
+    }
+
     if (!stage_transaction(m, PST_TX_ROLLBACK_STAGED,
                            s->slot_before_apply, s->slot_after_apply,
                            s->criticals_at_apply, s->health_at_apply))
