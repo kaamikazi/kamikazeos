@@ -2,6 +2,7 @@
 #include "errors.h"
 #include "gdt.h"
 #include "paging.h"
+#include "panic.h"
 #include "privilege.h"
 #include "string.h"
 #include "syscall.h"
@@ -71,8 +72,8 @@ void ring3_init(void)
 int ring3_run_test(void)
 {
     if (!state.execution_enabled || state.test_running) {
-        error_log(SEV_WARNING, "RING3-102", "Ring3",
-                  "Ring 3 test refused", "check readiness and active test state");
+        error_log_class(SEV_WARNING, HEALTH_OPERATOR_INPUT, "RING3-102", "Ring3",
+                        "Ring 3 test refused", "check readiness and active test state");
         return 0;
     }
     state.test_running = 1;
@@ -105,7 +106,8 @@ int ring3_run_test(void)
 void ring3_run_fault_test(void)
 {
     if (!state.fault_test_approved || state.test_running) {
-        error_log(SEV_WARNING, "RING3-102", "Ring3",
+        kpanic_cancel_intentional();
+        error_log_class(SEV_WARNING, HEALTH_OPERATOR_INPUT, "RING3-102", "Ring3",
                   "Ring 3 fault test refused",
                   "fault-test approval is independent and remains disabled");
         return;

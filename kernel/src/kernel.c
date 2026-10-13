@@ -131,7 +131,10 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
     /* Previous boot died? Log it loudly FIRST so the evidence is in this
        boot's log and report before anything clears the stored flag. */
     if (rmem->prev_panic_detected) {
-        error_log(SEV_WARNING, "BOOT-WARN-001", "kernel",
+        error_log_class(SEV_WARNING,
+                        rmem->prev_panic_intentional ? HEALTH_INTENTIONAL_TEST
+                                                     : HEALTH_PRODUCTION,
+                        "BOOT-WARN-001", "kernel",
                   "Previous boot ended in panic",
                   "approve ACT-004 to investigate in safe mode");
         report_warn("previous boot ended in PANIC (see `recovery`)");

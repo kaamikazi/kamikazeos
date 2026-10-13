@@ -633,6 +633,9 @@ def print_issue(e):
     print(f"  [{e.get('severity', '?').upper()}] {code}  ({e.get('component', '?')})")
     print(f"    event   : {e.get('message', '?')}")
     print(f"    hint    : {e.get('hint', '?')}")
+    if e.get("health"):
+        # v2.6.1: still reported here; only excluded from the health score.
+        print(f"    health  : {e['health']} (not a production fault)")
     rule = RULES.get(code)
     if rule:
         print(f"    cause   : {rule['cause']}")

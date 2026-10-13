@@ -43,14 +43,23 @@ void boot_snapshot_health_now(struct health_breakdown *out)
     struct ghostattach_stats st;
     ghostattach_get_stats(&st);
 
-    uint32_t warnings  = error_count_severity(SEV_WARNING);
-    uint32_t criticals = error_count_severity(SEV_ERROR) +
-                         error_count_severity(SEV_PANIC);
+    /* v2.6.1: only PRODUCTION events, counted cumulatively for this boot.
+       Typos, refused operator requests, compiled-in canaries, intentional
+       tests, and warnings already scored through device status are still
+       logged and exported - they just are not production faults. */
+    uint32_t warnings  = error_health_count(HEALTH_PRODUCTION, SEV_WARNING);
+    uint32_t criticals = error_health_count(HEALTH_PRODUCTION, SEV_ERROR) +
+                         error_health_count(HEALTH_PRODUCTION, SEV_PANIC);
     uint32_t production_isolated = st.isolated >= st.expected_test_failures
                                  ? st.isolated - st.expected_test_failures : 0;
 
     out->base             = 100;
-    out->panic_penalty    = recovery_memory_get()->prev_panic_detected ? -15 : 0;
+    /* A panic deliberately triggered by a test command is evidence, not
+       a production fault; an unclassified (or legacy-recorded) panic is
+       always treated as real. */
+    const struct recovery_memory *mem = recovery_memory_get();
+    out->panic_penalty    = (mem->prev_panic_detected &&
+                             !mem->prev_panic_intentional) ? -15 : 0;
     out->missing_penalty  = -10 * (int)st.missing;
     out->isolated_penalty = -8  * (int)production_isolated;
     out->warning_penalty  = -5  * (int)warnings;
@@ -92,9 +101,9 @@ static void capture(struct boot_snapshot *s)
     s->isolated_count       = cap8(st.isolated >= st.expected_test_failures
                                  ? st.isolated - st.expected_test_failures : 0);
     s->blocked_driver_count = blocked;
-    s->warning_count        = cap8(error_count_severity(SEV_WARNING));
-    s->critical_count       = cap8(error_count_severity(SEV_ERROR) +
-                                   error_count_severity(SEV_PANIC));
+    s->warning_count        = cap8(error_health_count(HEALTH_PRODUCTION, SEV_WARNING));
+    s->critical_count       = cap8(error_health_count(HEALTH_PRODUCTION, SEV_ERROR) +
+                                   error_health_count(HEALTH_PRODUCTION, SEV_PANIC));
     s->actions_applied      = applied;
     s->rollback_available   = m->rollback_available;
     s->scan_ok              = (st.attached + st.fallback == st.total) ? 1 : 0;

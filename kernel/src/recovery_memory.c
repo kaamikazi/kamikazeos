@@ -62,6 +62,9 @@ static void cmos_write(uint8_t index, uint8_t value)
 #define FLAG_AUD_QUARANTINE  (1u << 2)
 #define FLAG_LAST_PANIC      (1u << 3)
 #define FLAG_ROLLBACK_AVAIL  (1u << 4)
+/* v2.6.1. Older kernels ignore this bit and drop it when they save, which
+   degrades safely: the panic is then treated as a real fault. */
+#define FLAG_PANIC_INTENTIONAL (1u << 5)
 
 static struct recovery_memory mem;   /* the in-RAM mirror */
 
@@ -83,6 +86,8 @@ void recovery_memory_save(void)
     if (mem.audio_quarantined)   flags |= FLAG_AUD_QUARANTINE;
     if (mem.last_boot_panic)     flags |= FLAG_LAST_PANIC;
     if (mem.rollback_available)  flags |= FLAG_ROLLBACK_AVAIL;
+    if (mem.last_boot_panic && mem.last_panic_intentional)
+        flags |= FLAG_PANIC_INTENTIONAL;
 
     uint8_t block[BLOCK_SIZE];
     block[OFF_MAGIC0]   = MAGIC0;
@@ -133,6 +138,8 @@ void recovery_memory_load(void)
     mem.audio_quarantined    = (flags & FLAG_AUD_QUARANTINE) ? 1 : 0;
     mem.last_boot_panic      = (flags & FLAG_LAST_PANIC) ? 1 : 0;
     mem.rollback_available   = (flags & FLAG_ROLLBACK_AVAIL) ? 1 : 0;
+    mem.last_panic_intentional = (mem.last_boot_panic &&
+                                  (flags & FLAG_PANIC_INTENTIONAL)) ? 1 : 0;
     mem.boot_count           = block[OFF_BOOTCNT];
     mem.last_action_id       = block[OFF_LASTACT];
     mem.prior_network_status = block[OFF_PRIORNET];
@@ -143,6 +150,7 @@ void recovery_memory_load(void)
        after mark_clean_boot() clears the stored flag — the shell and the
        report must keep showing the evidence until the next boot. */
     mem.prev_panic_detected = mem.last_boot_panic;
+    mem.prev_panic_intentional = mem.last_panic_intentional;
 }
 
 void recovery_memory_init(void)
@@ -158,6 +166,8 @@ void recovery_memory_init(void)
         recovery_store_load(&mem);
         mem.valid_at_boot = 1;
         mem.prev_panic_detected = mem.last_boot_panic;
+        mem.prev_panic_intentional = mem.last_boot_panic &&
+                                     mem.last_panic_intentional;
         backend = "disk+CMOS";
         cmos_fallback_used = 0;
     } else if (recovery_store_available()) {
@@ -232,9 +242,10 @@ void recovery_memory_mark_action_rolled_back(const char *action_id)
     recovery_memory_save();
 }
 
-void recovery_memory_mark_panic(void)
+void recovery_memory_mark_panic(int intentional)
 {
     mem.last_boot_panic = 1;
+    mem.last_panic_intentional = intentional ? 1 : 0;
     recovery_memory_save();      /* MUST hit NVRAM before the CPU halts */
 }
 
@@ -244,6 +255,7 @@ void recovery_memory_mark_clean_boot(void)
        so this session keeps reporting the evidence. Call this only after
        the panic has been logged and exported — see kmain()'s ordering. */
     mem.last_boot_panic = 0;
+    mem.last_panic_intentional = 0;
     recovery_memory_save();
 }
 

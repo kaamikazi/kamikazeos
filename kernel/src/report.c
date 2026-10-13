@@ -70,7 +70,7 @@ static int report_last_critical(struct kerror *out)
     struct kerror e;
     int found = 0;
     for (uint32_t i = 0; error_get(i, &e); i++) {
-        if (e.severity >= SEV_ERROR) {
+        if (e.severity >= SEV_ERROR && e.health == HEALTH_PRODUCTION) {
             if (out)
                 *out = e;
             found = 1;
@@ -662,6 +662,8 @@ void report_send(void)
     serial_print("\nnetwork_quarantined=");serial_print(m->network_quarantined ? "1" : "0");
     serial_print("\naudio_quarantined=");  serial_print(m->audio_quarantined ? "1" : "0");
     serial_print("\nlast_boot_panic=");    serial_print(m->prev_panic_detected ? "1" : "0");
+    serial_print("\nlast_boot_panic_intentional=");
+    serial_print(m->prev_panic_detected && m->prev_panic_intentional ? "1" : "0");
     serial_print("\nrollback_available="); serial_print(m->rollback_available ? "1" : "0");
     serial_print("\nlast_action_id=");
     switch (m->last_action_id) {
@@ -765,6 +767,25 @@ void report_send(void)
         serial_print("\nisolated_penalty=");serial_print_dec((uint32_t)(-hb.isolated_penalty));
         serial_print("\nwarning_penalty=");serial_print_dec((uint32_t)(-hb.warning_penalty));
         serial_print("\ncritical_penalty=");serial_print_dec((uint32_t)(-hb.critical_penalty));
+        serial_print("\nhealth_model=production_events_per_boot");
+        serial_print("\nproduction_warnings=");
+        serial_print_dec(error_health_count(HEALTH_PRODUCTION, SEV_WARNING));
+        serial_print("\nproduction_criticals=");
+        serial_print_dec(error_health_count(HEALTH_PRODUCTION, SEV_ERROR) +
+                         error_health_count(HEALTH_PRODUCTION, SEV_PANIC));
+        static const enum health_class excluded[] = {
+            HEALTH_OPERATOR_INPUT, HEALTH_EXPECTED_CANARY,
+            HEALTH_INTENTIONAL_TEST, HEALTH_DEVICE_STATE };
+        for (uint32_t c = 0; c < sizeof(excluded) / sizeof(excluded[0]); c++) {
+            serial_print("\n");
+            serial_print(health_class_name(excluded[c]));
+            serial_print("=");
+            serial_print_dec(error_health_count(excluded[c], SEV_WARNING) +
+                             error_health_count(excluded[c], SEV_ERROR) +
+                             error_health_count(excluded[c], SEV_PANIC));
+        }
+        serial_print("\nprevious_panic_intentional=");
+        serial_print(m->prev_panic_detected && m->prev_panic_intentional ? "1" : "0");
         /* previous boot's score + delta, when a prior snapshot exists */
         int prev = -1;
         for (int i = nsnaps - 1; i >= 0; i--)
@@ -990,6 +1011,10 @@ void report_send(void)
         serial_print(";component="); serial_print_field(e.component);
         serial_print(";message=");   serial_print_field(e.message);
         serial_print(";hint=");      serial_print_field(e.hint);
+        if (e.health != HEALTH_PRODUCTION) {
+            serial_print(";health=");
+            serial_print(health_class_name(e.health));
+        }
         serial_print("\n");
     }
 

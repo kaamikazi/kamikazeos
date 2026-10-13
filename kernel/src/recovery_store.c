@@ -53,6 +53,7 @@
 #define EXT_JCOUNT   (EXT_OFF + 12)  /* uint16 LE copy of SB_JCOUNT       */
 #define EXT_CRC      48              /* CRC-32 (IEEE) over bytes 0..47    */
 #define EXT_FMT      1
+#define EXT_FLAG_PANIC_INTENTIONAL 0x01   /* v2.6.1 health classification */
 
 /* Journal entry layout (16 bytes). */
 #define JE_MAGIC_BYTE 0xA7
@@ -366,6 +367,9 @@ int recovery_store_load(struct recovery_memory *into)
     into->last_action_id       = loaded[SB_LASTACT];
     into->prior_network_status = loaded[SB_PRIORNET];
     into->prior_audio_status   = loaded[SB_PRIORAUD];
+    /* Legacy blocks have no extension: their panics count as real. */
+    into->last_panic_intentional = (loaded[SB_PANIC] &&
+                                    (ext_flags & EXT_FLAG_PANIC_INTENTIONAL)) ? 1 : 0;
     return 1;
 }
 
@@ -399,6 +403,8 @@ int recovery_store_save(const struct recovery_memory *from)
     sector[EXT_OFF]     = 'K'; sector[EXT_OFF + 1] = 'S';
     sector[EXT_OFF + 2] = 'X'; sector[EXT_OFF + 3] = '1';
     sector[EXT_VERSION] = EXT_FMT;
+    ext_flags = (from->last_boot_panic && from->last_panic_intentional)
+                    ? EXT_FLAG_PANIC_INTENTIONAL : 0;
     sector[EXT_FLAGS]   = ext_flags;
     put_u32(sector + EXT_GEN, next_generation);
     sector[EXT_JCOUNT]     = (uint8_t)(jcount & 0xFF);

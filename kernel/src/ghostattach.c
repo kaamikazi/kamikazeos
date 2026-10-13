@@ -88,8 +88,9 @@ static int is_expected_self_test_device(const struct device *dev)
  * Compose "DeviceName + action" log messages without a printf. Messages
  * must never contain ';' or '=' (they would corrupt the AI log format).
  */
-static void log_ga(enum err_severity sev, const char *code,
-                   const char *devname, const char *action, const char *hint)
+static void log_ga_class(enum err_severity sev, enum health_class cls,
+                         const char *code, const char *devname,
+                         const char *action, const char *hint)
 {
     char msg[ERR_MSG_MAX];
     /* msg = devname + " " + action, truncated safely. */
@@ -100,7 +101,13 @@ static void log_ga(enum err_severity sev, const char *code,
         msg[len] = '\0';
         kstrcpy(msg + len, action, ERR_MSG_MAX - len);
     }
-    error_log(sev, code, "GhostAttach", msg, hint);
+    error_log_class(sev, cls, code, "GhostAttach", msg, hint);
+}
+
+static void log_ga(enum err_severity sev, const char *code,
+                   const char *devname, const char *action, const char *hint)
+{
+    log_ga_class(sev, HEALTH_PRODUCTION, code, devname, action, hint);
 }
 
 /*
@@ -134,7 +141,7 @@ static int try_attach_driver(struct device *dev, struct driver *drv,
        worst case — log it as a security event, not a driver event. */
     if (!drv->verified) {
         drv->status = DRVST_BLOCKED_UNVERIFIED;
-        log_ga(SEV_WARNING, "GA-SEC-001", dev->name,
+        log_ga_class(SEV_WARNING, HEALTH_DEVICE_STATE, "GA-SEC-001", dev->name,
                is_fallback ? "fallback driver blocked - not verified"
                            : "driver blocked - not verified",
                "only load signed verified drivers");
@@ -202,7 +209,8 @@ static void scan_device(struct device *dev)
     /* RULE 4: nothing verified could drive it. Device stays off, and the
        log explains both what happened and the safest next step. */
     dev->status = DEVST_MISSING_DRIVER;
-    log_ga(SEV_WARNING, "GA-DRV-101", dev->name,
+    /* Scored once, through missing_penalty (-10 per device). */
+    log_ga_class(SEV_WARNING, HEALTH_DEVICE_STATE, "GA-DRV-101", dev->name,
            "missing verified driver",
            "keep device disabled until verified driver exists");
 }

@@ -33,10 +33,30 @@ static void serial_print_u32(uint32_t value)
         serial_putc(digits[--count]);
 }
 
+/* Set by test commands immediately before they deliberately panic or
+   fault. Anything else that panics is, by default, a real fault. */
+static int intentional_test;
+
+void kpanic_expect_intentional(void)
+{
+    intentional_test = 1;
+}
+
+void kpanic_cancel_intentional(void)
+{
+    intentional_test = 0;
+}
+
+static enum health_class panic_class(void)
+{
+    return intentional_test ? HEALTH_INTENTIONAL_TEST : HEALTH_PRODUCTION;
+}
+
 static void record_panic(void)
 {
-    recovery_memory_mark_panic();
-    recovery_journal_append(JE_PANIC, 0, 0, 2, 0, "PANIC0");
+    recovery_memory_mark_panic(intentional_test);
+    recovery_journal_append(JE_PANIC, 0, 0, 2, 0,
+                            intentional_test ? "PANICT" : "PANIC0");
 }
 
 static void halt_forever(void)
@@ -49,7 +69,7 @@ void kpanic(const char *code, const char *msg, const char *hint)
 {
     /* 1. Record the event FIRST — diagnostics before cosmetics. This also
           streams the entry out the serial port to the host. */
-    error_log(SEV_PANIC, code, "kernel", msg, hint);
+    error_log_class(SEV_PANIC, panic_class(), code, "kernel", msg, hint);
 
     /* 2. Burn the evidence into NVRAM + disk so the NEXT boot knows this
           one died — that's what triggers the safe-mode suggestion. The
@@ -106,10 +126,10 @@ void kpanic_exception(const char *name, const struct interrupt_frame *frame)
         ring3_record_user_fault(vector, fault_address, eip, user_esp);
     if (vector == 14) {
         paging_record_page_fault(fault_address, error_code, eip);
-        error_log(SEV_PANIC, "PAGE-FAULT", "Paging", name,
+        error_log_class(SEV_PANIC, panic_class(), "PAGE-FAULT", "Paging", name,
                   "inspect CR2 fault address and error code");
     } else {
-        error_log(SEV_PANIC, "CPU-EXCEPTION", "interrupts", name,
+        error_log_class(SEV_PANIC, panic_class(), "CPU-EXCEPTION", "interrupts", name,
                   "inspect vector error code and instruction pointer");
     }
 

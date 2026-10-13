@@ -41,9 +41,26 @@ enum err_severity {
 #define ERR_HINT_MAX 64    /* best-known remedy (sized so real hints fit) */
 #define ERR_CAPACITY 64    /* ring buffer size        */
 
+/*
+ * v2.6.1 health classification. Every event keeps its severity and is
+ * logged and exported exactly as before; the class only decides whether
+ * it costs PRODUCTION health. Unclassified call sites default to
+ * HEALTH_PRODUCTION, so a new fault can never be excluded by accident.
+ */
+enum health_class {
+    HEALTH_PRODUCTION = 0,       /* a real fault: counts toward health    */
+    HEALTH_OPERATOR_INPUT,       /* typo, invalid argument, or an operator */
+                                 /* request refused by policy             */
+    HEALTH_EXPECTED_CANARY,      /* compiled-in canary blocked as designed */
+    HEALTH_INTENTIONAL_TEST,     /* operator-triggered test fault/panic    */
+    HEALTH_DEVICE_STATE,         /* already scored via device status       */
+    HEALTH_CLASS_COUNT
+};
+
 struct kerror {
     uint32_t           seq;        /* global event number, never reused */
     enum err_severity  severity;
+    enum health_class  health;     /* v2.6.1: production or excluded     */
     char               code[ERR_CODE_MAX];
     char               component[ERR_COMP_MAX];
     char               message[ERR_MSG_MAX];
@@ -55,6 +72,19 @@ void errors_init(void);
 /* Record an event. Also streams it to the serial port immediately. */
 void error_log(enum err_severity severity, const char *code,
                const char *component, const char *message, const char *hint);
+
+/* Same, with an explicit health class (error_log == HEALTH_PRODUCTION).
+   Non-production entries carry `;health=<class>` on serial so the host
+   can see exactly what was excluded from the score. */
+void error_log_class(enum err_severity severity, enum health_class health,
+                     const char *code, const char *component,
+                     const char *message, const char *hint);
+
+/* Events of this class and severity logged THIS BOOT. Cumulative counters:
+   unlike the 64-entry ring they never drop old events, so the health
+   score cannot improve just because the ring wrapped. */
+uint32_t error_health_count(enum health_class health, enum err_severity sev);
+const char *health_class_name(enum health_class health);
 
 /*
  * Read entries back, oldest first. Pass an index 0..error_count()-1.

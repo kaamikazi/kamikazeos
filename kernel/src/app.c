@@ -143,7 +143,7 @@ int app_run(const char *name)
         blocked_attempts++;
         remember_last(name, "blocked");
         append_log(name, "blocked", "blocked", reason);
-        error_log(SEV_WARNING, "APP-BLOCK-001", "apps",
+        error_log_class(SEV_WARNING, HEALTH_OPERATOR_INPUT, "APP-BLOCK-001", "apps",
                   "App run blocked by fixed registry policy",
                   "only compile-time built-in apps can run");
         return -1;

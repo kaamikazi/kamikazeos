@@ -6,6 +6,7 @@
 static struct kerror ring[ERR_CAPACITY];
 static uint32_t next_seq;     /* total events ever logged                */
 static uint32_t stored;       /* how many entries currently in the ring */
+static uint32_t class_counts[HEALTH_CLASS_COUNT][4];   /* per boot, never wrap */
 
 const char *severity_name(enum err_severity sev)
 {
@@ -23,6 +24,7 @@ void errors_init(void)
     next_seq = 0;
     stored   = 0;
     kmemset(ring, 0, sizeof(ring));
+    kmemset(class_counts, 0, sizeof(class_counts));
 }
 
 /*
@@ -39,17 +41,55 @@ static void emit_serial(const struct kerror *e)
     serial_print(";component=");serial_print_field(e->component);
     serial_print(";message=");  serial_print_field(e->message);
     serial_print(";hint=");     serial_print_field(e->hint);
+    if (e->health != HEALTH_PRODUCTION) {
+        serial_print(";health=");
+        serial_print(health_class_name(e->health));
+    }
     serial_print("\n");
+}
+
+const char *health_class_name(enum health_class health)
+{
+    switch (health) {
+    case HEALTH_PRODUCTION:       return "production";
+    case HEALTH_OPERATOR_INPUT:   return "excluded_operator_input";
+    case HEALTH_EXPECTED_CANARY:  return "excluded_expected_canary";
+    case HEALTH_INTENTIONAL_TEST: return "excluded_intentional_test";
+    case HEALTH_DEVICE_STATE:     return "scored_via_device_state";
+    case HEALTH_CLASS_COUNT:      break;
+    }
+    return "production";
 }
 
 void error_log(enum err_severity severity, const char *code,
                const char *component, const char *message, const char *hint)
 {
+    error_log_class(severity, HEALTH_PRODUCTION, code, component, message, hint);
+}
+
+uint32_t error_health_count(enum health_class health, enum err_severity sev)
+{
+    if ((uint32_t)health >= HEALTH_CLASS_COUNT || (uint32_t)sev > SEV_PANIC)
+        return 0;
+    return class_counts[health][sev];
+}
+
+void error_log_class(enum err_severity severity, enum health_class health,
+                     const char *code, const char *component,
+                     const char *message, const char *hint)
+{
+    if ((uint32_t)health >= HEALTH_CLASS_COUNT)
+        health = HEALTH_PRODUCTION;
+    if ((uint32_t)severity <= SEV_PANIC &&
+        class_counts[health][severity] != 0xFFFFFFFFu)
+        class_counts[health][severity]++;
+
     /* The slot to write: sequence number modulo capacity = ring position. */
     struct kerror *e = &ring[next_seq % ERR_CAPACITY];
 
     e->seq      = next_seq;
     e->severity = severity;
+    e->health   = health;
     kstrcpy(e->code,      code,      ERR_CODE_MAX);
     kstrcpy(e->component, component, ERR_COMP_MAX);
     kstrcpy(e->message,   message,   ERR_MSG_MAX);

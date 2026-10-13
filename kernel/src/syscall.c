@@ -345,22 +345,26 @@ void syscall_dispatch(struct interrupt_frame *frame)
         stats.esp0_switch_observed = 1;
     last_text[0] = '\0';
     const struct syscall_entry *entry = find_entry(id);
+    /* Requests from the Ring 0 shell's `syscall` test command are operator
+       input; anything arriving from CPL3 is a production event. */
+    enum health_class cls = origin == SYSCALL_ORIGIN_KERNEL
+        ? HEALTH_OPERATOR_INPUT : HEALTH_PRODUCTION;
     if (!stats.initialized) {
         result = SYSCALL_ERR_UNAVAILABLE;
     } else if (origin == SYSCALL_ORIGIN_INVALID) {
         result = SYSCALL_ERR_DENIED;
         stats.origin_denied_calls++;
-        error_log(SEV_WARNING, "SYS-ERR-004", "Syscalls",
+        error_log_class(SEV_WARNING, HEALTH_PRODUCTION, "SYS-ERR-004", "Syscalls",
                   "Syscall rejected invalid saved selector origin",
                   "inspect CS data selectors and privilege-transition stack");
     } else if (!entry) {
         result = SYSCALL_ERR_UNKNOWN;
-        error_log(SEV_WARNING, "SYS-ERR-001", "Syscalls",
+        error_log_class(SEV_WARNING, cls, "SYS-ERR-001", "Syscalls",
                   "Unknown syscall ID rejected", "use the fixed syscall table");
     } else if (!syscall_origin_allowed(id, origin)) {
         result = SYSCALL_ERR_DENIED;
         stats.origin_denied_calls++;
-        error_log(SEV_WARNING, "SYS-ERR-004", "Syscalls",
+        error_log_class(SEV_WARNING, cls, "SYS-ERR-004", "Syscalls",
                   "Syscall origin policy rejected caller CPL",
                   "use only services permitted for the saved CS privilege");
     } else if (id == SYS_USER_EXIT) {
@@ -374,7 +378,7 @@ void syscall_dispatch(struct interrupt_frame *frame)
     } else {
         result = entry->handler(frame->ebx, frame->ecx, frame->edx, &value);
         if (result != SYSCALL_OK)
-            error_log(SEV_WARNING, "SYS-ERR-002", "Syscalls",
+            error_log_class(SEV_WARNING, cls, "SYS-ERR-002", "Syscalls",
                       "Syscall arguments or service state rejected",
                       "use bounded handles and documented arguments");
     }

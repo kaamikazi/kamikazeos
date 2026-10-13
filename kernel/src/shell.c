@@ -623,6 +623,7 @@ static void cmd_pagefault_test(const char *arg)
         return;
     }
     vga_print("Triggering an intentional unmapped access; the kernel will halt.\n");
+    kpanic_expect_intentional();
     paging_trigger_pagefault_test();
 }
 
@@ -836,6 +837,7 @@ static void cmd_user_fault_test(const char *arg)
         return;
     }
     vga_print("Entering CPL3 and reading supervisor-only kernel memory.\n");
+    kpanic_expect_intentional();
     ring3_run_fault_test();
 }
 
@@ -1124,6 +1126,7 @@ static void cmd_reboot(void)
 static void cmd_panic_test(void)
 {
     vga_print("Triggering a deliberate kernel panic in 3.. 2.. 1..\n");
+    kpanic_expect_intentional();
     /* No ';' or '=' in log strings — they would corrupt the AI format. */
     kpanic("TEST-PANIC-001",
            "Deliberate test panic requested via panic-test",
@@ -1419,9 +1422,11 @@ static void cmd_exceptions_test(const char *arg)
 {
     if (kstrcmp(arg, "divide confirm") == 0) {
         vga_print("Triggering controlled divide-by-zero exception. The VM will halt.\n");
+        kpanic_expect_intentional();
         interrupts_trigger_divide_test();
     } else if (kstrcmp(arg, "invalid-opcode confirm") == 0) {
         vga_print("Triggering controlled invalid-opcode exception. The VM will halt.\n");
+        kpanic_expect_intentional();
         interrupts_trigger_invalid_opcode_test();
     } else {
         vga_print("This command deliberately halts the kernel after exporting evidence.\n");
@@ -2509,8 +2514,9 @@ void shell_run(void)
             vga_print("Unknown command: `");
             vga_print(line);
             vga_print("`. Type `help` for the command list.\n");
-            error_log(SEV_WARNING, "SHL-001", "shell",
-                      "Unknown command entered", "type `help` for valid commands");
+            error_log_class(SEV_WARNING, HEALTH_OPERATOR_INPUT, "SHL-001",
+                            "shell", "Unknown command entered",
+                            "type `help` for valid commands");
         }
     }
 }

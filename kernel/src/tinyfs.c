@@ -269,14 +269,14 @@ static int require_ready(void)
 {
     if (!status.available) {
         set_error("disk_unavailable");
-        error_log(SEV_WARNING, "TFS-ERR-001", "TinyFS",
+        error_log_class(SEV_WARNING, HEALTH_OPERATOR_INPUT, "TFS-ERR-001", "TinyFS",
                   "TinyFS operation refused without ATA disk",
                   "attach the recovery disk and reboot");
         return 0;
     }
     if (!status.formatted) {
         set_error("not_formatted");
-        error_log(SEV_WARNING, "TFS-ERR-002", "TinyFS",
+        error_log_class(SEV_WARNING, HEALTH_OPERATOR_INPUT, "TFS-ERR-002", "TinyFS",
                   "TinyFS operation refused before format",
                   "run fs-format confirm");
         return 0;
@@ -289,7 +289,7 @@ static int require_valid_name(const char *name)
     if (valid_name(name))
         return 1;
     set_error("invalid_filename");
-    error_log(SEV_WARNING, "TFS-ERR-004", "TinyFS",
+    error_log_class(SEV_WARNING, HEALTH_OPERATOR_INPUT, "TFS-ERR-004", "TinyFS",
               "TinyFS rejected invalid filename",
               "use 1 to 24 letters digits dot dash or underscore");
     return 0;
@@ -356,7 +356,7 @@ int tinyfs_format(void)
 {
     if (!status.available) {
         set_error("disk_unavailable");
-        error_log(SEV_WARNING, "TFS-ERR-001", "TinyFS",
+        error_log_class(SEV_WARNING, HEALTH_OPERATOR_INPUT, "TFS-ERR-001", "TinyFS",
                   "TinyFS format refused without ATA disk",
                   "attach the recovery disk and reboot");
         return 0;
@@ -411,7 +411,7 @@ int tinyfs_create(const char *name)
         return 0;
     if (find_file(name) >= 0) {
         set_error("file_exists");
-        error_log(SEV_WARNING, "TFS-ERR-005", "TinyFS",
+        error_log_class(SEV_WARNING, HEALTH_OPERATOR_INPUT, "TFS-ERR-005", "TinyFS",
                   "TinyFS create refused duplicate filename",
                   "choose another name or delete the existing file");
         return 0;
@@ -419,7 +419,7 @@ int tinyfs_create(const char *name)
     int slot = find_free_entry();
     if (slot < 0) {
         set_error("file_table_full");
-        error_log(SEV_WARNING, "TFS-ERR-006", "TinyFS",
+        error_log_class(SEV_WARNING, HEALTH_OPERATOR_INPUT, "TFS-ERR-006", "TinyFS",
                   "TinyFS file table is full",
                   "delete an unused file before creating another");
         return 0;
@@ -477,7 +477,7 @@ int tinyfs_write_text(const char *name, const char *text)
     int index = find_file(name);
     if (index < 0) {
         set_error("file_not_found");
-        error_log(SEV_WARNING, "TFS-ERR-008", "TinyFS",
+        error_log_class(SEV_WARNING, HEALTH_OPERATOR_INPUT, "TFS-ERR-008", "TinyFS",
                   "TinyFS write target was not found",
                   "create the file with touch first");
         return 0;
@@ -485,7 +485,7 @@ int tinyfs_write_text(const char *name, const char *text)
     uint32_t length = (uint32_t)kstrlen(text);
     if (length > TINYFS_MAX_FILE_SIZE) {
         set_error("file_too_large");
-        error_log(SEV_WARNING, "TFS-ERR-009", "TinyFS",
+        error_log_class(SEV_WARNING, HEALTH_OPERATOR_INPUT, "TFS-ERR-009", "TinyFS",
                   "TinyFS rejected oversized write",
                   "maximum file size is 2048 bytes");
         return 0;
@@ -494,7 +494,7 @@ int tinyfs_write_text(const char *name, const char *text)
     uint32_t start_lba;
     if (!allocate_extent(sectors_needed, &start_lba)) {
         set_error("data_area_full");
-        error_log(SEV_WARNING, "TFS-ERR-010", "TinyFS",
+        error_log_class(SEV_WARNING, HEALTH_OPERATOR_INPUT, "TFS-ERR-010", "TinyFS",
                   "TinyFS data area has no contiguous extent",
                   "delete files or write smaller content");
         return 0;
@@ -554,7 +554,7 @@ int tinyfs_read_text(const char *name, char *out,
     int index = find_file(name);
     if (index < 0) {
         set_error("file_not_found");
-        error_log(SEV_WARNING, "TFS-ERR-008", "TinyFS",
+        error_log_class(SEV_WARNING, HEALTH_OPERATOR_INPUT, "TFS-ERR-008", "TinyFS",
                   "TinyFS read target was not found",
                   "run ls to inspect available files");
         return 0;
@@ -603,7 +603,7 @@ int tinyfs_delete(const char *name)
     int index = find_file(name);
     if (index < 0) {
         set_error("file_not_found");
-        error_log(SEV_WARNING, "TFS-ERR-008", "TinyFS",
+        error_log_class(SEV_WARNING, HEALTH_OPERATOR_INPUT, "TFS-ERR-008", "TinyFS",
                   "TinyFS delete target was not found",
                   "run ls to inspect available files");
         return 0;

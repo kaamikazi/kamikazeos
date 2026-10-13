@@ -63,9 +63,9 @@ static uint8_t pkg_byte(const struct pkg_manifest *m)
     return (n > 255u) ? 255u : (uint8_t)n;
 }
 
-static void log_pkg(enum err_severity sev, const char *code,
-                    const char *verb, const struct pkg_manifest *m,
-                    const char *hint)
+static void log_pkg_class(enum err_severity sev, enum health_class cls,
+                          const char *code, const char *verb,
+                          const struct pkg_manifest *m, const char *hint)
 {
     char msg[ERR_MSG_MAX];
     kstrcpy(msg, verb, ERR_MSG_MAX);
@@ -75,7 +75,14 @@ static void log_pkg(enum err_severity sev, const char *code,
     len = kstrlen(msg);
     if (len < ERR_MSG_MAX - 1) { msg[len++] = ' '; msg[len] = '\0';
         kstrcpy(msg + len, m->name, ERR_MSG_MAX - len); }
-    error_log(sev, code, "RecoveryPackage", msg, hint);
+    error_log_class(sev, cls, code, "RecoveryPackage", msg, hint);
+}
+
+static void log_pkg(enum err_severity sev, const char *code,
+                    const char *verb, const struct pkg_manifest *m,
+                    const char *hint)
+{
+    log_pkg_class(sev, HEALTH_PRODUCTION, code, verb, m, hint);
 }
 
 static void journal_pkg(enum journal_event ev, const struct pkg_manifest *m,
@@ -260,7 +267,13 @@ void recovery_package_init(void)
         const char *reason;
         if (!manifest_verify(m, &reason)) {
             statuses[i] = PKGST_BLOCKED;
-            log_pkg(SEV_WARNING, "PKG-BLOCK-001", "Blocked package", m, reason);
+            /* The compiled-in canary (built-in seed, in RAM or as an exact
+               disk copy) being blocked is the policy working. A blocked
+               IMPORTED manifest is a real event and costs health. */
+            log_pkg_class(SEV_WARNING,
+                          m->origin == MANIFEST_ORIGIN_DISK_IMPORT
+                              ? HEALTH_PRODUCTION : HEALTH_EXPECTED_CANARY,
+                          "PKG-BLOCK-001", "Blocked package", m, reason);
             continue;
         }
 
@@ -311,7 +324,8 @@ int pkg_approve(const char *id)
     if (recovery_package_status(m) == PKGST_BLOCKED ||
         !manifest_verify(m, &reason)) {
         manifest_verify(m, &reason);
-        log_pkg(SEV_WARNING, "PKG-BLOCK-001", "Blocked package", m, reason);
+        log_pkg_class(SEV_WARNING, HEALTH_OPERATOR_INPUT,
+                      "PKG-BLOCK-001", "Blocked package", m, reason);
         journal_pkg(JE_PKG_BLOCKED, m, 0, "PKGBLK");
         return -1;
     }
@@ -350,7 +364,7 @@ int pkg_apply(const char *id)
        Applying over it would overwrite the inactive slot — the ONLY
        verified known-good version — and leave nothing to roll back to. */
     if (slot->pending_verify) {
-        log_pkg(SEV_WARNING, "PKG-REJECT-002",
+        log_pkg_class(SEV_WARNING, HEALTH_OPERATOR_INPUT, "PKG-REJECT-002",
                 "Apply refused - pending verification on module of", m,
                 "verify-pkg or rollback-pkg the previous update first");
         return -6;
@@ -362,8 +376,9 @@ int pkg_apply(const char *id)
     uint8_t new_slot = (old_slot == SLOT_A) ? SLOT_B : SLOT_A;
     struct health_breakdown hb;
     boot_snapshot_health_now(&hb);
-    uint8_t criticals = (uint8_t)(error_count_severity(SEV_ERROR) +
-                                  error_count_severity(SEV_PANIC));
+    uint32_t crit_now = error_health_count(HEALTH_PRODUCTION, SEV_ERROR) +
+                        error_health_count(HEALTH_PRODUCTION, SEV_PANIC);
+    uint8_t criticals = (uint8_t)(crit_now > 255u ? 255u : crit_now);
     if (!stage_transaction(m, PST_TX_APPLY_STAGED, old_slot, new_slot,
                            criticals, (uint8_t)hb.score))
         return -4;
@@ -417,8 +432,8 @@ int pkg_verify(const char *id)
        and health didn't fall off a cliff (threshold: -20). */
     struct health_breakdown hb;
     boot_snapshot_health_now(&hb);
-    uint32_t criticals_now = error_count_severity(SEV_ERROR) +
-                             error_count_severity(SEV_PANIC);
+    uint32_t criticals_now = error_health_count(HEALTH_PRODUCTION, SEV_ERROR) +
+                             error_health_count(HEALTH_PRODUCTION, SEV_PANIC);
 
     int slot_ok    = (slot->active_slot == s->slot_after_apply);
     int version_ok = (kstrcmp(module_slot_active_version(slot),
@@ -491,7 +506,8 @@ int pkg_rollback(const char *id)
                      m->from_version) != 0)
         stale = "known-good from_version is no longer in the rollback slot";
     if (stale) {
-        log_pkg(SEV_WARNING, "PKG-REJECT-001", "Stale rollback refused", m, stale);
+        log_pkg_class(SEV_WARNING, HEALTH_OPERATOR_INPUT, "PKG-REJECT-001",
+                      "Stale rollback refused", m, stale);
         journal_pkg(JE_PKG_ROLLED_BACK, m, 0, "PKGRBX");
         return -5;
     }
