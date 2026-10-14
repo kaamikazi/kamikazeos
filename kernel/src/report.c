@@ -690,7 +690,7 @@ void report_send(void)
         recovery_store_integrity(&integ);
         serial_print("\nstate_source=");    serial_print(integ.state_source);
         serial_print("\nstate_generation=");serial_print_dec(integ.generation);
-        serial_print("\nstate_redundancy=mirror_lba50");
+        serial_print("\nstate_redundancy=");serial_print(integ.state_redundancy);
         serial_print("\nstate_locked=");    serial_print(integ.state_locked ? "1" : "0");
         serial_print("\njournal_locked=");  serial_print(integ.journal_locked ? "1" : "0");
         serial_print("\njournal_capacity=");serial_print_dec(integ.journal_capacity);

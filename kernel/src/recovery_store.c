@@ -69,6 +69,7 @@ static int      journal_locked;   /* ambiguous/unreadable: never append  */
 static int      full_warned;      /* STORE-WARN-004 logged this boot     */
 static int      locked_warned;
 static int      redundancy_warned;
+static int      mirror_present;   /* capacity proves LBA 50 exists       */
 static uint32_t dropped;          /* appends refused this boot           */
 static uint32_t corrupt_slots;    /* occupied slots failing validation   */
 static uint8_t  max_journal_boot; /* highest boot number in valid entries */
@@ -265,16 +266,20 @@ void recovery_store_init(void)
     dropped = corrupt_slots = 0;
     max_journal_boot = 0;
     state_source = "none";
+    mirror_present = 0;
     kmemset(loaded, 0, sizeof(loaded));
 
     ata_init();
     if (!ata_available())
         return;                     /* STORE-WARN already logged by ata  */
 
+    mirror_present = ata_capacity_sectors() > LBA_STATE_MIRROR;
+
     static uint8_t primary[ATA_SECTOR_SIZE];
     static uint8_t mirror[ATA_SECTOR_SIZE];
+    kmemset(mirror, 0, sizeof(mirror));
     if (!ata_read_sector(LBA_STATE, primary) ||
-        !ata_read_sector(LBA_STATE_MIRROR, mirror)) {
+        (mirror_present && !ata_read_sector(LBA_STATE_MIRROR, mirror))) {
         state_source = "unreadable";
         lock_store("STORE-ERR-012", "Recovery state sector unreadable - position unknown");
         return;
@@ -414,11 +419,11 @@ int recovery_store_save(const struct recovery_memory *from)
 
     /* Mirror first: a crash between the two writes leaves a NEWER mirror,
        which init selects; a torn primary fails its CRC and loses too. */
-    int mirror_ok  = ata_write_sector(LBA_STATE_MIRROR, sector);
+    int mirror_ok  = mirror_present && ata_write_sector(LBA_STATE_MIRROR, sector);
     int primary_ok = ata_write_sector(LBA_STATE, sector);
     if (!mirror_ok && !primary_ok)
         return 0;
-    if ((!mirror_ok || !primary_ok) && !redundancy_warned) {
+    if (mirror_present && (!mirror_ok || !primary_ok) && !redundancy_warned) {
         redundancy_warned = 1;
         error_log(SEV_WARNING, "STORE-WARN-012", "RecoveryStore",
                   "Only one recovery state copy was written",
@@ -436,7 +441,8 @@ void recovery_store_clear(void)
         return;
     kmemset(sector, 0, sizeof(sector));
     ata_write_sector(LBA_STATE, sector);                 /* zero the state */
-    ata_write_sector(LBA_STATE_MIRROR, sector);
+    if (mirror_present)
+        ata_write_sector(LBA_STATE_MIRROR, sector);
     for (int s = 0; s < JOURNAL_SECTORS; s++)            /* zero the log   */
         ata_write_sector((uint32_t)(LBA_JOURNAL + s), sector);
     valid  = 0;
@@ -583,6 +589,8 @@ void recovery_store_integrity(struct recovery_store_integrity *out)
     if (!out)
         return;
     out->state_source = state_source;
+    out->state_redundancy = mirror_present ? "mirror_lba50" :
+                           (ata_available() ? "single_copy_capacity" : "unavailable");
     out->generation = generation;
     out->state_locked = state_locked;
     out->journal_locked = journal_locked;
