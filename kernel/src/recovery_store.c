@@ -319,6 +319,10 @@ void recovery_store_init(void)
             ext_flags = loaded[EXT_FLAGS];
             state_source = choice == CHOICE_MIRROR ? "mirror" : "primary";
         } else {
+            /* The legacy primary supplies flags, but an older-format
+               writer did not invalidate the mirror's generation floor. */
+            if (ext_valid(mirror))
+                generation = get_u32(mirror + EXT_GEN);
             state_source = "legacy_primary";
         }
         if (choice == CHOICE_MIRROR)

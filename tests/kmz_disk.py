@@ -201,12 +201,15 @@ def state_generation(sector: bytes) -> int:
     return int.from_bytes(sector[EXT_OFF + 8:EXT_OFF + 12], "little")
 
 
-def resign_state(sector: bytes, boot_count: int | None = None) -> bytes:
+def resign_state(sector: bytes, boot_count: int | None = None,
+                 generation: int | None = None) -> bytes:
     """Edit a v2.6.1 state sector and re-seal BOTH checksums, keeping its
     generation: produces an internally valid but conflicting copy."""
     s = bytearray(sector)
     if boot_count is not None:
         s[5] = boot_count & 0xFF
+    if generation is not None:
+        s[EXT_OFF + 8:EXT_OFF + 12] = generation.to_bytes(4, "little")
     s[17] = sum_byte(s[0:17])
     s[EXT_CRC_OFF:EXT_CRC_OFF + 4] = _crc32(bytes(s[0:EXT_CRC_OFF])).to_bytes(4, "little")
     return bytes(s)
