@@ -141,10 +141,7 @@ static int try_attach_driver(struct device *dev, struct driver *drv,
        worst case — log it as a security event, not a driver event. */
     if (!drv->verified) {
         drv->status = DRVST_BLOCKED_UNVERIFIED;
-        log_ga_class(SEV_WARNING, HEALTH_DEVICE_STATE, "GA-SEC-001", dev->name,
-               is_fallback ? "fallback driver blocked - not verified"
-                           : "driver blocked - not verified",
-               "only load signed verified drivers");
+        /* Classification is deferred until scan_device knows the final state. */
         return 0;
     }
 
@@ -182,6 +179,22 @@ static int try_attach_driver(struct device *dev, struct driver *drv,
     return 1;
 }
 
+static void log_blocked_candidates(const struct device *dev,
+                                   const struct driver *exact,
+                                   const struct driver *fallback)
+{
+    enum health_class cls = (dev->status == DEVST_MISSING_DRIVER ||
+                             dev->status == DEVST_ISOLATED ||
+                             dev->status == DEVST_FAILED)
+                            ? HEALTH_DEVICE_STATE : HEALTH_PRODUCTION;
+    if (exact && !exact->verified)
+        log_ga_class(SEV_WARNING, cls, "GA-SEC-001", dev->name,
+                     "driver blocked - not verified", "only load signed verified drivers");
+    if (fallback && !fallback->verified)
+        log_ga_class(SEV_WARNING, cls, "GA-SEC-001", dev->name,
+                     "fallback driver blocked - not verified", "only load signed verified drivers");
+}
+
 /* Decide the fate of one device: exact -> fallback -> missing_driver. */
 static void scan_device(struct device *dev)
 {
@@ -200,15 +213,20 @@ static void scan_device(struct device *dev)
     /* RULE 2: exact driver missing (or blocked) -> try the fallback. */
     struct driver *fb = find_driver(dev->fallback_driver);
     if (fb) {
-        if (try_attach_driver(dev, fb, 1))
+        if (try_attach_driver(dev, fb, 1)) {
+            log_blocked_candidates(dev, exact, fb);
             return;
-        if (dev->status == DEVST_ISOLATED)
+        }
+        if (dev->status == DEVST_ISOLATED) {
+            log_blocked_candidates(dev, exact, fb);
             return;
+        }
     }
 
     /* RULE 4: nothing verified could drive it. Device stays off, and the
        log explains both what happened and the safest next step. */
     dev->status = DEVST_MISSING_DRIVER;
+    log_blocked_candidates(dev, exact, fb);
     /* Scored once, through missing_penalty (-10 per device). */
     log_ga_class(SEV_WARNING, HEALTH_DEVICE_STATE, "GA-DRV-101", dev->name,
            "missing verified driver",
