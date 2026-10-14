@@ -39,7 +39,7 @@ health.
 | `excluded_operator_input` | a typo, invalid argument, or operator request refused by policy | `SHL-001`; `approve ACT-999` (`REC-BLOCK-999`); `approve-pkg` of a blocked package (`PKG-BLOCK-001`); `PKG-REJECT-001/002`; `RING3-102`; `SYS-ERR-001/002/004` from the Ring 0 shell `syscall` command; `APP-BLOCK-001`; TinyFS request validation `TFS-ERR-001/002/004/005/006/008/009/010` |
 | `excluded_expected_canary` | a compiled-in canary blocked as designed | `REC-BLOCK-999` for ACT-999 at boot; `PKG-BLOCK-001` at boot for a built-in seed (PKG-003) |
 | `excluded_intentional_test` | an operator-triggered test fault | `panic-test`, `exceptions-test ... confirm`, `pagefault-test confirm`, `user-fault-test confirm`, and the next boot's `BOOT-WARN-001` for such a panic |
-| `scored_via_device_state` | already penalised through device status | `GA-DRV-101`, `GA-SEC-001` (the device's missing-driver state costs -10) |
+| `scored_via_device_state` | already penalised through final device status | `GA-DRV-101`; `GA-SEC-001` only when the final device is missing, isolated, or failed |
 
 Unclassified call sites default to `production`, so a new fault can never
 be excluded by accident.
@@ -48,6 +48,9 @@ be excluded by accident.
 
 - A **blocked imported** manifest (`PKG-BLOCK-001` for `disk_imported`).
 - Driver attach failures (`GA-DRV-201`).
+- An unverified exact driver blocked before a verified fallback succeeds:
+  `GA-SEC-001` remains a production warning because the final usable device
+  has no missing-driver penalty. Classification happens after attachment.
 - Store and journal integrity events (`STORE-*`), including the single
   `STORE-WARN-004` per boot while the journal is full.
 - TinyFS write/read/integrity faults (`TFS-ERR-003`, `-011`, `-012`, `-013`,
@@ -71,6 +74,12 @@ triggers the fault. The panic is then:
 
 A panic recorded by an older kernel, or without the flag, is always
 treated as real (-15).
+
+Built-in divide, invalid-opcode and page-fault triggers use
+`kpanic_run_intentional_test()`. If a trigger unexpectedly returns, the wrapper
+clears intentional classification before logging `TEST-RETURN-001` as a
+production error. The disabled CPL3 fault path also clears classification on
+refusal or unexpected return. Normal fault persistence remains unchanged.
 
 ## Package verification
 

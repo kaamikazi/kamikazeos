@@ -1,5 +1,18 @@
 # Changelog
 
+## v2.6.1 Integrity Corrections (Pending Independent Review)
+
+- Restored capacity-aware RecoveryStore single-copy operation on small disks.
+- Held snapshot writes while recovery ordering is ambiguous or unreadable;
+  preserved readable journal boot bounds without unlocking storage.
+- Refused snapshot replacement when history is unreadable, corrupt or ahead
+  of the proposed boot number; held persistent numbering at byte exhaustion.
+- Retained the valid mirror generation when a legacy primary supplies flags.
+- Classified blocked-driver warnings from the final verified device state.
+- Cleared intentional-fault classification if a built-in trigger returns.
+- Added disposable QEMU and defensive host regressions; corrected manifest
+  and recovery-state sector documentation. Ring 3 remains execution-disabled.
+
 ## v2.6.1 - Integrity Gate (hardening)
 
 Closes the storage, package, manifest, and health-scoring defects found by

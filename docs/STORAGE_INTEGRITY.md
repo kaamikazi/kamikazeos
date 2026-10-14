@@ -1,8 +1,8 @@
 # Recovery Store Integrity (v2.6.1 "Integrity Gate")
 
-The recovery journal is evidence. v2.6.1 guarantees that no existing
-journal entry is overwritten, whether the cause is a torn write, a
-damaged state block, a full journal, or ambiguous metadata.
+The recovery journal is evidence. v2.6.1 preserves occupied journal slots
+under the tested torn-write, damaged-state, full-journal and ambiguous-state
+scenarios. This is bounded recovery metadata, not a crash-safe filesystem.
 
 ## Disk layout (unchanged except LBA 50)
 
@@ -33,7 +33,13 @@ zero and never read them. v2.6.1 uses bytes 32-51:
 | 44-45 | copy of the journal count |
 | 48-51 | CRC-32 (IEEE) over bytes 0-47 |
 
-Every save writes the identical sector to **LBA 50 first, then LBA 1**.
+When capacity exceeds 50 sectors, a save writes the identical sector to
+**LBA 50 first, then LBA 1**. When IDENTIFY proves that LBA 50 is absent,
+only LBA 1 is read and written, with the same v1 fields and extension.
+This is `state_redundancy=single_copy_capacity`; no redundancy is claimed.
+An existing sector returning an I/O error locks the store. Absence and failed
+I/O are deliberately distinct. Images below the complete journal range cannot
+establish a safe append position and remain locked.
 
 ## Choosing the trusted state copy at boot
 
@@ -43,11 +49,11 @@ Every save writes the identical sector to **LBA 50 first, then LBA 1**.
 | valid with extension | valid, same generation, identical bytes | primary |
 | valid with extension | valid, same generation, **different bytes** | **ambiguous: store read-only this boot** (`STORE-ERR-011`) |
 | valid with extension | invalid or zero | primary |
-| valid v1, no extension | anything | primary (a pre-2.6.1 kernel wrote it last) |
+| valid v1, no extension | readable | primary supplies flags; retain a valid mirror's generation as the floor for the next write |
 | extension magic but bad CRC, or garbage | valid with extension | mirror (`STORE-WARN-009`) |
 | invalid | invalid | flags from CMOS, `STORE-ERR-010`; journal still usable |
 | zero | zero | fresh store (`STORE-001`, `state_source=fresh`) |
-| unreadable | unreadable | store read-only this boot (`STORE-ERR-012`) |
+| either existing copy unreadable | any | store read-only this boot (`STORE-ERR-012`) |
 
 ## Journal append position
 
@@ -61,9 +67,10 @@ The position is rebuilt from the journal itself at every boot:
 - If it is above the recorded count (a torn append, or lost state), it is
   logged as `STORE-WARN-008`. Corrupt entries are reported as
   `STORE-WARN-011` and preserved.
-- When both state copies are lost, the boot number is floored at the
-  highest boot number found in a valid journal entry, so new evidence is
-  never filed under an old boot.
+- Readable, version-valid journal entries establish a diagnostic boot-number
+  lower bound even when state is locked. A complete scan is required before
+  persistent ordering is trusted; unreadable sectors never grant permission
+  to append. Valid selected state can raise the lower bound.
 - An append also refuses to write a slot that is unexpectedly non-zero
   (`STORE-ERR-014`).
 - A full journal refuses appends, warns **once per boot**
@@ -72,11 +79,26 @@ The position is rebuilt from the journal itself at every boot:
 Nothing in the kernel erases history except the explicit, confirmed
 `clear-store confirm` command.
 
+## Snapshot evidence and ordering
+
+`boot_snapshot_save()` refuses writes when state or journal is locked, the
+journal scan is incomplete, state persistence failed, or `boot_order_trusted`
+is false. It reads the full snapshot area before choosing a slot. Unreadable,
+nonzero corrupt, or future/same-boot snapshot records hold writes with
+`SNAP-WARN-002`. Existing sectors are preserved byte-for-byte in the regression
+fixtures. Healthy boot history retains the existing 16-slot ring behavior.
+
+Boot numbers remain one-byte fields. At 255, the next boot holds durable
+state, journal and snapshot writes with `STORE-ERR-015`; it does not wrap to
+zero. Widening the format requires a separately reviewed migration. CMOS
+remains a diagnostic fallback and does not unlock uncertain disk ordering.
+
 ## Report fields (`[RECOVERY_STORE]`)
 
-`state_source`, `state_generation`, `state_redundancy=mirror_lba50`,
+`state_source`, `state_generation`, `state_redundancy`,
 `state_locked`, `journal_locked`, `journal_capacity`, `journal_full`,
-`journal_dropped`, `journal_corrupt_entries`. All previous fields are
+`journal_dropped`, `journal_corrupt_entries`, `journal_scan_valid`,
+`boot_order_trusted`. All previous fields are
 unchanged.
 
 ## Compatibility (tested)
@@ -88,5 +110,7 @@ unchanged.
 | v2.6.1 boots again after v2.6.0 wrote | the legacy primary wins (newest writer) | same test, second half |
 
 No migration step is required, and no existing sector changes meaning.
+The correction tests cover 32-, 50-, 51- and 2048-sector disks, including
+full QEMU restarts, legacy state, unchanged journal prefixes and image sizes.
 A v2.6.0 kernel still has the old overwrite behaviour if it is booted on
 a damaged image. Upgrading is what removes it.

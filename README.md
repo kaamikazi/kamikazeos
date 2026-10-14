@@ -16,10 +16,14 @@ KamikazeOS is not production-ready and not a general-purpose operating system.
 It has no process isolation, no networking stack, no real driver loading, and
 no production security guarantees.
 
-Development branch: v2.6.0 "Ring 3 Seed". One explicitly approved disposable
+Development branch: v2.6.1 "Integrity Gate". One explicitly approved disposable
 QEMU run completed the fixed CPL3 round trip after the pre-execution hardening
 audit. The approval was consumed and the default build returned to
 `execution_approved=no`; general user execution remains unavailable.
+
+The current hardening work preserves recovery and snapshot evidence, supports
+small recovery disks, and corrects generation and health classification.
+Implementation regression checks are separate from independent release review.
 
 ## Feature Overview
 

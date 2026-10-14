@@ -295,8 +295,11 @@ This is a three-phase arc (6 → 7) and a genuinely deep topic.
   | 1 | recovery state block |
   | 2–15 | append-only recovery journal |
   | 16–31 | boot snapshots |
-  | 32–47 | package manifests |
-  | 48–55 | persistent package state |
+  | 32–39 | package manifests |
+  | 40–47 | reserved |
+  | 48–49 | persistent package state, primary and mirror |
+  | 50 | RecoveryStore state mirror when present within capacity |
+  | 51–55 | reserved |
   | 56–63 | A/B module slot metadata |
 
 - **An append-only journal.** Recovery history is *evidence*; evidence you can

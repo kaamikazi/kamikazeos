@@ -26,6 +26,9 @@ make test                                       # same, via make
   held (`execution_approved=no`) and that the in-kernel privilege
   self-tests (interrupt-frame layout, syscall origin policy, register
   preservation) still pass at every boot.
+- Primary/mirror/journal read errors use QEMU `blkdebug` under the raw
+  image node on primary IDE unit 0. These rules alter I/O outcomes without
+  editing image bytes. Tests assert the lock and unchanged snapshot sectors.
 
 ## Groups
 
@@ -37,6 +40,15 @@ make test                                       # same, via make
 | F4 health score | typos, canaries and intentional tests do not cost health; real faults do; ring wraparound cannot raise the score |
 | F5 journal longevity | unchanged suggestions are not re-journaled; a full journal costs health once |
 | R1 regression | Ring 3 hold, TinyFS, recovery actions, canaries, host manifest tooling, analyzer and dashboard compatibility |
+| D1 small disks | capacity-aware single-copy mode at 32/50 sectors and mirrored mode at 51/2048; state and journal survive restarts |
+| D2 snapshot evidence | locked/conflicting/unreadable state, unreadable journal, reconstruction, future snapshots and exhausted boot counters |
+| L1 generations | legacy-primary flags win without resetting a validated higher mirror generation |
+| L2 health policy | actual registry/log/health C compiled to WebAssembly; verified fallback after a block is still a production warning |
+| L3 intentional scope | returning-trigger wrapper tested on the host; actual divide/invalid-opcode/page faults tested at CPL0 in QEMU |
+
+The host fixtures require LLVM's wasm32 backend and wasm-ld plus Node.js.
+They mock port/state APIs and never emulate CPU privilege transitions. The
+QEMU tests cover actual exception entry and persisted evidence separately.
 
 ## Test fixtures and trust
 

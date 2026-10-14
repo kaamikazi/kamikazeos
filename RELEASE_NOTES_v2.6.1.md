@@ -25,14 +25,21 @@ Details: `docs/STORAGE_INTEGRITY.md`, `docs/HEALTH_MODEL.md`,
 python tests/run_regression.py --baseline-elf <v2.6.0 kernel>
 ```
 
-- v2.6.0 `f6c1814`: **18 of 31** tests failed (the audit reproductions).
-- v2.6.1 final: **33 of 33** passed in 193 s, including the downgrade
-  test. The kernel builds with no warnings at `-Wall -Wextra`.
+- Earlier audit records reported 18 failures on v2.6.0 and 33 passing tests
+  on the initial v2.6.1 milestone. Those historical counts are not the
+  correction branch's acceptance result.
+- The takeover baseline executed 32 tests successfully and skipped one
+  downgrade case until its baseline ELF was rebuilt. Correction-run counts
+  and reproduction evidence are recorded in `docs/INTEGRITY_CORRECTIONS.md`.
+- The complete correction suite passed **53/53**, with no failures or skips,
+  in 299.100 seconds, including all original tests and tagged downgrade
+  compatibility. These are implementation checks, pending independent review.
 - Every test used its own disposable image under `build/test-runs/`.
   `build/recovery.img` was hash-checked before and after every run and is
   unchanged (`sha256 4daf871c...`).
-- The analyzer and Recovery Center still read v2.6.0 serial logs. The
-  dashboard renders a v2.6.1 report in a browser with no console errors.
+- Current regressions execute the analyzer, JSON exporter and headless DOM
+  dashboard smoke check. Browser visual QA was not performed in the
+  correction run.
 
 ## Storage compatibility
 
@@ -45,6 +52,22 @@ the previously unused LBA 50.
 - v2.6.0 boots an image written by v2.6.1: it loads normally and the boot
   count continues (tested). v2.6.0 drops the extension and the
   intentional-panic flag when it saves, which degrades safely.
+- 32/50-sector images use validated single-copy state because LBA 50 is
+  absent. At 51 or more sectors the mirror is retained. Existing-sector I/O
+  failures lock persistence; they do not silently select compatibility mode.
+
+## Integrity Correction Follow-Up
+
+- D1: capacity-aware state reads/writes and explicit redundancy reporting.
+- D2: no snapshot writes while recovery ordering is locked or uncertain;
+  readable journal boot bounds remain diagnostic, and snapshot history is
+  validated before replacing a ring slot.
+- L1: a legacy primary no longer resets a valid mirror generation floor.
+- L2: blocked drivers are classified after the final attachment state.
+- L3: unexpectedly returning fault triggers clear intentional classification.
+
+These are implementation-tested corrections pending independent re-review.
+The Ring 3 gate remains disabled and no v2.6.2 work is included.
 
 ## Honesty boundary (unchanged)
 
@@ -64,7 +87,8 @@ the previously unused LBA 50.
   rebuilds everything).
 - Paging: page 0 mapped, CR0.WP off, no guard pages. Memory above 16 MiB
   is tracked but not mapped.
-- `boot_count` and journal boot numbers are 8-bit and wrap at 256.
+- `boot_count` and journal boot numbers remain 8-bit; corrected builds hold
+  persistent writes at exhaustion rather than reuse boot zero.
 - Heap rejections from `heap-alloc` still count as production warnings.
 - The approved CPL3 round trip was not re-executed for this release,
   because Ring 3 execution stays disabled. The in-kernel privilege

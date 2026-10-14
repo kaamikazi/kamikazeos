@@ -1,6 +1,6 @@
 # KamikazeOS Architecture
 
-Status: v2.6.0 "Ring 3 Seed".
+Status: v2.6.1 "Integrity Gate"; integrity corrections pending independent review.
 
 KamikazeOS is a small 32-bit x86 experimental OS research prototype that runs
 in QEMU. Its architecture is organized around observability, durable recovery
@@ -86,7 +86,8 @@ to QEMU as an IDE disk. Current fixed LBA use:
 | 40-47 | Currently unused/reserved gap |
 | 48 | Persistent package lifecycle primary state |
 | 49 | Mirrored package transaction state |
-| 50-55 | Currently unused/reserved gap |
+| 50 | RecoveryStore state mirror, when disk capacity exceeds 50 sectors |
+| 51-55 | Currently unused/reserved gap |
 | 56-63 | A/B module slot metadata |
 | 64 | TinyFS superblock |
 | 65-72 | TinyFS file table |
@@ -94,6 +95,13 @@ to QEMU as an IDE disk. Current fixed LBA use:
 
 The layout is deliberately fixed and small so it can be audited by inspection.
 Host manifest tools write only the package manifest slot range.
+
+RecoveryStore uses single-copy compatibility mode on 32- and 50-sector disks.
+An unreadable existing state sector remains an integrity failure. State or
+journal ambiguity holds all recovery-state/journal writes and snapshot writes.
+Readable journal entries supply a diagnostic boot lower bound; they never
+unlock an ambiguous store. Snapshot history is also checked before selecting
+its ring slot. See `STORAGE_INTEGRITY.md` for the format and ordering limits.
 
 The ATA boundary retains the LBA28 capacity returned by IDENTIFY. Null buffers,
 out-of-range sectors, device faults, and failed cache flushes are rejected.
