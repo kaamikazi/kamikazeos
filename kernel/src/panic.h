@@ -25,4 +25,8 @@ void kpanic_exception(const char *name, const struct interrupt_frame *frame);
 void kpanic_expect_intentional(void);
 void kpanic_cancel_intentional(void);
 
+/* Fixed built-in fault triggers only. If one returns, clear classification
+   before reporting the unexpected return as a production failure. */
+void kpanic_run_intentional_test(void (*trigger)(void));
+
 #endif /* KMZ_PANIC_H */

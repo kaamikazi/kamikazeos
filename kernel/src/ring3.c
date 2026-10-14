@@ -120,6 +120,10 @@ void ring3_run_fault_test(void)
                      (uint32_t)&_user_stack_end);
     state.test_running = 0;
     state.test_status = "fault_test_unexpected_return";
+    kpanic_cancel_intentional();
+    error_log(SEV_ERROR, "RING3-103", "Ring3",
+              "Disabled fault-test routine unexpectedly returned",
+              "intentional classification cleared - inspect transition path");
 }
 
 void ring3_note_syscall(uint8_t caller_cpl, uint32_t id, uint32_t kernel_esp)

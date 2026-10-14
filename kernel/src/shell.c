@@ -623,8 +623,7 @@ static void cmd_pagefault_test(const char *arg)
         return;
     }
     vga_print("Triggering an intentional unmapped access; the kernel will halt.\n");
-    kpanic_expect_intentional();
-    paging_trigger_pagefault_test();
+    kpanic_run_intentional_test(paging_trigger_pagefault_test);
 }
 
 static void print_syscall_result(uint32_t id, int32_t result, uint32_t value)
@@ -839,6 +838,7 @@ static void cmd_user_fault_test(const char *arg)
     vga_print("Entering CPL3 and reading supervisor-only kernel memory.\n");
     kpanic_expect_intentional();
     ring3_run_fault_test();
+    kpanic_cancel_intentional();
 }
 
 static void cmd_syscall_test(void)
@@ -1131,6 +1131,7 @@ static void cmd_panic_test(void)
     kpanic("TEST-PANIC-001",
            "Deliberate test panic requested via panic-test",
            "test only - reboot the VM, no data affected");
+    kpanic_cancel_intentional();
 }
 
 static void cmd_interrupts(void)
@@ -1422,12 +1423,10 @@ static void cmd_exceptions_test(const char *arg)
 {
     if (kstrcmp(arg, "divide confirm") == 0) {
         vga_print("Triggering controlled divide-by-zero exception. The VM will halt.\n");
-        kpanic_expect_intentional();
-        interrupts_trigger_divide_test();
+        kpanic_run_intentional_test(interrupts_trigger_divide_test);
     } else if (kstrcmp(arg, "invalid-opcode confirm") == 0) {
         vga_print("Triggering controlled invalid-opcode exception. The VM will halt.\n");
-        kpanic_expect_intentional();
-        interrupts_trigger_invalid_opcode_test();
+        kpanic_run_intentional_test(interrupts_trigger_invalid_opcode_test);
     } else {
         vga_print("This command deliberately halts the kernel after exporting evidence.\n");
         vga_print("Usage: exceptions-test divide confirm\n");
