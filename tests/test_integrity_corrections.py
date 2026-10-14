@@ -90,5 +90,3 @@ class D2SnapshotEvidence(KmzCase):
         self.assertEqual(disk.read_sector(self.img, 1), primary)
         self.assertEqual(disk.read_sector(self.img, 50), mirror)
         self.assertEqual(section_kv(rep, "RECOVERY_STORE")["boot_order_trusted"], "0")
-
-
