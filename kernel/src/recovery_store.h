@@ -94,6 +94,7 @@ struct recovery_store_integrity {
     uint32_t generation;        /* generation of the trusted state copy   */
     int state_locked;           /* state writes refused this boot         */
     int journal_locked;         /* journal appends refused this boot      */
+    int journal_scan_valid;     /* all sectors read; boot evidence scanned */
     int journal_full;
     uint32_t journal_capacity;
     uint32_t dropped_appends;   /* appends refused (full/locked/failed)   */
@@ -109,5 +110,9 @@ uint8_t recovery_journal_last_action_event(uint8_t action_id);
 /* Highest boot number found in a valid journal entry (0 if none). Used to
    keep boot numbers moving forward when both state copies are lost. */
 uint8_t recovery_store_max_journal_boot(void);
+
+/* Diagnostic lower bound from readable validated state/journal records.
+   Does not grant write permission when the store is locked. */
+uint8_t recovery_store_boot_lower_bound(void);
 
 #endif /* KMZ_RECOVERY_STORE_H */

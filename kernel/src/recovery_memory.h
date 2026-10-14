@@ -36,7 +36,7 @@ struct recovery_memory {
     uint8_t network_quarantined;    /* ACT-001 is in effect               */
     uint8_t audio_quarantined;      /* ACT-002 is in effect               */
     uint8_t last_boot_panic;        /* previous boot ended in kpanic()    */
-    uint8_t boot_count;             /* wraps at 255 — fine for a counter  */
+    uint8_t boot_count;             /* saturates at 255; ordering held    */
     uint8_t last_action_id;         /* numeric: 1..4, 0 = none            */
     uint8_t rollback_available;     /* any reversible action is applied   */
     uint8_t prior_network_status;   /* enum device_status before ACT-001  */
@@ -51,6 +51,7 @@ struct recovery_memory {
                                     /* after the stored flag is cleared   */
     uint8_t valid_at_boot;          /* magic+checksum matched at load     */
     uint8_t prev_panic_intentional; /* runtime copy of the above at load  */
+    uint8_t boot_order_trusted; /* runtime only: safe for persistent writes */
 };
 
 void recovery_memory_init(void);    /* load + boot_count++ + save         */

@@ -110,7 +110,8 @@ void recovery_memory_save(void)
         cmos_write((uint8_t)(CMOS_BASE + i), block[i]);
 
     /* Tier 1: mirror to the durable disk store (no-op without a disk). */
-    recovery_store_save(&mem);
+    if (mem.boot_order_trusted)
+        recovery_store_save(&mem);
 }
 
 void recovery_memory_load(void)
@@ -187,15 +188,27 @@ void recovery_memory_init(void)
             backend = "fresh";
     }
 
-    mem.boot_count++;            /* count THIS boot */
+    /* Readable journal evidence is a lower bound even when state is locked.
+       Never turn that diagnostic bound into permission to persist. */
+    if (recovery_store_boot_lower_bound() > mem.boot_count)
+        mem.boot_count = recovery_store_boot_lower_bound();
+    struct recovery_store_integrity integrity;
+    recovery_store_integrity(&integrity);
+    mem.boot_order_trusted = recovery_store_available() &&
+        integrity.journal_scan_valid && !integrity.state_locked &&
+        !integrity.journal_locked && mem.boot_count < 255;
+    if (mem.boot_count < 255)
+        mem.boot_count++;        /* saturate rather than reuse boot zero */
     recovery_memory_save();      /* writes BOTH tiers */
 }
 
 void recovery_memory_clear(void)
 {
     uint8_t keep_count = mem.boot_count;   /* boot count survives a clear */
+    uint8_t keep_order = mem.boot_order_trusted;
     kmemset(&mem, 0, sizeof(mem));
     mem.boot_count = keep_count;
+    mem.boot_order_trusted = keep_order;
     recovery_memory_save();
     error_log(SEV_INFO, "REC-MEM-100", "RecoveryMemory",
               "Recovery memory cleared by user", "all persisted flags reset");

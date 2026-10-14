@@ -10,6 +10,7 @@ kernel writes line-by-line as structured `code=...;severity=...` events.
 from __future__ import annotations
 
 import os
+import json
 import re
 import shutil
 import subprocess
@@ -42,11 +43,12 @@ class QemuSession:
     """One QEMU process = one power-on. Use as a context manager."""
 
     def __init__(self, elf: Path, image: Path, serial_log: Path,
-                 boot_timeout: float = 60.0):
+                 boot_timeout: float = 60.0, read_error_lbas: tuple[int, ...] = ()):
         self.elf = Path(elf)
         self.image = Path(image)
         self.serial_log = Path(serial_log)
         self.boot_timeout = boot_timeout
+        self.read_error_lbas = read_error_lbas
         self.proc: subprocess.Popen | None = None
         self.monitor_out: list[bytes] = []
         self.offset = 0          # serial-log read cursor for wait_for()
@@ -65,8 +67,21 @@ class QemuSession:
         args = [qemu_binary(), "-kernel", str(self.elf), "-m", "64",
                 "-display", "none", "-monitor", "stdio",
                 "-chardev", f"file,id=ser0,path={self.serial_log},append=on",
-                "-serial", "chardev:ser0",
-                "-drive", f"file={self.image},format=raw,if=ide"]
+                "-serial", "chardev:ser0"]
+        if self.read_error_lbas:
+            # Inject read failures at QEMU's block layer, without changing
+            # any image bytes. This affects only this disposable session.
+            backend = {"driver": "raw", "node-name": "faultdisk",
+                       "file": {"driver": "blkdebug",
+                       "image": {"driver": "file", "filename": str(self.image)},
+                       "inject-error": [{"event": "read_aio", "errno": 5,
+                                         "sector": lba, "once": False,
+                                         "immediately": True}
+                                        for lba in self.read_error_lbas]}}
+            args += ["-blockdev", json.dumps(backend),
+                     "-device", "ide-hd,drive=faultdisk,bus=ide.0,unit=0"]
+        else:
+            args += ["-drive", f"file={self.image},format=raw,if=ide"]
         self.proc = subprocess.Popen(args, stdin=subprocess.PIPE,
                                      stdout=subprocess.PIPE,
                                      stderr=subprocess.STDOUT)

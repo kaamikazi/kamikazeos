@@ -6,6 +6,7 @@
 #include "ghostattach.h"
 #include "recovery_actions.h"
 #include "recovery_memory.h"
+#include "recovery_store.h"
 #include "string.h"
 
 /* On-disk layout constants. */
@@ -31,6 +32,16 @@
 #define SN_OFF_APPLIED  15
 #define SN_OFF_HEALTH   16
 #define SN_OFF_CHECKSUM 17
+
+static int snapshot_valid(const uint8_t *sec)
+{
+    uint8_t sum = 0;
+    for (int i = 0; i <= SN_OFF_CHECKSUM; i++)
+        sum = (uint8_t)(sum + sec[i]);
+    return sec[0] == SN_MAGIC0 && sec[1] == SN_MAGIC1 &&
+           sec[2] == SN_MAGIC2 && sec[3] == SN_MAGIC3 &&
+           sec[SN_OFF_VERSION] == SN_VERSION && sum == 0;
+}
 
 /* Count capped into one byte (the log ring can't exceed 64 anyway). */
 static uint8_t cap8(uint32_t v)
@@ -119,10 +130,40 @@ int boot_snapshot_save(void)
         return 0;
     }
 
+    struct recovery_store_integrity integrity;
+    recovery_store_integrity(&integrity);
+    if (integrity.state_locked || integrity.journal_locked ||
+        !integrity.journal_scan_valid || !recovery_store_valid() ||
+        !recovery_memory_get()->boot_order_trusted) {
+        error_log(SEV_WARNING, "SNAP-WARN-002", "BootSnapshot",
+                  "Snapshot write refused - recovery ordering is uncertain",
+                  "historical snapshot sectors preserved unchanged");
+        return 0;
+    }
+
     struct boot_snapshot s;
     capture(&s);
 
     uint8_t sec[ATA_SECTOR_SIZE];
+    /* Read the entire history before selecting a ring slot. A stale boot
+       counter or unreadable/corrupt history is not permission to replace it. */
+    for (uint32_t slot = 0; slot < SNAPSHOT_SLOTS; slot++) {
+        if (!ata_read_sector(LBA_SNAPSHOTS + slot, sec)) {
+            error_log(SEV_WARNING, "SNAP-WARN-002", "BootSnapshot",
+                      "Snapshot history unreadable - writes held",
+                      "historical snapshot sectors preserved unchanged");
+            return 0;
+        }
+        int occupied = 0;
+        for (uint32_t i = 0; i < sizeof(sec); i++)
+            occupied |= sec[i];
+        if (occupied && (!snapshot_valid(sec) || sec[SN_OFF_BOOT] >= s.boot_number)) {
+            error_log(SEV_WARNING, "SNAP-WARN-002", "BootSnapshot",
+                      "Snapshot ordering uncertain - writes held",
+                      "inspect historical snapshots before resetting storage");
+            return 0;
+        }
+    }
     kmemset(sec, 0, sizeof(sec));
     sec[SN_OFF_MAGIC]     = SN_MAGIC0;
     sec[SN_OFF_MAGIC + 1] = SN_MAGIC1;
@@ -162,12 +203,7 @@ static int read_slot(uint32_t slot, struct boot_snapshot *out)
     if (!ata_read_sector(LBA_SNAPSHOTS + slot, sec))
         return 0;
 
-    uint8_t sum = 0;
-    for (int i = 0; i <= SN_OFF_CHECKSUM; i++)
-        sum = (uint8_t)(sum + sec[i]);
-    if (sec[SN_OFF_MAGIC]     != SN_MAGIC0 || sec[SN_OFF_MAGIC + 1] != SN_MAGIC1 ||
-        sec[SN_OFF_MAGIC + 2] != SN_MAGIC2 || sec[SN_OFF_MAGIC + 3] != SN_MAGIC3 ||
-        sec[SN_OFF_VERSION]   != SN_VERSION || sum != 0)
+    if (!snapshot_valid(sec))
         return 0;                          /* empty or corrupt: skip */
 
     out->boot_number          = sec[SN_OFF_BOOT];

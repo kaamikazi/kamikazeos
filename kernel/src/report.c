@@ -693,6 +693,8 @@ void report_send(void)
         serial_print("\nstate_redundancy=");serial_print(integ.state_redundancy);
         serial_print("\nstate_locked=");    serial_print(integ.state_locked ? "1" : "0");
         serial_print("\njournal_locked=");  serial_print(integ.journal_locked ? "1" : "0");
+        serial_print("\njournal_scan_valid=");serial_print(integ.journal_scan_valid ? "1" : "0");
+        serial_print("\nboot_order_trusted=");serial_print(m->boot_order_trusted ? "1" : "0");
         serial_print("\njournal_capacity=");serial_print_dec(integ.journal_capacity);
         serial_print("\njournal_full=");    serial_print(integ.journal_full ? "1" : "0");
         serial_print("\njournal_dropped="); serial_print_dec(integ.dropped_appends);

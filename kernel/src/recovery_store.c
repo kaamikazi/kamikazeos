@@ -70,9 +70,11 @@ static int      full_warned;      /* STORE-WARN-004 logged this boot     */
 static int      locked_warned;
 static int      redundancy_warned;
 static int      mirror_present;   /* capacity proves LBA 50 exists       */
+static int      journal_scan_valid;
 static uint32_t dropped;          /* appends refused this boot           */
 static uint32_t corrupt_slots;    /* occupied slots failing validation   */
 static uint8_t  max_journal_boot; /* highest boot number in valid entries */
+static uint8_t  boot_lower_bound; /* validated state/journal evidence     */
 static const char *state_source = "none";
 static uint8_t  loaded[ATA_SECTOR_SIZE];   /* the trusted state copy     */
 static uint8_t  sector[ATA_SECTOR_SIZE];   /* scratch I/O buffer         */
@@ -224,9 +226,12 @@ static int scan_journal(uint32_t *last_used, uint32_t *corrupt, uint8_t *max_boo
     *last_used = 0;
     *corrupt = 0;
     *max_boot = 0;
+    int complete = 1;
     for (uint32_t s = 0; s < JOURNAL_SECTORS; s++) {
-        if (!ata_read_sector(LBA_JOURNAL + s, sector))
-            return 0;
+        if (!ata_read_sector(LBA_JOURNAL + s, sector)) {
+            complete = 0;
+            continue; /* Readable later entries still establish a lower bound. */
+        }
         for (uint32_t i = 0; i < ENTRIES_PER_SECTOR; i++) {
             const uint8_t *e = sector + i * ENTRY_SIZE;
             if (all_zero(e, ENTRY_SIZE))
@@ -235,7 +240,8 @@ static int scan_journal(uint32_t *last_used, uint32_t *corrupt, uint8_t *max_boo
             uint8_t sum = 0;
             for (int b = 0; b < ENTRY_SIZE; b++)
                 sum = (uint8_t)(sum + e[b]);
-            if (e[0] != JE_MAGIC_BYTE || sum != 0) {
+            if (e[0] != JE_MAGIC_BYTE || e[1] != 1 || sum != 0 ||
+                e[3] < JE_SUGGESTED || e[3] > JE_PKG_BLOCKED) {
                 (*corrupt)++;
                 continue;
             }
@@ -243,7 +249,7 @@ static int scan_journal(uint32_t *last_used, uint32_t *corrupt, uint8_t *max_boo
                 *max_boot = e[2];
         }
     }
-    return 1;
+    return complete;
 }
 
 static void lock_store(const char *code, const char *message)
@@ -265,8 +271,10 @@ void recovery_store_init(void)
     full_warned = locked_warned = redundancy_warned = 0;
     dropped = corrupt_slots = 0;
     max_journal_boot = 0;
+    boot_lower_bound = 0;
     state_source = "none";
     mirror_present = 0;
+    journal_scan_valid = 0;
     kmemset(loaded, 0, sizeof(loaded));
 
     ata_init();
@@ -278,8 +286,13 @@ void recovery_store_init(void)
     static uint8_t primary[ATA_SECTOR_SIZE];
     static uint8_t mirror[ATA_SECTOR_SIZE];
     kmemset(mirror, 0, sizeof(mirror));
-    if (!ata_read_sector(LBA_STATE, primary) ||
-        (mirror_present && !ata_read_sector(LBA_STATE_MIRROR, mirror))) {
+    int primary_read = ata_read_sector(LBA_STATE, primary);
+    int mirror_read = !mirror_present || ata_read_sector(LBA_STATE_MIRROR, mirror);
+    uint32_t last_used = 0;
+    journal_scan_valid = scan_journal(&last_used, &corrupt_slots, &max_journal_boot);
+    boot_lower_bound = max_journal_boot;
+    jcount = (uint16_t)last_used;
+    if (!primary_read || !mirror_read) {
         state_source = "unreadable";
         lock_store("STORE-ERR-012", "Recovery state sector unreadable - position unknown");
         return;
@@ -298,6 +311,8 @@ void recovery_store_init(void)
     if (choice != CHOICE_NONE) {
         memcpy(loaded, choice == CHOICE_MIRROR ? mirror : primary, sizeof(loaded));
         valid = 1;
+        if (loaded[SB_BOOTCNT] > boot_lower_bound)
+            boot_lower_bound = loaded[SB_BOOTCNT];
         recorded = (uint16_t)(loaded[SB_JCOUNT_LO] | (loaded[SB_JCOUNT_HI] << 8));
         if (ext_valid(loaded)) {
             generation = get_u32(loaded + EXT_GEN);
@@ -326,14 +341,15 @@ void recovery_store_init(void)
                   "normal for a new recovery image");
     }
 
-    uint32_t last_used = 0;
-    if (!scan_journal(&last_used, &corrupt_slots, &max_journal_boot)) {
-        state_locked = 0;            /* state itself was read fine */
-        journal_locked = 1;
-        error_log(SEV_ERROR, "STORE-ERR-012", "RecoveryStore",
-                  "Journal sector unreadable - append position unknown",
-                  "journal read-only this boot - no history overwritten");
-        jcount = recorded > JOURNAL_CAPACITY ? JOURNAL_CAPACITY : recorded;
+    if (!journal_scan_valid) {
+        if (recorded > jcount)
+            jcount = recorded > JOURNAL_CAPACITY ? JOURNAL_CAPACITY : recorded;
+        lock_store("STORE-ERR-012", "Journal sector unreadable - append position unknown");
+        return;
+    }
+
+    if (max_journal_boot == 255 || (valid && loaded[SB_BOOTCNT] == 255)) {
+        lock_store("STORE-ERR-015", "Boot number exhausted - persistent ordering held");
         return;
     }
 
@@ -421,8 +437,10 @@ int recovery_store_save(const struct recovery_memory *from)
        which init selects; a torn primary fails its CRC and loses too. */
     int mirror_ok  = mirror_present && ata_write_sector(LBA_STATE_MIRROR, sector);
     int primary_ok = ata_write_sector(LBA_STATE, sector);
-    if (!mirror_ok && !primary_ok)
+    if (!mirror_ok && !primary_ok) {
+        lock_store("STORE-ERR-014", "Recovery state write failed - persistence held");
         return 0;
+    }
     if (mirror_present && (!mirror_ok || !primary_ok) && !redundancy_warned) {
         redundancy_warned = 1;
         error_log(SEV_WARNING, "STORE-WARN-012", "RecoveryStore",
@@ -594,6 +612,7 @@ void recovery_store_integrity(struct recovery_store_integrity *out)
     out->generation = generation;
     out->state_locked = state_locked;
     out->journal_locked = journal_locked;
+    out->journal_scan_valid = journal_scan_valid;
     out->journal_full = jcount >= JOURNAL_CAPACITY;
     out->journal_capacity = JOURNAL_CAPACITY;
     out->dropped_appends = dropped;
@@ -628,4 +647,9 @@ uint8_t recovery_journal_last_action_event(uint8_t action_id)
 uint8_t recovery_store_max_journal_boot(void)
 {
     return max_journal_boot;
+}
+
+uint8_t recovery_store_boot_lower_bound(void)
+{
+    return boot_lower_bound;
 }
