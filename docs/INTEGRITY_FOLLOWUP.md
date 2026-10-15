@@ -101,3 +101,67 @@ Both current and tagged sources keep the Ring 3 approval macro at zero.
   byte-identical; re-upgrade retains the new exclusive rollback authority.
 - Evidence: `build/test-runs/followup-n4-before-confirm`, `followup-n4-fixed`,
   `followup-n4-boundaries`, and `build/integrity-20261015/ownership-before`.
+
+## Final verification
+
+All four corrections were committed separately:
+
+| Commit | Correction |
+|---|---|
+| `f4281b1` | Reject damaged modern state masquerading as legacy |
+| `ee25ad0` | Hold persistence when state generations are unordered |
+| `90ee172` | Validate journal entries consistently across all readers |
+| `d91eba4` | Retire superseded package rollback rights durably |
+
+Final tested source: `d91eba47ff4d450efff81cade68dfbc0275cfbd8`.
+The full build and regression command was:
+
+```powershell
+python tests/run_regression.py --baseline-elf build/integrity-20261015/tagged-source/build/kamikaze.elf --run-dir build/test-runs/followup-final
+```
+
+Result: **70 tests passed, 0 failures, 0 errors, 0 skips, in 467.440 seconds**.
+This includes all 53 unchanged original tests plus 17 additional tests.
+The runner exited zero. Evidence: `build/test-runs/followup-final/summary.txt`
+and its per-test images, serial logs and host-fixture outputs.
+
+Final kernel ELF SHA-256:
+
+```text
+587709147dad6d91894d3cd2fc29cef0ef9bf9f0103e9e401579bf6781fdbf79
+```
+
+The original recovery-image SHA-256 remained
+`4daf871c5c2982a2c6401a8a3336959f31bdd0143ae00f238f4cbdc7f453f19e`
+through every completed test run and the final explicit hash check.
+Ring 3 code and assembly have no changes relative to the starting commit;
+the held-execution regression passes. No CPL3 transition, merge or push occurred.
+
+## Storage compatibility and remaining limitations
+
+- No incompatible storage change or migration. Existing LBA ownership, v1
+  fields, extension layouts, record sizes, event numbers and checksum coverage
+  remain unchanged. Rollback retirement uses an existing `SLOT_NONE` value.
+- Genuine legacy upgrades, tagged downgrade/re-upgrade, 32/50-sector single-copy
+  disks and 51/2048-sector mirrored disks pass. The extra package compatibility
+  test confirms old-kernel boot leaves corrected package/slot sectors unchanged
+  and re-upgrade retains exclusive rollback rights.
+- Old kernels retain their historical integrity-policy defects. Compatibility
+  proves readability and the tested round trips, not safe execution of every
+  old-kernel package command.
+- Ambiguous older ownership cannot be reconstructed uniquely from existing
+  version/slot metadata. Competing rollbacks remain refused; no automatic
+  repair or guessed migration is performed.
+- Physical power interruption during an ATA write/flush or a torn containing
+  journal sector is not proven safe by these tests. QEMU cases inject between-
+  boot state and read errors; host ownership fixtures model save outcomes,
+  rather than physical media atomicity. Package checksums remain additive;
+  integrity checks are not cryptographic authentication.
+- Generation comparison assumes successive valid generations are separated
+  by less than half the 32-bit range; exact half-range separation is held as
+  ambiguous. Boot numbers remain 8-bit with the existing exhaustion hold.
+- Kernel signature verification remains simulated. Browser visual QA and new
+  live Ring 3 execution are not claimed.
+
+These are implementing-agent regression results. **Independent acceptance
+remains pending.**

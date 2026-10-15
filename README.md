@@ -22,8 +22,11 @@ audit. The approval was consumed and the default build returned to
 `execution_approved=no`; general user execution remains unavailable.
 
 The current hardening work preserves recovery and snapshot evidence, supports
-small recovery disks, and corrects generation and health classification.
+small recovery disks, and corrects legacy validation, generation ordering,
+journal interpretation, rollback ownership and health classification.
 Implementation regression checks are separate from independent release review.
+The additional integrity follow-up passed all 70 regressions; provenance and
+limitations are recorded in [docs/INTEGRITY_FOLLOWUP.md](docs/INTEGRITY_FOLLOWUP.md).
 
 ## Feature Overview
 

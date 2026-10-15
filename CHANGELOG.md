@@ -1,5 +1,19 @@
 # Changelog
 
+## v2.6.1 Additional Integrity Corrections (Pending Independent Review)
+
+- Distinguished genuine zero-tail legacy recovery state from damaged modern
+  extensions, preventing CRC bypass through legacy misclassification.
+- Held recovery/package persistence on half-range generation ambiguity, and
+  package persistence on conflicting equal-generation copies.
+- Unified journal validity checks across scanning, reports and action lookup
+  while preserving every occupied slot.
+- Retired superseded package rollback rights durably to prevent ABA ownership
+  reuse; preserved staged abort/recovery behavior without a format migration.
+- Fresh unchanged-source baseline: 53/53 passed. Final expanded suite: 70/70
+  passed, no failures or skips. Ring 3 held; original recovery image unchanged.
+  Evidence, provenance and limitations: `docs/INTEGRITY_FOLLOWUP.md`.
+
 ## v2.6.1 Integrity Corrections (Pending Independent Review)
 
 - Restored capacity-aware RecoveryStore single-copy operation on small disks.

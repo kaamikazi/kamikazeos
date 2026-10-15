@@ -31,10 +31,15 @@ python tests/run_regression.py --baseline-elf <v2.6.0 kernel>
 - The takeover baseline executed 32 tests successfully and skipped one
   downgrade case until its baseline ELF was rebuilt. Correction-run counts
   and reproduction evidence are recorded in `docs/INTEGRITY_CORRECTIONS.md`.
-- The complete correction suite passed **53/53**, with no failures or skips,
+- The previous correction suite passed **53/53**, with no failures or skips,
   in 299.100 seconds, including all original tests and tagged downgrade
   compatibility. These are implementation checks, pending independent review.
-- Every test used its own disposable image under `build/test-runs/`.
+- The additional audit follow-up independently rebuilt unchanged source and
+  passed all 53 baseline tests. Its final expanded suite passed **70/70**, with
+  no failures or skips, in **467.440 seconds**. Provenance, separate correction
+  commits, reproductions and compatibility are in `docs/INTEGRITY_FOLLOWUP.md`.
+- Every QEMU test used its own disposable image. Run directories and evidence
+  are recorded in the correction records.
   `build/recovery.img` was hash-checked before and after every run and is
   unchanged (`sha256 4daf871c...`).
 - Current regressions execute the analyzer, JSON exporter and headless DOM
@@ -68,6 +73,15 @@ the previously unused LBA 50.
 
 These are implementation-tested corrections pending independent re-review.
 The Ring 3 gate remains disabled and no v2.6.2 work is included.
+
+### Additional audit follow-up
+
+Four more integrity defects were reproduced and corrected: damaged modern
+state misclassified as legacy, unordered generation comparisons (including
+package state), inconsistent journal-reader validation, and ABA reuse of stale
+package rollback ownership. Existing slot sentinel values support durable
+supersession without an incompatible storage-format change or migration.
+Ambiguous older ownership fails closed. Independent acceptance remains pending.
 
 ## Honesty boundary (unchanged)
 

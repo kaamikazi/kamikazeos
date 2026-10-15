@@ -6,6 +6,9 @@ Starting HEAD: `3b0e187`; tagged technical baseline: `f6c1814`.
 The initial worktree was clean. This record describes implementation review
 and tests by the implementing agent; independent release re-review is pending.
 
+Subsequent additional audit corrections, fresh baseline provenance and the
+expanded 70-test result are recorded in `INTEGRITY_FOLLOWUP.md`.
+
 ## Architecture Checked
 
 The Multiboot x86 kernel initializes VGA/serial/logging, kernel GDT, exception
