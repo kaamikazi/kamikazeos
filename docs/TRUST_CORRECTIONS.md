@@ -155,3 +155,139 @@ passed**, no failures/errors/skips, **111.797 s**. Evidence:
 `trust-identity-before` and `trust-identity-fixed`. A final complete run after
 this correction is required; the earlier 121-case run is not its acceptance
 result. No on-disk field or format changed.
+
+## Final complete results
+
+| Commit | Correction |
+|---|---|
+| `3b853e4` | Required trust invariants and hash-preserved independent evidence, before kernel edits |
+| `207a9de` | Snapshot physical placement, uniqueness and destination age |
+| `92a7099` | One producer-derived event-semantic contract |
+| `ac29c7b` | Physical append chronology, contiguous proof and persistence holds |
+| `fa4ec01` | Joint package/slot authority, durable transition edges, sticky uncertainty and scoped reset |
+| `fa4ca0c` | One case-insensitive package principal domain |
+
+Final tested commit: `fa4ca0cec49152b3ef6d6c251171b7652f2a6dfa`.
+Git tree: `9c9563a7638d019bc40d5fdc50623bcc9904a783`.
+Fresh full-build ELF SHA-256:
+
+```text
+9a323f8077b2570004f5150079fce3c017f0ef23543b061588ecf538f8e84f57
+```
+
+| Final suite | Exact result | Time |
+|---|---|---|
+| Repository suite | **122 passed, 0 failures/errors/skips** | **940.245 s** |
+| Older preserved QEMU audit | **17 passed, 0 failures/errors/skips** | **148.395 s** |
+| Older preserved actual-C audit | **5 passed, 0 failures** | not separately timed |
+| Latest QEMU audit replay | **17 passed, 0 failures/errors/skips** | **147.800 s** |
+| Latest actual-C audit replay | **6 passed, 0 failures** | not separately timed |
+
+All 93 original repository test IDs are retained; 29 new case IDs were added.
+This includes the existing 115 repository/preserved case purposes and the latest
+23 audit cases, with the explicit semantic/setup adaptations below. Repeated
+runs are not counted as new cases. No original independent evidence was edited.
+These are implementing-agent checks, **not independent release acceptance**.
+
+### Exact fixture/replay adaptations
+
+- The unsafe positive event/flag cross-product now tests the reviewed producer
+  tuples, including legitimate failure/refusal records. Duplicate CLEAN_BOOT
+  synthetic fillers became repeated blocked-canary events; strict history-byte
+  preservation/fullness/legacy checks are retained with matching valid inputs.
+- N4's two ownership-commit regression purposes now link the real authority,
+  persistence, slot and lifecycle engine, rather than approving a mocked quorum.
+  T4 adds direct candidate-edge, staged-failure, reset and latch controls.
+- The older copy-generation host matrix remains an **isolated copy-layer** test:
+  new joint-boundary hooks are mocked only in its scratch fixture. Its assertions
+  still verify copy selection, ambiguity locks and generation wrap. Real joint
+  permissions are independently exercised by the actual-engine T4 integration.
+- Direct new chronology-helper fixtures explicitly establish the new boot-order
+  precondition, then test the actual append revalidation. The predicate is not
+  replaced or made permissive.
+- The latest package host fixture links actual joint/slot code and a matching
+  controlled manifest. Its changing no-disk/capacity/read conditions are distinct
+  simulated cold environments; a test-only BSS reset expresses that setup. The
+  production latch has no reset API. T4 separately tests real in-session reload
+  without clearing BSS and requires the hold to remain even with coherent stale
+  copies substituted. No test-only code is linked into the kernel.
+- One latest QEMU fixture's malformed CLEAN_BOOT 17 no longer advances the boot
+  to 18: correct next boot is 17, replacing aged boot 1 only and preserving boot 2.
+  That expected result is stronger semantic rejection, not a permissive fallback.
+  The other QEMU audit assertions are unchanged (apart from helper-root relocation).
+- Host include paths and required diagnostic/capacity providers were ported to
+  the new APIs in scratch copies. Initial adapter linking lacked a diagnostic
+  stub; it was corrected without changing product code or assertions. Only the
+  completed passing replay receipts are counted above.
+
+### Durable transitions observed
+
+| Situation | Result |
+|---|---|
+| Confirmed pristine first package use | Existing-format factory slot record acknowledged before package staging |
+| Valid apply | Durable intent -> acknowledged slot switch -> APPLIED and retirement publication |
+| Slot read/validation uncertainty | No reconciliation or state/slot writes; APPLY_STAGED remains byte-identical |
+| Slot write returns failure | Hold authority; retain staged intent; do not publish a guessed abort |
+| Failed final state save | Restore proposed RAM records, hold authority and retain durable stage |
+| Healthy cold read of real before side | Supported abort publication; previous legitimate owner remains usable |
+| Healthy cold read of real after side | Publish observed applied/verified/rolled-back result and retire rights as required |
+| Same-boot stale registry reload | Hold persists; no publication and no ownership-dependent command writes |
+| Explicit healthy reset | Scoped empty-state then exact-factory writes; permission ends immediately |
+| Partial reset / unknown outcome | Permission revoked; reboot holds inconsistent evidence rather than guessing completion |
+| Contradictory journal order | Diagnostic boot lower bound retained; persistent recovery/history writes held |
+| Misplaced/recent/future snapshot victim | Every historical sector remains unchanged |
+
+### Evidence and commands
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build.ps1
+python -B tests/run_regression.py --no-build --baseline-elf "C:\Users\imran\AppData\Local\Temp\opencode\kmz-release-audit-8e75093\baseline\build\kamikaze.elf" --run-dir build/test-runs/trust-invariants-final-identity
+python -B build/trust-boundary/recheck.py --host-only --suffix final
+python -B build/trust-boundary/recheck.py --no-host --suffix final
+python -B build/trust-boundary/finalize.py
+```
+
+- `build/test-runs/trust-invariants-final-identity/summary.txt` and per-case
+  images/logs retain complete repository results, including TinyFS, policy,
+  host consumers, 18-boot rotation and held privilege controls.
+- `build/trust-boundary/recheck-final/old-audit-final/` and `new-audit-final/`
+  retain both QEMU replays. `recheck-fixtures/` contains the exact scratch
+  adaptations. `host-rechecks.json` and `rechecks.json` identify every adaptation.
+- `build/trust-boundary/final.json` records source tree/ELF/image/archive hashes,
+  all retained original case IDs and final counts.
+- Tagged baseline ELF matched the preserved provenance at `f6c1814`:
+  `5c1314ec2cbadf9b3751e5e92510b1dfe851cecf095dc14a39a47090f606a726`.
+
+Original recovery-image SHA-256 and both audit archive checksums matched at
+takeover, after all completed runs and at final verification. Ring 3 source and
+assembly are unchanged from `8e75093`, approval remains zero, and no CPL3 entry,
+merge or push occurred. A final documentation-only commit does not alter the
+tested kernel. No temporary audit evidence was cleaned up.
+
+## Compatibility and remaining limitations
+
+- **No storage migration or new persistent field/transaction ID.** Package
+  encoder and slot serialization were explicitly compared with `8e75093` and
+  remain unchanged. LBA owners, record versions/sizes and checksum coverage are
+  unchanged. Durable snapshots, joint state, latch and reset grant exist in RAM.
+- Healthy baseline downgrade/re-upgrade and 32/50/51/2048-sector recovery-store
+  operation pass. Old kernels retain their weaker policies; readability does
+  not make old-kernel mutation commands safe under the new invariants.
+- Legacy/unbound, unavailable, contradictory or ambiguous evidence is preserved
+  but held. Unsupported chronology can reduce availability, including holding
+  snapshot writes indefinitely until separately reviewed intervention. There
+  is no automatic repair/rebinding or reset bypass.
+- Acknowledged writes are the tested durability model. Physical power-loss,
+  torn-sector and write/flush atomicity remain unproven. No atomic reset across
+  the package/slot sectors is claimed; interruption deliberately holds.
+- This is consistency for fixed metadata-only package updates, not authenticated
+  anti-rollback or arbitrary binary-module integrity. Coherent hostile rewriting
+  of all relevant metadata is not prevented. Kernel signature checking remains
+  simulated. Stronger persistent identities/payload binding would require a
+  separately approved format/migration design before any implementation.
+- Generation half-range assumptions and 8-bit boot exhaustion holds remain.
+  No concurrent external writer, arbitrary kernel-RAM corruption, process
+  isolation or new memory-protection guarantee is claimed. Ring 3 remains held.
+
+**Another independent reviewer must verify the corrections and fixture scopes
+before release acceptance.**

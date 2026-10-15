@@ -13,6 +13,15 @@ are constrained, and uncertain package redundancy no longer authorizes stale
 rollback. No format migration was required. Another independent reviewer must
 verify these corrections; see `docs/RELEASE_BLOCKERS.md` and `audit-evidence/`.
 
+The subsequent independent review of `8e75093` also returned **REVISE**. Joint
+package/slot authority, durable transition edges, physical snapshot placement,
+chronological proof and producer-derived event semantics now address that
+review. Final implementation checks pass 122 repository tests plus both audit
+corpora (22 and 23 checks), with exact fixture scopes/adaptations documented in
+`docs/TRUST_CORRECTIONS.md`. No disk migration was required. This does not
+replace independent release acceptance; the required invariants were committed
+before implementation in `docs/TRUST_INVARIANTS.md`.
+
 ## Findings closed
 
 | # | Finding (reproduced on v2.6.0 `f6c1814`) | Fix |

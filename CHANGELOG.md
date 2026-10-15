@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.6.1 Joint Trust Boundaries (Pending Independent Review)
+
+- Preserved the newest REVISE audit with per-file/archive hashes and reproduced
+  all 14 failing cases before kernel edits. Wrote mutation invariants first.
+- Unified package/slot authority at lifecycle, reconciliation and persistence
+  boundaries; retained durable intent instead of inferring factory-default aborts.
+- Added sticky uncertainty, verified current/candidate transitions and one
+  case-insensitive package identity domain. Scoped reset cannot bypass holds.
+- Required snapshot placement/unique records and legitimate destination age;
+  replaced membership-based progression with physical append chronology.
+- Derived one shared journal event contract from current/baseline producers.
+- Preserved disk formats and original recovery image; Ring 3 stays disabled.
+- Final repository result: 122/122. Preserved older/newest audit replays: 22/22
+  and 23/23 with explicit setup/semantic adaptations. No independent acceptance
+  is claimed. See `docs/TRUST_INVARIANTS.md` and `docs/TRUST_CORRECTIONS.md`.
+
 ## v2.6.1 Release Blockers (Pending Independent Verification)
 
 - Preserved the complete independent REVISE audit and reproduced both blockers

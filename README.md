@@ -25,9 +25,11 @@ The current hardening work preserves recovery and snapshot evidence, supports
 small recovery disks, and corrects legacy validation, generation ordering,
 journal interpretation, rollback ownership and health classification.
 Implementation regression checks are separate from independent release review.
-The release-blocker correction suite passed all 93 regressions, plus re-execution
-of the 22 preserved audit checks. Independent acceptance remains pending;
-evidence and limitations are in [docs/RELEASE_BLOCKERS.md](docs/RELEASE_BLOCKERS.md).
+The trust-boundary correction suite passed all 122 regressions plus replays of
+the older 22 and newest 23 audit checks, with fixture adaptations recorded.
+Independent acceptance remains pending. Required permissions and evidence are
+in [docs/TRUST_INVARIANTS.md](docs/TRUST_INVARIANTS.md) and
+[docs/TRUST_CORRECTIONS.md](docs/TRUST_CORRECTIONS.md).
 
 ## Feature Overview
 

@@ -4,6 +4,11 @@ Implementation checks, **not independent release acceptance**. Another reviewer
 must verify these corrections. Starting branch:
 `hardening/v2.6.1-integrity-gate`, starting HEAD:
 `0cd86d88a1cc2a57b6a13f8f0e8d003dadf85f59` (clean tracked source).
+
+The subsequent review of `8e75093` returned REVISE. Its preserved evidence is
+under `audit-evidence/8e75093/`. Later architectural corrections and final
+122-test results are in `TRUST_INVARIANTS.md` and `TRUST_CORRECTIONS.md`; the
+historical results below are not independent acceptance.
 Starting Git tree hash: `4f2fe3bcbcc06865a73f88c793ada03a13271568`.
 
 ## Preserved evidence and unchanged-source reproduction
