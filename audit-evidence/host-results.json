@@ -1,0 +1,32 @@
+[
+  {
+    "test": "audit_legacy_tail_and_partial_corruption",
+    "exit": 0,
+    "stdout": "audit_legacy_tail_and_partial_corruption: PASS\n",
+    "stderr": ""
+  },
+  {
+    "test": "audit_recovery_generation_matrix",
+    "exit": 0,
+    "stdout": "audit_recovery_generation_matrix: PASS\n",
+    "stderr": ""
+  },
+  {
+    "test": "audit_journal_readers_agree",
+    "exit": 0,
+    "stdout": "audit_journal_readers_agree: PASS\n",
+    "stderr": ""
+  },
+  {
+    "test": "audit_semantically_malformed_journal_is_untrusted",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "audit_semantically_malformed_journal_is_untrusted failed\n\n0 !== 1\n\n"
+  },
+  {
+    "test": "audit_package_generation_matrix",
+    "exit": 0,
+    "stdout": "audit_package_generation_matrix: PASS\n",
+    "stderr": ""
+  }
+]

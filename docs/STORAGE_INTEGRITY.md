@@ -90,7 +90,10 @@ The position is rebuilt from the journal itself at every boot:
 
 Scanning, exported journal/package history, and latest-action lookups share
 the same validator: magic, supported version, checksum and recognized event
-range must all pass. An occupied unsupported-version or unknown-event record
+range must all pass. Result and reversible are 0/1, risk is low/medium/high,
+non-package action IDs are 0-4 or 255, the reserved byte is zero, and the
+six-byte tag is printable ASCII with zero padding after its first NUL.
+Package event IDs retain the full byte range. An occupied unsupported-version or unknown-event record
 is retained as evidence but cannot supply boot ordering, appear as a valid
 event, or suppress a newly changed recovery suggestion.
 
@@ -105,6 +108,13 @@ is false. It reads the full snapshot area before choosing a slot. Unreadable,
 nonzero corrupt, or future/same-boot snapshot records hold writes with
 `SNAP-WARN-002`. Existing sectors are preserved byte-for-byte in the regression
 fixtures. Healthy boot history retains the existing 16-slot ring behavior.
+
+A high boot lower bound alone does not prove that history aged through every
+intervening boot. After history exists, snapshot progression must be consecutive
+or corroborated by a successful, fully validated CLEAN_BOOT record for each
+intervening boot. Gaps without that evidence hold writes, preserving all slots;
+healthy 16-slot rotation and corroborated gaps remain allowed. This establishes
+format consistency, not authentication of checksummed disk contents.
 
 Boot numbers remain one-byte fields. At 255, the next boot holds durable
 state, journal and snapshot writes with `STORE-ERR-015`; it does not wrap to

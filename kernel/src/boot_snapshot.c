@@ -145,6 +145,8 @@ int boot_snapshot_save(void)
     capture(&s);
 
     uint8_t sec[ATA_SECTOR_SIZE];
+    uint8_t latest = 0;
+    int history_present = 0;
     /* Read the entire history before selecting a ring slot. A stale boot
        counter or unreadable/corrupt history is not permission to replace it. */
     for (uint32_t slot = 0; slot < SNAPSHOT_SLOTS; slot++) {
@@ -163,6 +165,18 @@ int boot_snapshot_save(void)
                       "inspect historical snapshots before resetting storage");
             return 0;
         }
+        if (occupied) {
+            history_present = 1;
+            if (sec[SN_OFF_BOOT] > latest)
+                latest = sec[SN_OFF_BOOT];
+        }
+    }
+    if (history_present &&
+        !recovery_journal_boot_progression_verified(latest, s.boot_number)) {
+        error_log(SEV_WARNING, "SNAP-WARN-002", "BootSnapshot",
+                  "Snapshot progression unverified - writes held",
+                  "boot lower bounds alone cannot age out historical snapshots");
+        return 0;
     }
     kmemset(sec, 0, sizeof(sec));
     sec[SN_OFF_MAGIC]     = SN_MAGIC0;

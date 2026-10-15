@@ -3,6 +3,7 @@
 #include "recovery_store.h"
 #include "ata.h"
 #include "errors.h"
+#include "driver.h"
 #include "generation.h"
 #include "string.h"
 
@@ -152,8 +153,21 @@ static int journal_entry_valid(const uint8_t *e)
     uint8_t sum = 0;
     for (int i = 0; i < ENTRY_SIZE; i++)
         sum = (uint8_t)(sum + e[i]);
-    return e[0] == JE_MAGIC_BYTE && e[1] == ST_VERSION && sum == 0 &&
-           e[3] >= JE_SUGGESTED && e[3] <= JE_PKG_BLOCKED;
+    if (e[0] != JE_MAGIC_BYTE || e[1] != ST_VERSION || sum != 0 ||
+        e[3] < JE_SUGGESTED || e[3] > JE_PKG_BLOCKED ||
+        e[5] > 1 || e[6] > RISK_HIGH || e[7] > 1 || e[14] != 0)
+        return 0;
+    /* Action events have fixed IDs; package events carry any package byte. */
+    if (e[3] < JE_PKG_SUGGESTED && e[4] > 4 && e[4] != 255)
+        return 0;
+    int ended = 0;
+    for (int i = 8; i < 14; i++) {
+        if (!e[i])
+            ended = 1;
+        else if (ended || e[i] < 0x20 || e[i] > 0x7e)
+            return 0;
+    }
+    return 1;
 }
 
 static int v1_valid(const uint8_t *s)
@@ -657,4 +671,35 @@ uint8_t recovery_store_max_journal_boot(void)
 uint8_t recovery_store_boot_lower_bound(void)
 {
     return boot_lower_bound;
+}
+
+int recovery_journal_boot_progression_verified(uint8_t prior, uint8_t next)
+{
+    if (state_locked || journal_locked || !journal_scan_valid || next <= prior)
+        return 0;                   /* no 8-bit wrap may authorize rotation */
+    if ((uint32_t)prior + 1u == next)
+        return 1;                   /* consecutive historical snapshots */
+
+    /* A lone high boot number is only a lower bound, not proof that a ring
+       aged through every intervening boot. Corroborate gaps with successful,
+       domain-valid CLEAN_BOOT records; this is consistency, not authentication. */
+    uint8_t clean[256];
+    kmemset(clean, 0, sizeof(clean));
+    uint8_t buf[ATA_SECTOR_SIZE];
+    uint32_t cached = 0xffffffffu;
+    for (uint32_t i = 0; i < jcount; i++) {
+        uint32_t lba = LBA_JOURNAL + i / ENTRIES_PER_SECTOR;
+        if (lba != cached) {
+            if (!ata_read_sector(lba, buf))
+                return 0;
+            cached = lba;
+        }
+        const uint8_t *e = buf + (i % ENTRIES_PER_SECTOR) * ENTRY_SIZE;
+        if (journal_entry_valid(e) && e[3] == JE_CLEAN_BOOT && e[4] == 0 && e[5] == 1)
+            clean[e[2]] = 1;
+    }
+    for (uint32_t boot = (uint32_t)prior + 1; boot < next; boot++)
+        if (!clean[boot])
+            return 0;
+    return 1;
 }

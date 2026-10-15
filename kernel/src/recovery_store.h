@@ -54,8 +54,8 @@ struct journal_entry {
     uint8_t action_id;        /* numeric: 1..4, 255 = ACT-999, 0=none */
     uint8_t result;           /* 1 = ok / 0 = refused or failed       */
     uint8_t risk_level;       /* enum risk_level                      */
-    uint8_t reversible;
-    char    short_code[7];    /* 6-char tag + terminator, e.g. "REC001" */
+    uint8_t reversible;       /* boolean, 0/1; on-disk reserved byte = 0 */
+    char    short_code[7];    /* printable ASCII, zero-padded to 6 bytes */
 };
 
 /* Probe the disk and load+validate the state block. Call once at boot. */
@@ -114,5 +114,9 @@ uint8_t recovery_store_max_journal_boot(void);
 /* Diagnostic lower bound from readable validated state/journal records.
    Does not grant write permission when the store is locked. */
 uint8_t recovery_store_boot_lower_bound(void);
+
+/* Snapshot rotation needs consecutive history or a successful CLEAN_BOOT
+   chain through a gap. Valid checksums do not authenticate that history. */
+int recovery_journal_boot_progression_verified(uint8_t prior, uint8_t next);
 
 #endif /* KMZ_RECOVERY_STORE_H */

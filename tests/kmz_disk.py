@@ -109,9 +109,14 @@ def journal_bytes(path: Path) -> bytes:
 
 
 def entry_valid(entry: bytes) -> bool:
-    return (len(entry) == ENTRY_SIZE and entry[0] == JE_MAGIC and entry[1] == 1
+    if not (len(entry) == ENTRY_SIZE and entry[0] == JE_MAGIC and entry[1] == 1
             and JE["SUGGESTED"] <= entry[3] <= JE["PKG_BLOCKED"]
-            and (sum(entry) & 0xFF) == 0)
+            and entry[5] <= 1 and entry[6] <= 2 and entry[7] <= 1 and entry[14] == 0
+            and (entry[3] >= JE["PKG_SUGGESTED"] or entry[4] <= 4 or entry[4] == 255)
+            and (sum(entry) & 0xFF) == 0):
+        return False
+    code = entry[8:14].split(b"\0", 1)[0]
+    return all(32 <= c <= 126 for c in code) and not any(entry[8 + len(code):14])
 
 
 def journal_entries(path: Path) -> list[bytes]:

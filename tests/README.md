@@ -49,6 +49,7 @@ make test                                       # same, via make
 | N2 generation ordering | half-range ambiguity in both stores, conflicting package copies, normal ordering and generation wrap |
 | N3 journal readers | unsupported versions/events are preserved but neither exported nor used to suppress suggestions |
 | N4 rollback ownership | ABA reuse, durable supersession, old ambiguous claims, staged apply abort/switch, tagged downgrade/re-upgrade, and actual C commit/reconciliation save failures |
+| R5 release journal | malformed field domains at boot 240, evidence/export/suggestion isolation, snapshot-gap corroboration, healthy 18-boot ring rotation, and actual C domain/boundary checks |
 
 The host fixtures require LLVM's wasm32 backend and wasm-ld plus Node.js.
 They mock port/state APIs and never emulate CPU privilege transitions. The
