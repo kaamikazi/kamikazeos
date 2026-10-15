@@ -935,7 +935,11 @@ void report_send(void)
     serial_print("ownership_state="); serial_print_field(package_state_ownership_state());
     serial_print("\nownership_reason="); serial_print_field(package_state_ownership_reason());
     serial_print("\nwrites_allowed="); serial_print(package_state_ownership_trusted() ? "yes" : "no");
+    serial_print("\ncopy_evidence="); serial_print_field(package_state_copy_state());
     serial_print("\n");
+
+    serial_print("[MODULE_SLOT_INTEGRITY]\nstate="); serial_print_dec(module_slots_evidence());
+    serial_print("\nreason="); serial_print_field(module_slots_evidence_reason()); serial_print("\n");
 
     serial_print("[PACKAGE_STATES]\n");
     for (uint32_t i = 0; i < package_state_count(); i++) {

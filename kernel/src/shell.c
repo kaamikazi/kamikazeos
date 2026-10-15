@@ -2241,9 +2241,7 @@ static void cmd_reset_packages(const char *arg)
         vga_print("To proceed, type exactly:  reset-packages confirm\n");
         return;
     }
-    int states_cleared = package_state_clear();
-    int slots_cleared = states_cleared && module_slots_clear();
-    if (!states_cleared || !slots_cleared) {
+    if (!recovery_package_reset()) {
         error_log(SEV_ERROR, "PST-RESET-ERR", "PackageState",
                   "Package reset was only partially persisted",
                   "do not apply packages until store errors are resolved");

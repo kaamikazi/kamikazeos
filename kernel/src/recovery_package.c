@@ -6,6 +6,7 @@
 #include "module_slots.h"
 #include "recovery_store.h"
 #include "string.h"
+#include "package_authority.h"
 
 /* Runtime status per manifest slot (hydrated from persistence at init). */
 static enum pkg_status statuses[MANIFEST_MAX];
@@ -137,9 +138,11 @@ static int state_targets_module(const struct pkg_pstate *s, enum module_id modul
 static int package_transition_held(const struct pkg_manifest *m)
 {
     if (!package_state_ownership_trusted()) {
-        log_pkg_class(SEV_WARNING, HEALTH_OPERATOR_INPUT, "PKG-REJECT-003",
+        const char *reason=package_state_ownership_reason();
+        log_pkg_class(SEV_WARNING, HEALTH_OPERATOR_INPUT,
+                      kstrcmp(reason,"multiple_claimants") == 0 ? "PKG-REJECT-001" : "PKG-REJECT-003",
                       "Package operation refused - ownership uncertain for", m,
-                      package_state_ownership_reason());
+                      reason);
         return 1;
     }
     for (uint32_t i = 0; i < package_state_count(); i++) {
@@ -214,6 +217,7 @@ static int stage_transaction(const struct pkg_manifest *m, uint8_t phase,
 
 static void recover_interrupted_transactions(void)
 {
+    if (!package_authority_trusted()) return;
     for (uint32_t i = 0; i < package_state_count(); i++) {
         const struct pkg_pstate *view = package_state_get(i);
         if (!view || !view->extension_valid ||
@@ -222,76 +226,32 @@ static void recover_interrupted_transactions(void)
 
         struct pkg_pstate *s = package_state_find(view->package_id);
         struct pkg_manifest *m = manifest_find(view->package_id);
-        struct module_slot *slot = m ? module_slot_for(m->target_module) : 0;
-        enum pkg_status recovered = PKGST_FAILED;
-        const char *code = "PST-RECOVER-FAILED";
-        const char *message = "Interrupted package transaction is inconsistent";
-
-        if (m && binding_matches(s, m) && slot) {
-            if (s->transaction_phase == PST_TX_APPLY_STAGED) {
-                if (slot->active_slot == s->slot_after_apply &&
-                    slot->pending_verify &&
-                    kstrcmp(module_slot_active_version(slot), s->to_version) == 0) {
-                    recovered = PKGST_APPLIED;
-                    code = "PST-RECOVER-APPLY";
-                    message = "Recovered committed slot switch from staged state";
-                } else if (slot->active_slot == s->slot_before_apply &&
-                           kstrcmp(module_slot_active_version(slot), s->from_version) == 0) {
-                    recovered = (enum pkg_status)s->status_before_transaction;
-                    code = "PST-RECOVER-ABORT";
-                    message = "Discarded staged apply before slot commit";
-                }
-            } else if (s->transaction_phase == PST_TX_VERIFY_STAGED) {
-                int active_verified = slot->active_slot == SLOT_A
-                    ? slot->slot_a_verified : slot->slot_b_verified;
-                if (!slot->pending_verify && active_verified)
-                    recovered = PKGST_VERIFIED;
-                else if (slot->pending_verify)
-                    recovered = PKGST_APPLIED;
-            } else if (s->transaction_phase == PST_TX_ROLLBACK_STAGED) {
-                if (slot->active_slot == s->slot_before_apply &&
-                    slot->rollback_slot == SLOT_NONE)
-                    recovered = PKGST_ROLLED_BACK;
-                else if (slot->active_slot == s->slot_after_apply)
-                    recovered = (enum pkg_status)s->status_before_transaction;
-            }
+        int decision=package_authority_recovery_status(s);
+        if (!m || decision < 0) {
+            package_authority_note_uncertain("staged_reconciliation_unproven");
+            return; /* never publish FAILED/ABORT from absent or assumed evidence */
+        }
+        enum pkg_status recovered=(enum pkg_status)decision;
+        const char *code="PST-RECOVER-STATE";
+        const char *message="Recovered transaction from jointly validated slots";
+        if (s->transaction_phase == PST_TX_APPLY_STAGED) {
+            code=recovered == PKGST_APPLIED ? "PST-RECOVER-APPLY" : "PST-RECOVER-ABORT";
+            message=recovered == PKGST_APPLIED ? "Recovered committed slot switch from staged state" :
+                                                "Discarded staged apply before validated slot commit";
         }
 
         /* An aborted apply preserves the previous owner. A durable slot
            switch publishes the new owner with all supersession changes. */
-        if (!finish_transaction(s, m && binding_matches(s, m) ? m : 0,
-                                recovered, s->last_result_code))
+        if (!finish_transaction(s, m, recovered, s->last_result_code)) {
             error_log(SEV_ERROR, "PST-RECOVER-SAVE", "PackageState",
                       "Recovered transaction state could not be persisted",
                       "reboot will retry transaction reconciliation");
+            return;
+        }
         error_log(recovered == PKGST_FAILED ? SEV_ERROR : SEV_WARNING,
                   code, "PackageState", message,
                   "slot metadata was inspected but not automatically changed");
     }
-}
-
-static int migrate_legacy_state(struct pkg_pstate *s,
-                                const struct pkg_manifest *m)
-{
-    if (!s || s->extension_valid ||
-        kstrcmp(s->from_version, m->from_version) != 0 ||
-        kstrcmp(s->to_version, m->to_version) != 0)
-        return 0;
-    if (s->status != PKGST_APPLIED && s->status != PKGST_VERIFIED &&
-        s->status != PKGST_FAILED)
-        return 0;
-    struct module_slot *slot = module_slot_for(m->target_module);
-    if (!slot || kstrcmp(module_slot_active_version(slot), m->to_version) != 0)
-        return 0;
-    bind_state(s, m);
-    s->transaction_phase = PST_TX_COMMITTED;
-    s->status_before_transaction = s->status;
-    if (!package_state_save())
-        return 0;
-    error_log(SEV_INFO, "PST-MIGRATE-001", "PackageState",
-              "Legacy active package state bound to current manifest",
-              "LBA layout unchanged transaction sidecar added");
-    return 1;
 }
 
 /* ------------------------------------------------------------------ */
@@ -326,9 +286,7 @@ void recovery_package_init(void)
 
         /* Hydrate persisted lifecycle state (survives reboots). */
         struct pkg_pstate *s = package_state_find(m->package_id);
-        if (s && !s->extension_valid)
-            migrate_legacy_state(s, m);
-        if (s && binding_matches(s, m) &&
+        if (package_authority_trusted() && s && binding_matches(s, m) &&
             s->transaction_phase == PST_TX_COMMITTED &&
             s->status <= PKGST_BLOCKED) {
             statuses[i] = (enum pkg_status)s->status;
@@ -379,6 +337,9 @@ int pkg_approve(const char *id)
         return -1;
     }
 
+    /* Record an actual pristine before-side before any package staging can
+       later be recovered; never infer it from defaults after an I/O failure. */
+    if (module_slots_evidence() == MS_EMPTY && !module_slots_save()) return -4;
     if (!commit_state(m, PKGST_APPROVED, 1))
         return -4;
     set_status(m, PKGST_APPROVED);
@@ -404,6 +365,7 @@ int pkg_apply(const char *id)
     }
     if (recovery_package_status(m) != PKGST_APPROVED)
         return -2;
+    if (module_slots_evidence() == MS_EMPTY && !module_slots_save()) return -4;
 
     struct module_slot *slot = module_slot_for(m->target_module);
     if (!slot)
@@ -449,7 +411,7 @@ int pkg_apply(const char *id)
     if (!module_slots_save()) {
         *slot = previous_slot;
         module_set_version(m->target_module, module_slot_active_version(slot));
-        commit_state(m, PKGST_APPROVED, 0);
+        /* The staged intent remains durable. Failed I/O is not an abort proof. */
         return -4;
     }
     set_status(m, PKGST_APPLIED);
@@ -507,7 +469,7 @@ int pkg_verify(const char *id)
         slot->pending_verify = 0;
         if (!module_slots_save()) {
             *slot = previous_slot;
-            commit_state(m, PKGST_APPLIED, 0);
+            /* Preserve VERIFY_STAGED until a real slot read resolves it. */
             return -4;
         }
 
@@ -594,7 +556,7 @@ int pkg_rollback(const char *id)
     if (!module_slots_save()) {
         *slot = previous_slot;
         module_set_version(m->target_module, module_slot_active_version(slot));
-        commit_state(m, st, 0);
+        /* Preserve ROLLBACK_STAGED rather than overwrite uncertain evidence. */
         return -4;
     }
 
@@ -605,4 +567,13 @@ int pkg_rollback(const char *id)
             "known-good slot active again");
     journal_pkg(JE_PKG_ROLLED_BACK, m, 1, "PKGRBK");
     return 1;
+}
+
+int recovery_package_reset(void)
+{
+    if (!package_authority_begin_reset()) return 0;
+    int ok=package_state_clear();
+    if (ok) ok=module_slots_clear();
+    package_authority_end_reset();
+    return ok;
 }

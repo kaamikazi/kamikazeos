@@ -4,6 +4,7 @@
 #include "errors.h"
 #include "generation.h"
 #include "string.h"
+#include "package_authority.h"
 
 #define LBA_PSTATE_PRIMARY 48
 #define LBA_PSTATE_MIRROR  49
@@ -33,6 +34,8 @@ struct decoded_state {
 
 static struct pkg_pstate states[PSTATE_MAX];
 static uint32_t count;
+static struct pkg_pstate durable_states[PSTATE_MAX];
+static uint32_t durable_count;
 static uint32_t generation;
 static int persistence_locked = 1;
 static const char *ownership_state = "unavailable";
@@ -51,6 +54,7 @@ static void hold_ownership(const char *reason, const char *code, const char *mes
     persistence_locked = 1;
     ownership_state = "uncertain";
     ownership_reason = reason;
+    package_authority_note_uncertain(reason);
     error_log(SEV_ERROR, code, "PackageState", message,
               "package writes held - questionable evidence is not repaired");
 }
@@ -224,7 +228,7 @@ static int sectors_equal(const uint8_t *a, const uint8_t *b)
 
 int package_state_save(void)
 {
-    if (!ata_available() || persistence_locked)
+    if (!ata_available() || persistence_locked || !package_authority_allow_state_write())
         return 0;
 
     generation++;
@@ -248,12 +252,15 @@ int package_state_save(void)
         ownership_state = "verified";
         ownership_reason = "both_current_copies_written";
     }
+    memcpy(durable_states, states, sizeof(durable_states));
+    durable_count = count;
     return 1;
 }
 
 void package_state_init(void)
 {
     count = 0;
+    durable_count = 0;
     generation = 0;
     persistence_locked = 1;
     ownership_state = "unavailable";
@@ -279,16 +286,11 @@ void package_state_init(void)
     }
     if (all_zero(primary_sec, sizeof(primary_sec)) &&
         all_zero(mirror_sec, sizeof(mirror_sec))) {
-        uint8_t slot_sec[ATA_SECTOR_SIZE];
-        if (!ata_read_sector(LBA_MODULE_SLOTS, slot_sec) ||
-            !all_zero(slot_sec, sizeof(slot_sec))) {
-            hold_ownership("missing_state_with_slot_evidence", "PST-ERR-003",
-                           "Package states absent beside existing slot evidence");
-            return;
-        }
+        /* Empty copies are not a joint freshness proof. The shared authority
+           combines them with the independently validated actual slot sector. */
         persistence_locked = 0;
         ownership_state = "fresh";
-        ownership_reason = "state_and_slot_sectors_empty";
+        ownership_reason = "state_sectors_read_empty";
         return;
     }
     decode_sector(primary_sec, &primary);
@@ -327,6 +329,8 @@ void package_state_init(void)
 
     memcpy(states, selected->states, sizeof(states));
     count = selected->count;
+    memcpy(durable_states, states, sizeof(durable_states));
+    durable_count = count;
     generation = selected->generation;
     persistence_locked = 0;
     ownership_state = "verified";
@@ -340,7 +344,7 @@ void package_state_init(void)
 
 int package_state_clear(void)
 {
-    if (persistence_locked)
+    if (persistence_locked || !package_authority_reset_active())
         return 0;
     count = 0;
     kmemset(states, 0, sizeof(states));
@@ -349,9 +353,15 @@ int package_state_clear(void)
 
 uint32_t package_state_count(void) { return count; }
 
-int package_state_ownership_trusted(void) { return !persistence_locked; }
-const char *package_state_ownership_state(void) { return ownership_state; }
-const char *package_state_ownership_reason(void) { return ownership_reason; }
+int package_state_ownership_trusted(void) { return package_authority_trusted(); }
+const char *package_state_ownership_state(void) { return package_authority_state(); }
+const char *package_state_ownership_reason(void) { return package_authority_reason(); }
+int package_state_copies_trusted(void) { return !persistence_locked; }
+const char *package_state_copy_state(void) { return ownership_state; }
+const char *package_state_copy_reason(void) { return ownership_reason; }
+uint32_t package_state_durable_count(void) { return durable_count; }
+const struct pkg_pstate *package_state_durable_get(uint32_t i)
+{ return i < durable_count ? &durable_states[i] : 0; }
 
 const struct pkg_pstate *package_state_get(uint32_t index)
 {
@@ -368,7 +378,7 @@ struct pkg_pstate *package_state_find(const char *package_id)
 
 struct pkg_pstate *package_state_ensure(const char *package_id)
 {
-    if (persistence_locked)
+    if (persistence_locked || !package_authority_trusted())
         return 0;
     struct pkg_pstate *s = package_state_find(package_id);
     if (s)

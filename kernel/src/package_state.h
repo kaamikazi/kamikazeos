@@ -53,11 +53,19 @@ void package_state_init(void);             /* load LBA 48 (or empty)    */
 int package_state_save(void);
 int package_state_clear(void);             /* wipe + save               */
 
-/* Runtime trust, not new on-disk fields. Uncertain copies never authorize a
-   lifecycle transition or automatic reconciliation/legacy migration. */
+/* Runtime JOINT trust, not package-copy quorum or new on-disk fields.
+   Slot uncertainty/contradiction also denies every ownership mutation. */
 int package_state_ownership_trusted(void);
 const char *package_state_ownership_state(void);
 const char *package_state_ownership_reason(void);
+
+/* Copy integrity is evidence, not ownership authority. Durable views are the
+   last acknowledged/loaded values, independent of mutable proposals. */
+int package_state_copies_trusted(void);
+const char *package_state_copy_state(void);
+const char *package_state_copy_reason(void);
+uint32_t package_state_durable_count(void);
+const struct pkg_pstate *package_state_durable_get(uint32_t index);
 
 uint32_t                 package_state_count(void);
 const struct pkg_pstate *package_state_get(uint32_t index);

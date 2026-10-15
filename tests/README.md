@@ -54,6 +54,7 @@ make test                                       # same, via make
 | T1 snapshot authority | swapped/duplicate physical sectors, exact victim age and boot boundaries, healthy destination and unchanged refused history; actual-C preflight plus QEMU |
 | T2 event contracts | actual producer tuples, successful-only suggestion facts, rejection before high boot bounds and healthy rotation without poisoned progression |
 | T3 append chronology | physical order, duplicate/missing completions, sector boundaries, no boot wrap, revalidation and failed-clear lock retention |
+| T4 joint authority | actual slot failure/contradiction, preserved stage intent, cold recovery, reload latch, durable transition edges and scoped/partial reset; real persistence/slot/engine C plus QEMU |
 
 The host fixtures require LLVM's wasm32 backend and wasm-ld plus Node.js.
 They mock port/state APIs and never emulate CPU privilege transitions. The

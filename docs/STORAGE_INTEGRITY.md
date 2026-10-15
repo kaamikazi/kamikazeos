@@ -167,20 +167,32 @@ reconciliation or repair. Approve/apply/verify/rollback and reset cannot write
 the questionable package/slot evidence. Refused lifecycle commands emit
 `PKG-REJECT-003` with the reason; no refused package event is persisted.
 
+Copy validity alone is never ownership. `package_authority.c` additionally
+requires validated actual slot evidence, manifest binding, unique coherent
+ownership/rollback baselines and supported staged before/after states. Unknown
+factory defaults do not pass. Both persistence writers validate current durable
+authority and proposed transitions; ownership transfers must publish their
+specific durable APPLY_STAGED intent. Slot write failures preserve staging.
+Automatic reconciliation does not run from assumed before-side defaults.
+
 `[PACKAGE_STATE_INTEGRITY]` reports `ownership_state`, `ownership_reason` and
 `writes_allowed`. These are RAM/report fields, not a format extension:
 
 | State | Permission |
 |---|---|
-| `fresh` | Both package-state sectors and the module-slot sector are empty; explicit lifecycle commands may establish state |
-| `verified` | Both copies are readable, valid and ordered, or both current writes succeeded |
-| `degraded_current` | This session knows its requested transition reached one durable copy; runtime ownership remains current; reboot must revalidate both copies |
+| `fresh` | Empty or positively validated pristine factory baseline, without active/history contradictions; explicit package use initializes a real baseline slot record before staging |
+| `verified` | Package copies AND actual slots jointly agree with supported current ownership/baseline or one uniquely recoverable intent |
+| `degraded_current` | An acknowledged current copy and coherent actual slots/intent justify this session; cold boot must revalidate all evidence |
 | `uncertain` | No ownership-dependent writes, automatic reconciliation, legacy binding or reset |
 | `unavailable` | No disk or insufficient capacity for package/slot storage; writes held |
 
 Both failed saves hold subsequent operations even when RAM snapshots were
 restored. A cleared transient read fault can restore trust on reboot when both
-current copies validate; a missing or damaged copy is not automatically rebuilt.
+current copies and real slots jointly validate; a missing or damaged copy is not automatically rebuilt.
+The joint uncertainty latch survives registry reload for the entire boot, even
+if coherent stale copies are substituted. A reset permission is RAM-only and
+requires trusted, non-staged state. It permits only empty package state followed
+by the exact factory slot image; partial reset holds rather than auto-completes.
 Conservative holds trade availability for evidence preservation. Legacy package
 bytes remain format-compatible, but old single-copy/unbound metadata is no longer
 automatically promoted to mutation authority. The tagged v2.6.0 transaction
@@ -194,6 +206,10 @@ record version, checksum coverage or LBA owner changes.
 `journal_dropped`, `journal_corrupt_entries`, `journal_scan_valid`,
 `boot_order_trusted`. All previous fields are
 unchanged.
+`journal_order_valid` reports append chronology. Package `copy_evidence` and
+`[MODULE_SLOT_INTEGRITY]` distinguish raw evidence from joint permission. Slot
+evidence enum values are 0 unavailable, 1 positively empty, 2 valid, 3 uncertain;
+diagnostic default rows never grant authority when these facts are uncertain.
 
 ## Compatibility (tested)
 

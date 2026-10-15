@@ -42,9 +42,19 @@ struct module_slot {
     uint8_t pending_verify;     /* applied but not verified  */
 };
 
-/* Load from disk or initialize defaults (slot A = base version,
-   verified, active). Also syncs module_versions to active slots. */
+/* Validate actual disk evidence. Empty/unavailable/corrupt data may leave
+   diagnostic defaults, but only VALID slots sync authoritative versions;
+   every mutation additionally requires shared joint package authority. */
 void module_slots_init(void);
+
+enum module_slot_evidence {
+    MS_UNAVAILABLE = 0, MS_EMPTY, MS_VALID, MS_UNCERTAIN
+};
+enum module_slot_evidence module_slots_evidence(void);
+const char *module_slots_evidence_reason(void);
+const struct module_slot *module_slot_durable_get(uint32_t index);
+int module_slot_record_valid(const struct module_slot *s);
+int module_slot_is_pristine(const struct module_slot *s);
 
 uint32_t                  module_slot_count(void);
 const struct module_slot *module_slot_get(uint32_t index);

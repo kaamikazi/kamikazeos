@@ -95,3 +95,48 @@ a diagnostic lower bound. The state writer itself also rejects that authority.
   records are not legitimate chronological completion evidence. Preservation,
   fullness and legacy-upgrade assertions retain their original purpose; the
   producer-valid fixture bytes and matching expected prefix were updated.
+
+## Unified package/slot authority
+
+`package_authority.c` is the shared decision boundary. Copy quorum alone is
+no longer ownership. The decision combines real slot evidence, manifest binding,
+unique current/rollback claims, staged before/after shapes and last acknowledged
+durable views. It is used by lifecycle/reconciliation and both state/slot writers.
+Candidate coherence is checked together with allowed durable transition edges:
+even an internally coherent owner transfer is rejected without its specific
+persisted APPLY_STAGED intent. An invalid proposal does not destroy a known
+durable current owner.
+
+Module-slot decoding validates actual field values rather than normalizing bad
+flags into defaults. Unknown/missing slots cannot authorize active history.
+Defaults remain diagnostic only. Explicit first package use writes a positively
+pristine factory record in the existing format before staging; cold recovery
+therefore reads a real before-side record. No persistent ID/field was needed.
+
+Slot I/O failures latch joint uncertainty and retain stage intent; they do not
+publish an assumed abort. Boot reconciliation asks the shared model for the
+unique observed result and never manufactures FAILED/ABORT from missing evidence.
+Legacy automatic binding was removed. In-session registry reload cannot reset
+the latch, even after replacing metadata with coherent stale copies. New boot
+trust requires complete joint validation again.
+
+Confirmed reset acquires a scoped RAM-only permission from trusted non-staged
+state. It can write only empty package state then the exact factory slot image.
+It never resumes after a crash; partial reset leaves uncertainty. There is no
+new on-disk reset marker or compatibility fallback.
+
+- Own QEMU regressions before correction: **6/6 failed**, no errors/skips,
+  **81.035 s** (`trust-joint-before`).
+- First targeted corrected run: **9/9 passed**, **109.936 s**.
+- Broader corrected run: **52/52 passed**, no errors/skips, **575.540 s**.
+- After transition-edge enforcement: **8/8 actual-C integration checks passed**
+  in **1.982 s**, and **25/25 focused checks passed** in **230.268 s**, including
+  tagged downgrade/re-upgrade, staged abort/switch and degraded current writes.
+- Evidence: `build/test-runs/trust-joint-actual-c`, `trust-joint-broad`,
+  `trust-joint-transition-edges` and `trust-joint-verified`.
+
+The older isolated ownership unit fixture is retained for historical evidence;
+its two regression purposes now run through the actual persistence/slot engine.
+Only ATA outcomes, controlled manifest trust and health/log APIs are mocked in
+`joint_authority_fixture.c`. Cold-BSS reset in that fixture is test-only; no
+production API clears the sticky authority latch.

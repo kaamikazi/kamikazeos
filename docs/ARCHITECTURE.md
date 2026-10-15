@@ -122,6 +122,12 @@ stale fallback. Legacy bytes remain recognized and preserved, but no automatic
 binding or upgrade of uncertain ownership occurs. Fully empty state and slot
 sectors establish a fresh store. A successful one-copy write can retain known
 current ownership during that session; the next boot revalidates redundancy.
+Selection is evidence, not permission. `package_authority.c` combines durable
+copy snapshots with validated physical slot data, manifest bindings and staged
+transaction shapes. Current/candidate consistency and durable state-transition
+edges guard both writers. Factory defaults remain diagnostic; first explicit
+package use persists a proven pristine slot baseline before staging. Joint
+uncertainty is sticky until a new boot, and scoped reset cannot bypass it.
 
 The safe flow is:
 
