@@ -115,10 +115,13 @@ version metadata and A/B slot metadata, then requires `verify-pkg`.
 Package state at LBA 48 keeps its v1 base record and checksum. Hardened builds
 use previously reserved bytes 320 onward for a separately checksummed manifest
 identity, generation, and transaction sidecar, and mirror the sector at LBA 49.
-The newest valid copy is selected after an interrupted write. Existing images
-remain readable because a legacy LBA 48 record is still accepted. Legacy
-approval-only records require fresh approval; active legacy slot transitions
-are bound only when their versions reconcile with current slot metadata.
+The newer copy is selected only when both existing copies are readable, valid
+and unambiguously ordered. An unreadable, missing, damaged or unbound legacy
+copy holds package mutations rather than authorizing ownership from a possibly
+stale fallback. Legacy bytes remain recognized and preserved, but no automatic
+binding or upgrade of uncertain ownership occurs. Fully empty state and slot
+sectors establish a fresh store. A successful one-copy write can retain known
+current ownership during that session; the next boot revalidates redundancy.
 
 The safe flow is:
 
@@ -141,7 +144,7 @@ mirrored package-state save. This prevents repeated versions and A/B slot reuse
 from resurrecting stale owners. Staged apply recovery preserves ownership on
 abort and retires it on a durable switch. Indistinguishable older claims fail
 closed. Storage layout and record versions are unchanged; see
-`STORAGE_INTEGRITY.md` and `INTEGRITY_FOLLOWUP.md`.
+`STORAGE_INTEGRITY.md`, `INTEGRITY_FOLLOWUP.md` and `RELEASE_BLOCKERS.md`.
 
 ## Host Tools
 

@@ -134,11 +134,17 @@ static int state_targets_module(const struct pkg_pstate *s, enum module_id modul
            kstrcmp(s->to_version, m->to_version) == 0;
 }
 
-static int module_transaction_pending(enum module_id module)
+static int package_transition_held(const struct pkg_manifest *m)
 {
+    if (!package_state_ownership_trusted()) {
+        log_pkg_class(SEV_WARNING, HEALTH_OPERATOR_INPUT, "PKG-REJECT-003",
+                      "Package operation refused - ownership uncertain for", m,
+                      package_state_ownership_reason());
+        return 1;
+    }
     for (uint32_t i = 0; i < package_state_count(); i++) {
         const struct pkg_pstate *s = package_state_get(i);
-        if (s->extension_valid && s->target_module == (uint8_t)module &&
+        if (s->extension_valid && s->target_module == (uint8_t)m->target_module &&
             s->transaction_phase > PST_TX_COMMITTED)
             return 1;
     }
@@ -360,7 +366,7 @@ int pkg_approve(const char *id)
     struct pkg_manifest *m = manifest_find(id);
     if (!m)
         return 0;
-    if (module_transaction_pending(m->target_module))
+    if (package_transition_held(m))
         return -4;
 
     const char *reason;
@@ -387,7 +393,7 @@ int pkg_apply(const char *id)
     struct pkg_manifest *m = manifest_find(id);
     if (!m)
         return 0;
-    if (module_transaction_pending(m->target_module))
+    if (package_transition_held(m))
         return -4;
 
     const char *reason;
@@ -465,7 +471,7 @@ int pkg_verify(const char *id)
     struct pkg_manifest *m = manifest_find(id);
     if (!m)
         return 0;
-    if (module_transaction_pending(m->target_module))
+    if (package_transition_held(m))
         return -4;
     if (recovery_package_status(m) != PKGST_APPLIED)
         return -1;
@@ -528,7 +534,7 @@ int pkg_rollback(const char *id)
     struct pkg_manifest *m = manifest_find(id);
     if (!m)
         return 0;
-    if (module_transaction_pending(m->target_module))
+    if (package_transition_held(m))
         return -4;
 
     enum pkg_status st = recovery_package_status(m);

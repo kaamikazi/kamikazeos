@@ -53,6 +53,12 @@ void package_state_init(void);             /* load LBA 48 (or empty)    */
 int package_state_save(void);
 int package_state_clear(void);             /* wipe + save               */
 
+/* Runtime trust, not new on-disk fields. Uncertain copies never authorize a
+   lifecycle transition or automatic reconciliation/legacy migration. */
+int package_state_ownership_trusted(void);
+const char *package_state_ownership_state(void);
+const char *package_state_ownership_reason(void);
+
 uint32_t                 package_state_count(void);
 const struct pkg_pstate *package_state_get(uint32_t index);
 struct pkg_pstate       *package_state_find(const char *package_id);

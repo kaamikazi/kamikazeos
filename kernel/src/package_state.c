@@ -7,6 +7,7 @@
 
 #define LBA_PSTATE_PRIMARY 48
 #define LBA_PSTATE_MIRROR  49
+#define LBA_MODULE_SLOTS  56  /* read only to distinguish fresh from lost state */
 #define PS_MAGIC0 'K'
 #define PS_MAGIC1 'P'
 #define PS_MAGIC2 'S'
@@ -33,7 +34,26 @@ struct decoded_state {
 static struct pkg_pstate states[PSTATE_MAX];
 static uint32_t count;
 static uint32_t generation;
-static int persistence_locked;
+static int persistence_locked = 1;
+static const char *ownership_state = "unavailable";
+static const char *ownership_reason = "not_initialized";
+
+static int all_zero(const uint8_t *bytes, uint32_t length)
+{
+    for (uint32_t i = 0; i < length; i++)
+        if (bytes[i])
+            return 0;
+    return 1;
+}
+
+static void hold_ownership(const char *reason, const char *code, const char *message)
+{
+    persistence_locked = 1;
+    ownership_state = "uncertain";
+    ownership_reason = reason;
+    error_log(SEV_ERROR, code, "PackageState", message,
+              "package writes held - questionable evidence is not repaired");
+}
 
 const char *package_transaction_phase_name(uint8_t phase)
 {
@@ -159,6 +179,12 @@ static void decode_sector(const uint8_t *sec, struct decoded_state *out)
     out->count = n;
     out->valid = 1;
 
+    /* Real legacy writers zeroed everything after their base checksum. A
+       damaged nonzero sidecar must not silently become an unbound v1 copy. */
+    if (all_zero(sec + used + 1, ATA_SECTOR_SIZE - used - 1))
+        return;
+    out->valid = 0;
+
     const uint8_t *tx = sec + TX_OFF;
     if (tx[0] != 'K' || tx[1] != 'T' || tx[2] != 'X' || tx[3] != 'N' ||
         tx[4] != TX_VERSION || tx[5] != n)
@@ -170,21 +196,22 @@ static void decode_sector(const uint8_t *sec, struct decoded_state *out)
     if (tx_sum != 0)
         return;
 
-    out->generation = get_u32(tx + 6);
-    out->extension_valid = 1;
     for (uint32_t i = 0; i < n; i++) {
         const uint8_t *r = tx + TX_HDR + i * TX_REC;
-        if (r[7] != 1 || r[5] > PST_TX_ROLLBACK_STAGED ||
-            r[4] >= MODULE_COUNT || r[6] > 7) {
-            out->states[i].extension_valid = 0;
-            continue;
-        }
+        if (r[7] > 1 || r[5] > PST_TX_ROLLBACK_STAGED ||
+            r[4] >= MODULE_COUNT || r[6] > 7)
+            return;
+        if (!r[7])
+            continue;  /* supported container with a legacy-unbound record */
         out->states[i].manifest_identity = get_u32(r);
         out->states[i].target_module = r[4];
         out->states[i].transaction_phase = r[5];
         out->states[i].status_before_transaction = r[6];
         out->states[i].extension_valid = 1;
     }
+    out->generation = get_u32(tx + 6);
+    out->extension_valid = 1;
+    out->valid = 1;
 }
 
 static int sectors_equal(const uint8_t *a, const uint8_t *b)
@@ -207,15 +234,20 @@ int package_state_save(void)
     int primary_ok = ata_write_sector(LBA_PSTATE_PRIMARY, sec);
     if (!mirror_ok && !primary_ok) {
         generation--;
-        error_log(SEV_ERROR, "PST-ERR-001", "PackageState",
-                  "Both package state copies failed to write",
-                  "lifecycle transition was not committed");
+        hold_ownership("write_failure", "PST-ERR-001",
+                       "Both package state copies failed to write");
         return 0;
     }
-    if (!mirror_ok || !primary_ok)
+    if (!mirror_ok || !primary_ok) {
+        ownership_state = "degraded_current";
+        ownership_reason = "one_current_copy_written";
         error_log(SEV_WARNING, "PST-WARN-002", "PackageState",
                   "Only one package state copy was persisted",
                   "state is durable but redundancy is degraded");
+    } else {
+        ownership_state = "verified";
+        ownership_reason = "both_current_copies_written";
+    }
     return 1;
 }
 
@@ -223,51 +255,82 @@ void package_state_init(void)
 {
     count = 0;
     generation = 0;
-    persistence_locked = 0;
+    persistence_locked = 1;
+    ownership_state = "unavailable";
+    ownership_reason = "no_disk";
     kmemset(states, 0, sizeof(states));
     if (!ata_available())
         return;
+    if (ata_capacity_sectors() <= LBA_MODULE_SLOTS) {
+        ownership_reason = "insufficient_capacity";
+        return;
+    }
 
     uint8_t primary_sec[ATA_SECTOR_SIZE];
     uint8_t mirror_sec[ATA_SECTOR_SIZE];
     struct decoded_state primary;
     struct decoded_state mirror;
-    if (!ata_read_sector(LBA_PSTATE_PRIMARY, primary_sec))
-        kmemset(primary_sec, 0, sizeof(primary_sec));
-    if (!ata_read_sector(LBA_PSTATE_MIRROR, mirror_sec))
-        kmemset(mirror_sec, 0, sizeof(mirror_sec));
+    int primary_read = ata_read_sector(LBA_PSTATE_PRIMARY, primary_sec);
+    int mirror_read = ata_read_sector(LBA_PSTATE_MIRROR, mirror_sec);
+    if (!primary_read || !mirror_read) {
+        hold_ownership("copy_unreadable", "PST-ERR-003",
+                       "Package copy unreadable - current owner cannot be proven");
+        return;
+    }
+    if (all_zero(primary_sec, sizeof(primary_sec)) &&
+        all_zero(mirror_sec, sizeof(mirror_sec))) {
+        uint8_t slot_sec[ATA_SECTOR_SIZE];
+        if (!ata_read_sector(LBA_MODULE_SLOTS, slot_sec) ||
+            !all_zero(slot_sec, sizeof(slot_sec))) {
+            hold_ownership("missing_state_with_slot_evidence", "PST-ERR-003",
+                           "Package states absent beside existing slot evidence");
+            return;
+        }
+        persistence_locked = 0;
+        ownership_state = "fresh";
+        ownership_reason = "state_and_slot_sectors_empty";
+        return;
+    }
     decode_sector(primary_sec, &primary);
     decode_sector(mirror_sec, &mirror);
 
-    const struct decoded_state *selected = 0;
-    if (primary.valid && mirror.valid) {
-        enum generation_order order = generation_compare(mirror.generation,
-                                                          primary.generation);
-        if (primary.extension_valid && mirror.extension_valid &&
-            (order == GENERATION_AMBIGUOUS ||
-             (order == GENERATION_EQUAL && !sectors_equal(primary_sec, mirror_sec)))) {
-            persistence_locked = 1;
-            error_log(SEV_ERROR, "PST-ERR-002", "PackageState",
-                      "Package state copy generation ordering is ambiguous",
-                      "package transitions held - inspect both copies before retrying");
+    if (!primary.valid || !mirror.valid) {
+        hold_ownership("copy_missing_or_damaged", "PST-ERR-003",
+                       "Package redundancy incomplete - fallback ownership refused");
+        return;
+    }
+    if (!primary.extension_valid || !mirror.extension_valid) {
+        hold_ownership("legacy_ownership_unbound", "PST-ERR-003",
+                       "Legacy package metadata has no proven current ownership");
+        return;
+    }
+
+    enum generation_order order = generation_compare(mirror.generation,
+                                                      primary.generation);
+    if (order == GENERATION_AMBIGUOUS ||
+        (order == GENERATION_EQUAL && !sectors_equal(primary_sec, mirror_sec))) {
+        hold_ownership("generation_ambiguous", "PST-ERR-002",
+                       "Package state copy generation ordering is ambiguous");
+        return;
+    }
+    const struct decoded_state *selected = order == GENERATION_NEWER ? &mirror : &primary;
+
+    for (uint32_t i = 0; i < selected->count; i++) {
+        const struct pkg_pstate *s = &selected->states[i];
+        if (!s->extension_valid && (s->applied || s->verified || s->failed ||
+                                   s->status == 3 || s->status == 4 || s->status == 5)) {
+            hold_ownership("legacy_ownership_unbound", "PST-ERR-003",
+                           "Active package record is not bound to an apply owner");
             return;
         }
-        if (mirror.extension_valid &&
-            (!primary.extension_valid || order == GENERATION_NEWER))
-            selected = &mirror;
-        else
-            selected = &primary;
-    } else if (primary.valid) {
-        selected = &primary;
-    } else if (mirror.valid) {
-        selected = &mirror;
     }
-    if (!selected)
-        return;
 
     memcpy(states, selected->states, sizeof(states));
     count = selected->count;
     generation = selected->generation;
+    persistence_locked = 0;
+    ownership_state = "verified";
+    ownership_reason = "readable_valid_ordered_copies";
     error_log(SEV_INFO, "PST-000", "PackageState",
               "Persistent package states restored from disk",
               selected->extension_valid
@@ -285,6 +348,10 @@ int package_state_clear(void)
 }
 
 uint32_t package_state_count(void) { return count; }
+
+int package_state_ownership_trusted(void) { return !persistence_locked; }
+const char *package_state_ownership_state(void) { return ownership_state; }
+const char *package_state_ownership_reason(void) { return ownership_reason; }
 
 const struct pkg_pstate *package_state_get(uint32_t index)
 {

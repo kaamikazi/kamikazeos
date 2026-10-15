@@ -930,6 +930,12 @@ void report_send(void)
         serial_print("\n");
     }
 
+    serial_print("[PACKAGE_STATE_INTEGRITY]\n");
+    serial_print("ownership_state="); serial_print_field(package_state_ownership_state());
+    serial_print("\nownership_reason="); serial_print_field(package_state_ownership_reason());
+    serial_print("\nwrites_allowed="); serial_print(package_state_ownership_trusted() ? "yes" : "no");
+    serial_print("\n");
+
     serial_print("[PACKAGE_STATES]\n");
     for (uint32_t i = 0; i < package_state_count(); i++) {
         const struct pkg_pstate *s = package_state_get(i);

@@ -43,12 +43,14 @@ class QemuSession:
     """One QEMU process = one power-on. Use as a context manager."""
 
     def __init__(self, elf: Path, image: Path, serial_log: Path,
-                 boot_timeout: float = 60.0, read_error_lbas: tuple[int, ...] = ()):
+                 boot_timeout: float = 60.0, read_error_lbas: tuple[int, ...] = (),
+                 write_error_lbas: tuple[int, ...] = ()):
         self.elf = Path(elf)
         self.image = Path(image)
         self.serial_log = Path(serial_log)
         self.boot_timeout = boot_timeout
         self.read_error_lbas = read_error_lbas
+        self.write_error_lbas = write_error_lbas
         self.proc: subprocess.Popen | None = None
         self.monitor_out: list[bytes] = []
         self.offset = 0          # serial-log read cursor for wait_for()
@@ -68,16 +70,20 @@ class QemuSession:
                 "-display", "none", "-monitor", "stdio",
                 "-chardev", f"file,id=ser0,path={self.serial_log},append=on",
                 "-serial", "chardev:ser0"]
-        if self.read_error_lbas:
-            # Inject read failures at QEMU's block layer, without changing
-            # any image bytes. This affects only this disposable session.
+        if self.read_error_lbas or self.write_error_lbas:
+            # Inject direction-specific I/O failures at QEMU's block layer.
+            # Fault rules never edit image bytes and affect only this session.
             backend = {"driver": "raw", "node-name": "faultdisk",
                        "file": {"driver": "blkdebug",
                        "image": {"driver": "file", "filename": str(self.image)},
-                       "inject-error": [{"event": "read_aio", "errno": 5,
+                       "inject-error": [{"event": "read_aio", "iotype": "read", "errno": 5,
                                          "sector": lba, "once": False,
                                          "immediately": True}
-                                        for lba in self.read_error_lbas]}}
+                                        for lba in self.read_error_lbas] +
+                                        [{"event": "write_aio", "iotype": "write", "errno": 5,
+                                          "sector": lba, "once": False,
+                                          "immediately": True}
+                                         for lba in self.write_error_lbas]}}
             args += ["-blockdev", json.dumps(backend),
                      "-device", "ide-hd,drive=faultdisk,bus=ide.0,unit=0"]
         else:

@@ -142,6 +142,36 @@ does not guess which claimant is newest. A rollback of a new owner never
 restores superseded rollback rights. Older kernels remain subject to their own
 rollback-policy defects; format readability does not imply policy equivalence.
 
+### Package-copy trust after a failure
+
+Package ownership no longer falls back to a lone readable/valid copy at boot.
+Both copies must be readable, format-valid and unambiguously ordered. A
+nonzero damaged sidecar cannot be reinterpreted as legacy base state. Missing,
+unreadable, damaged or unbound legacy ownership is held without hydration,
+reconciliation or repair. Approve/apply/verify/rollback and reset cannot write
+the questionable package/slot evidence. Refused lifecycle commands emit
+`PKG-REJECT-003` with the reason; no refused package event is persisted.
+
+`[PACKAGE_STATE_INTEGRITY]` reports `ownership_state`, `ownership_reason` and
+`writes_allowed`. These are RAM/report fields, not a format extension:
+
+| State | Permission |
+|---|---|
+| `fresh` | Both package-state sectors and the module-slot sector are empty; explicit lifecycle commands may establish state |
+| `verified` | Both copies are readable, valid and ordered, or both current writes succeeded |
+| `degraded_current` | This session knows its requested transition reached one durable copy; runtime ownership remains current; reboot must revalidate both copies |
+| `uncertain` | No ownership-dependent writes, automatic reconciliation, legacy binding or reset |
+| `unavailable` | No disk or insufficient capacity for package/slot storage; writes held |
+
+Both failed saves hold subsequent operations even when RAM snapshots were
+restored. A cleared transient read fault can restore trust on reboot when both
+current copies validate; a missing or damaged copy is not automatically rebuilt.
+Conservative holds trade availability for evidence preservation. Legacy package
+bytes remain format-compatible, but old single-copy/unbound metadata is no longer
+automatically promoted to mutation authority. The tagged v2.6.0 transaction
+format and its tested downgrade/re-upgrade remain compatible. No migration,
+record version, checksum coverage or LBA owner changes.
+
 ## Report fields (`[RECOVERY_STORE]`)
 
 `state_source`, `state_generation`, `state_redundancy`,
