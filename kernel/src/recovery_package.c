@@ -122,23 +122,64 @@ static int binding_matches(const struct pkg_pstate *s,
            kstrcmp(s->to_version, m->to_version) == 0;
 }
 
-static int commit_state(const struct pkg_manifest *m, enum pkg_status st,
-                        int result_code)
+static int state_targets_module(const struct pkg_pstate *s, enum module_id module)
 {
-    struct pkg_pstate *s = package_state_ensure(m->package_id);
-    if (!s)
-        return 0;
-    struct pkg_pstate previous = *s;
-    bind_state(s, m);
+    if (s->extension_valid)
+        return s->target_module == (uint8_t)module;
+    /* A legacy record can be rebound on a later boot. Retire its rights too
+       when its current manifest identifies the same module/transition. */
+    const struct pkg_manifest *m = manifest_find(s->package_id);
+    return m && m->target_module == module &&
+           kstrcmp(s->from_version, m->from_version) == 0 &&
+           kstrcmp(s->to_version, m->to_version) == 0;
+}
+
+static int module_transaction_pending(enum module_id module)
+{
+    for (uint32_t i = 0; i < package_state_count(); i++) {
+        const struct pkg_pstate *s = package_state_get(i);
+        if (s->extension_valid && s->target_module == (uint8_t)module &&
+            s->transaction_phase > PST_TX_COMMITTED)
+            return 1;
+    }
+    return 0;
+}
+
+/* Publish the new owner and retire older rollback rights in ONE mirrored
+   package-state save. SLOT_NONE already exists in the v1 record format. */
+static int finish_transaction(struct pkg_pstate *s, const struct pkg_manifest *m,
+                              enum pkg_status st, int result_code)
+{
+    struct pkg_pstate previous[PSTATE_MAX];
+    uint32_t n = package_state_count();
+    for (uint32_t i = 0; i < n; i++)
+        previous[i] = *package_state_get(i);
+    if (m)
+        bind_state(s, m);
     state_set_status(s, st);
     s->last_result_code = (uint8_t)(result_code & 0xFF);
     s->transaction_phase = PST_TX_COMMITTED;
     s->status_before_transaction = (uint8_t)st;
+    if (m && st == PKGST_APPLIED) {
+        for (uint32_t i = 0; i < n; i++) {
+            struct pkg_pstate *other = package_state_find(previous[i].package_id);
+            if (other != s && state_targets_module(other, m->target_module))
+                other->slot_before_apply = SLOT_NONE;
+        }
+    }
     if (!package_state_save()) {
-        *s = previous;
+        for (uint32_t i = 0; i < n; i++)
+            *package_state_find(previous[i].package_id) = previous[i];
         return 0;
     }
     return 1;
+}
+
+static int commit_state(const struct pkg_manifest *m, enum pkg_status st,
+                         int result_code)
+{
+    struct pkg_pstate *s = package_state_ensure(m->package_id);
+    return s && finish_transaction(s, m, st, result_code);
 }
 
 static int stage_transaction(const struct pkg_manifest *m, uint8_t phase,
@@ -210,10 +251,10 @@ static void recover_interrupted_transactions(void)
             }
         }
 
-        state_set_status(s, recovered);
-        s->transaction_phase = PST_TX_COMMITTED;
-        s->status_before_transaction = (uint8_t)recovered;
-        if (!package_state_save())
+        /* An aborted apply preserves the previous owner. A durable slot
+           switch publishes the new owner with all supersession changes. */
+        if (!finish_transaction(s, m && binding_matches(s, m) ? m : 0,
+                                recovered, s->last_result_code))
             error_log(SEV_ERROR, "PST-RECOVER-SAVE", "PackageState",
                       "Recovered transaction state could not be persisted",
                       "reboot will retry transaction reconciliation");
@@ -319,6 +360,8 @@ int pkg_approve(const char *id)
     struct pkg_manifest *m = manifest_find(id);
     if (!m)
         return 0;
+    if (module_transaction_pending(m->target_module))
+        return -4;
 
     const char *reason;
     if (recovery_package_status(m) == PKGST_BLOCKED ||
@@ -344,6 +387,8 @@ int pkg_apply(const char *id)
     struct pkg_manifest *m = manifest_find(id);
     if (!m)
         return 0;
+    if (module_transaction_pending(m->target_module))
+        return -4;
 
     const char *reason;
     if (recovery_package_status(m) == PKGST_BLOCKED ||
@@ -420,6 +465,8 @@ int pkg_verify(const char *id)
     struct pkg_manifest *m = manifest_find(id);
     if (!m)
         return 0;
+    if (module_transaction_pending(m->target_module))
+        return -4;
     if (recovery_package_status(m) != PKGST_APPLIED)
         return -1;
 
@@ -481,6 +528,8 @@ int pkg_rollback(const char *id)
     struct pkg_manifest *m = manifest_find(id);
     if (!m)
         return 0;
+    if (module_transaction_pending(m->target_module))
+        return -4;
 
     enum pkg_status st = recovery_package_status(m);
     if (st != PKGST_APPLIED && st != PKGST_VERIFIED && st != PKGST_FAILED)
@@ -505,6 +554,19 @@ int pkg_rollback(const char *id)
                                                    : slot->slot_b_version,
                      m->from_version) != 0)
         stale = "known-good from_version is no longer in the rollback slot";
+    /* Older images may contain multiple indistinguishable claims. Do not
+       guess an owner from versions/slot parity: refuse every such claimant. */
+    for (uint32_t i = 0; !stale && i < package_state_count(); i++) {
+        const struct pkg_pstate *other = package_state_get(i);
+        if (other != s && state_targets_module(other, m->target_module) &&
+            (other->status == PKGST_APPLIED || other->status == PKGST_VERIFIED ||
+             other->status == PKGST_FAILED) &&
+            other->slot_before_apply == s->slot_before_apply &&
+            other->slot_after_apply == s->slot_after_apply &&
+            kstrcmp(other->from_version, s->from_version) == 0 &&
+            kstrcmp(other->to_version, s->to_version) == 0)
+            stale = "multiple package records claim this transition - owner is uncertain";
+    }
     if (stale) {
         log_pkg_class(SEV_WARNING, HEALTH_OPERATOR_INPUT, "PKG-REJECT-001",
                       "Stale rollback refused", m, stale);

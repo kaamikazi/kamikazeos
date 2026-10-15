@@ -1,5 +1,8 @@
 """Additional audit regressions; all disk mutations use disposable images."""
-from test_integrity_gate import KmzCase, PKG_ACT_OR_BLOCK
+from pathlib import Path
+import unittest
+
+from test_integrity_gate import BASELINE_ELF, KmzCase, PKG_ACT_OR_BLOCK, RB_RESULT
 import kmz_disk as disk
 from kmz_qemu import events, section_kv
 
@@ -153,3 +156,129 @@ class N3JournalValidation(KmzCase):
         self.assertEqual(section_kv(report, "RECOVERY_MEMORY")["boot_count"], "2")
         self.assertEqual(section_kv(report, "RECOVERY_STORE")["journal_corrupt_entries"], "3")
         self.assertEqual(disk.journal_bytes(self.img)[:len(prefix)], prefix)
+
+
+class N4RollbackOwnership(KmzCase):
+    def write_cycle(self):
+        for index, (pid, before, after) in enumerate(((201, "0.3", "0.4"),
+                                                     (202, "0.4", "0.3"),
+                                                     (203, "0.3", "0.4"))):
+            disk.write_manifest(self.img, index, disk.fixture_manifest_sector(
+                f"PKG-{pid}", f"cycle_{pid}", "Disposable ABA ownership fixture",
+                "GhostAttach", before, after))
+
+    def apply_prefix(self, q):
+        for pid in (201, 202):
+            for verb in ("approve-pkg", "apply-pkg", "verify-pkg"):
+                self.assertIn("PKG-ACT", q.run(f"{verb} PKG-{pid}", PKG_ACT_OR_BLOCK))
+
+    def slots(self, report):
+        return self.rows(report, "MODULE_SLOTS", "module")["GhostAttach"]
+
+    def assert_owner(self, q):
+        before = self.slots(self.report(q))
+        self.assertIn("PKG-REJECT-001", q.run("rollback-pkg PKG-201", RB_RESULT))
+        self.assertEqual(self.slots(self.report(q)), before)
+        self.assertIn("PKG-RB-001", q.run("rollback-pkg PKG-203", RB_RESULT))
+        after = self.slots(self.report(q))
+        self.assertEqual(after["slot_a" if after["active"] == "A" else "slot_b"], "0.3")
+        self.assertIn("PKG-REJECT-001", q.run("rollback-pkg PKG-202", RB_RESULT))
+        self.assertEqual(self.slots(self.report(q)), after,
+                         "rolling back the current owner resurrected an older owner")
+
+    def test_aba_stale_owner_is_refused_without_restart(self):
+        self.write_cycle()
+        with self.boot() as q:
+            self.apply_prefix(q)
+            for verb in ("approve-pkg", "apply-pkg"):
+                q.run(f"{verb} PKG-203", PKG_ACT_OR_BLOCK)
+            self.assert_owner(q)
+
+    def test_aba_ownership_survives_full_restart(self):
+        self.write_cycle()
+        with self.boot() as q:
+            self.apply_prefix(q)
+            for verb in ("approve-pkg", "apply-pkg", "verify-pkg"):
+                q.run(f"{verb} PKG-203", PKG_ACT_OR_BLOCK)
+        with self.boot() as q:
+            self.assert_owner(q)
+
+    @unittest.skipUnless(BASELINE_ELF, "KMZ_BASELINE_ELF not set")
+    def test_retired_ownership_survives_tagged_downgrade_reupgrade(self):
+        self.write_cycle()
+        with self.boot() as q:
+            self.apply_prefix(q)
+            for verb in ("approve-pkg", "apply-pkg", "verify-pkg"):
+                q.run(f"{verb} PKG-203", PKG_ACT_OR_BLOCK)
+        before = {lba: disk.read_sector(self.img, lba) for lba in (48, 49, 56)}
+        with self.boot(Path(BASELINE_ELF)) as q:
+            self.assertEqual(self.rows(self.report(q), "RECOVERY_PACKAGES")["PKG-203"]["status"], "verified")
+        for lba, raw in before.items():
+            self.assertEqual(disk.read_sector(self.img, lba), raw)
+        with self.boot() as q:
+            self.assert_owner(q)
+
+    def edit_package_record(self, index, *, before=None, status=None, phase=None):
+        sec = bytearray(disk.read_sector(self.img, 48))
+        record = 6 + index * 37
+        tx = 330 + index * 8
+        if before is not None:
+            sec[record + 16] = before
+        if status is not None:
+            sec[record + 10:record + 16] = bytes((status, status == 2, status == 3,
+                                                status == 4, status == 5, status == 6))
+        if phase is not None:
+            sec[tx + 5] = phase
+            sec[tx + 6] = 2  # status before apply: approved
+        generation = int.from_bytes(sec[326:330], "little")
+        sealed = disk.resign_package_state(bytes(sec), generation)
+        for lba in (48, 49):
+            disk.write_sector(self.img, lba, sealed)
+
+    def test_preexisting_ambiguous_owners_are_both_refused(self):
+        self.write_cycle()
+        with self.boot() as q:
+            self.apply_prefix(q)
+            for verb in ("approve-pkg", "apply-pkg"):
+                q.run(f"{verb} PKG-203", PKG_ACT_OR_BLOCK)
+        # Recreate old-writer state: two bound packages claim the identical
+        # A->B, 0.3->0.4 transition. Neither is provably the latest owner.
+        self.edit_package_record(0, before=0)
+        before = disk.slots_sector(self.img)
+        with self.boot() as q:
+            for pid in (201, 203):
+                self.assertIn("PKG-REJECT-001", q.run(f"rollback-pkg PKG-{pid}", RB_RESULT))
+        self.assertEqual(disk.slots_sector(self.img), before)
+
+    def test_aborted_staged_apply_keeps_previous_owner(self):
+        self.write_cycle()
+        with self.boot() as q:
+            self.apply_prefix(q)
+            q.run("approve-pkg PKG-203", PKG_ACT_OR_BLOCK)
+        # A staged apply never switched module slots. Its abort must retain
+        # PKG-202's legitimate B->A rollback authority.
+        self.edit_package_record(2, before=0, phase=2)
+        sec = bytearray(disk.read_sector(self.img, 48))
+        sec[6 + 2 * 37 + 17] = 1  # staged destination is B
+        for lba in (48, 49):
+            disk.write_sector(self.img, lba, disk.resign_package_state(bytes(sec), 100))
+        with self.boot() as q:
+            self.assertTrue(events(q.boot_text(), "PST-RECOVER-ABO"))
+            self.assertIn("PKG-RB-001", q.run("rollback-pkg PKG-202", RB_RESULT))
+            active = self.slots(self.report(q))
+            self.assertEqual(active["slot_b"], "0.4")
+            self.assertEqual(active["active"], "B")
+
+    def test_switched_staged_apply_retires_previous_owners(self):
+        self.write_cycle()
+        with self.boot() as q:
+            self.apply_prefix(q)
+            for verb in ("approve-pkg", "apply-pkg"):
+                q.run(f"{verb} PKG-203", PKG_ACT_OR_BLOCK)
+        # Slot switch durable, final package commit lost. Restore the prior
+        # owner's rights as they were at the staged save, then reconcile.
+        self.edit_package_record(1, before=1)
+        self.edit_package_record(2, status=2, phase=2)
+        with self.boot() as q:
+            self.assertTrue(events(q.boot_text(), "PST-RECOVER-APP"))
+            self.assert_owner(q)

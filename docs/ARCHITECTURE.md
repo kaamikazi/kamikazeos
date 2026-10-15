@@ -135,6 +135,14 @@ Rollback is manual:
 rollback-pkg <id>
 ```
 
+Rollback authority is exclusive: committing a new apply sets older same-module
+records' `slot_before_apply` to the already-supported `SLOT_NONE` in the same
+mirrored package-state save. This prevents repeated versions and A/B slot reuse
+from resurrecting stale owners. Staged apply recovery preserves ownership on
+abort and retires it on a durable switch. Indistinguishable older claims fail
+closed. Storage layout and record versions are unchanged; see
+`STORAGE_INTEGRITY.md` and `INTEGRITY_FOLLOWUP.md`.
+
 ## Host Tools
 
 `tools/package-builder/` contains offline tools for manifest creation,

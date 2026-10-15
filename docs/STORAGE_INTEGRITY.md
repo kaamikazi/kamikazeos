@@ -111,6 +111,27 @@ state, journal and snapshot writes with `STORE-ERR-015`; it does not wrap to
 zero. Widening the format requires a separately reviewed migration. CMOS
 remains a diagnostic fallback and does not unlock uncertain disk ordering.
 
+## Package rollback ownership
+
+The package-state v1 `slot_before_apply` field already supports `SLOT_NONE`.
+When an apply commits, the same mirrored package-state save that publishes
+the new owner sets this field to `SLOT_NONE` in superseded records for that
+module. Status, versions, manifest binding and journal history are retained.
+No new fields, sector owners, format versions or migration are required.
+
+Staging leaves prior ownership intact. After interruption, an aborted apply
+keeps that ownership; a completed slot switch publishes the new owner and
+retirements together through the existing transaction reconciliation. A failed
+package commit restores all affected in-memory records, retaining the staged
+intent. Further lifecycle operations on that module are refused until its
+transaction is reconciled. No module slot is automatically switched by recovery.
+
+For older images with indistinguishable claims to the same slot/version
+transition, every competing rollback is refused (`PKG-REJECT-001`). The kernel
+does not guess which claimant is newest. A rollback of a new owner never
+restores superseded rollback rights. Older kernels remain subject to their own
+rollback-policy defects; format readability does not imply policy equivalence.
+
 ## Report fields (`[RECOVERY_STORE]`)
 
 `state_source`, `state_generation`, `state_redundancy`,

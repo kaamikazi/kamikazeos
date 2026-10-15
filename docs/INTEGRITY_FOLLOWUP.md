@@ -73,3 +73,31 @@ Both current and tagged sources keep the Ring 3 approval macro at zero.
 - Evidence: `build/test-runs/followup-n3-before-confirm` and `followup-n3-fixed`.
 - No format change. Malformed entry bytes and all preceding history remain
   unchanged; unsupported records cannot influence trusted journal consumers.
+
+### N4: stale rollback ownership (ABA)
+
+- Before: the cycle `0.3 -> 0.4 -> 0.3 -> 0.4` accepted PKG-201's stale
+  rollback of PKG-203, live and after restart. Four of five QEMU cases failed;
+  the staged-abort control passed. Initial staged-log assertions were corrected
+  to the existing 15-character error-code limit before this confirmed run.
+- Compatibility decision: **no incompatible storage change is necessary**.
+  The v1 package record already allows `SLOT_NONE` for `slot_before_apply`.
+  New apply commits retire older same-module rights with that value while
+  retaining their statuses, version history and manifest identities.
+- New-owner publication and retirement share one mirrored state save. Failure
+  restores all RAM records and keeps staged intent; unresolved transactions
+  hold further lifecycle commands for that module. Existing reconciliation
+  retires rights only after a slot switch, preserving them on an aborted apply.
+- Older images with indistinguishable live claims refuse both rollbacks rather
+  than invent ownership. A successful rollback never resurrects old rights.
+- Focused QEMU coverage: **19 tests passed**, no failures/skips, in **149.222
+  seconds** (N4, F2/F3/F4). Additional compatibility/failure-boundary coverage:
+  **3 passed**, no failures/skips, in **18.098 seconds**.
+- The actual pre-N4 C (`90ee172`) also failed both ownership host fixture
+  exports; the corrected C passed. Fixtures cover successful multi-record
+  retirement, failed owner commit, failed reconciliation and successful retry,
+  including preservation of unrelated-module rights.
+- Tagged old-kernel boot reads the new records and leaves package/slot sectors
+  byte-identical; re-upgrade retains the new exclusive rollback authority.
+- Evidence: `build/test-runs/followup-n4-before-confirm`, `followup-n4-fixed`,
+  `followup-n4-boundaries`, and `build/integrity-20261015/ownership-before`.

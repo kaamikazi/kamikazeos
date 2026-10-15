@@ -45,10 +45,17 @@ make test                                       # same, via make
 | L1 generations | legacy-primary flags win without resetting a validated higher mirror generation |
 | L2 health policy | actual registry/log/health C compiled to WebAssembly; verified fallback after a block is still a production warning |
 | L3 intentional scope | returning-trigger wrapper tested on the host; actual divide/invalid-opcode/page faults tested at CPL0 in QEMU |
+| N1 legacy recognition | damaged extension magic and nonzero reserved tails cannot masquerade as a legacy primary |
+| N2 generation ordering | half-range ambiguity in both stores, conflicting package copies, normal ordering and generation wrap |
+| N3 journal readers | unsupported versions/events are preserved but neither exported nor used to suppress suggestions |
+| N4 rollback ownership | ABA reuse, durable supersession, old ambiguous claims, staged apply abort/switch, tagged downgrade/re-upgrade, and actual C commit/reconciliation save failures |
 
 The host fixtures require LLVM's wasm32 backend and wasm-ld plus Node.js.
 They mock port/state APIs and never emulate CPU privilege transitions. The
 QEMU tests cover actual exception entry and persisted evidence separately.
+Ownership host fixtures execute actual package transaction C with deterministic
+state-save failures. They verify multi-record rollback on failed persistence;
+they do not simulate physical ATA torn sectors or power interruption.
 
 ## Test fixtures and trust
 

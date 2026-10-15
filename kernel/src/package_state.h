@@ -35,7 +35,7 @@ struct pkg_pstate {
     uint8_t verified;
     uint8_t failed;
     uint8_t rolled_back;
-    uint8_t slot_before_apply;    /* SLOT_A/SLOT_B/SLOT_NONE             */
+    uint8_t slot_before_apply;    /* A/B rollback right; NONE if superseded */
     uint8_t slot_after_apply;
     char    from_version[PM_VER_MAX];
     char    to_version[PM_VER_MAX];
