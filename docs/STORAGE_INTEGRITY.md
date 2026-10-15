@@ -120,6 +120,11 @@ or corroborated by a successful, fully validated CLEAN_BOOT record for each
 intervening boot. Gaps without that evidence hold writes, preserving all slots;
 healthy 16-slot rotation and corroborated gaps remain allowed. This establishes
 format consistency, not authentication of checksummed disk contents.
+Chronology is checked in physical append order across sectors. Backward boot
+numbers and duplicate successful CLEAN_BOOT records hold persistence; gaps need
+an increasing, consecutive completion stream before replacement. The exposed
+`journal_order_valid` report field is RAM-only. Explicit clear unlocks only
+after every requested zero write acknowledges success; failure retains locks.
 
 Every occupied snapshot must also be at `LBA 16 + boot % 16`, unique and older
 than the current boot. The actual destination must be empty or at least 16

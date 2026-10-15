@@ -95,6 +95,7 @@ struct recovery_store_integrity {
     int state_locked;           /* state writes refused this boot         */
     int journal_locked;         /* journal appends refused this boot      */
     int journal_scan_valid;     /* all sectors read; boot evidence scanned */
+    int journal_order_valid;    /* append order monotone; unique completions */
     int journal_full;
     uint32_t journal_capacity;
     uint32_t dropped_appends;   /* appends refused (full/locked/failed)   */

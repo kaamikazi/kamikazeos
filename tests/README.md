@@ -52,6 +52,8 @@ make test                                       # same, via make
 | R5 release journal | malformed field domains at boot 240, evidence/export/suggestion isolation, snapshot-gap corroboration, healthy 18-boot ring rotation, and actual C domain/boundary checks |
 | R6 release ownership | stale primary/mirror read/checksum failures, missing or legacy copies, sidecar corruption, erased state with slot history, actual interrupted writes, degraded current ownership and fault-clear reboots |
 | T1 snapshot authority | swapped/duplicate physical sectors, exact victim age and boot boundaries, healthy destination and unchanged refused history; actual-C preflight plus QEMU |
+| T2 event contracts | actual producer tuples, successful-only suggestion facts, rejection before high boot bounds and healthy rotation without poisoned progression |
+| T3 append chronology | physical order, duplicate/missing completions, sector boundaries, no boot wrap, revalidation and failed-clear lock retention |
 
 The host fixtures require LLVM's wasm32 backend and wasm-ld plus Node.js.
 They mock port/state APIs and never emulate CPU privilege transitions. The

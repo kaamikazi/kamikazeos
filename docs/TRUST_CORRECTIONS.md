@@ -70,3 +70,28 @@ refused SUGGESTED and inconsistent boot-event facts do not grant authority.
   is 17, with healthy replacement of boot 1 only and boot 2 preserved. Rechecks
   must record this stronger expected result rather than preserve poisoned
   ordering merely to satisfy that old intermediate expectation.
+
+## Chronological append authority
+
+The boot scan and replacement proof now share an append-order cursor. Valid
+events cannot move backward; duplicate CLEAN_BOOT completion is contradictory.
+Gap proof advances an expected boot in physical record order, never by sorting
+or a membership set. Every relevant sector is re-read before replacement.
+Contradictory chronology holds state/journal persistence at boot while retaining
+a diagnostic lower bound. The state writer itself also rejects that authority.
+
+- Before: **1 passed / 2 failed** QEMU cases, **17.139 s**, no errors/skips.
+- An intermediate focused run caught recovery-state saves occurring before an
+  append-time hold. The hold was moved to boot selection and enforced in the
+  state writer as well; that intermediate result is not a passing result.
+- Verified focused result: **44/44 passed**, no failures/errors/skips,
+  **264.511 s**. Evidence: `build/test-runs/trust-chronology-verified`.
+- Actual-C tests cover sector boundaries, post-scan chronology changes,
+  duplicate/missing completions, no boot wrap and failed-clear lock retention.
+- Confirmed clear releases locks only after all requested zero writes succeed;
+  a failed clear cannot manufacture trusted empty chronology.
+- Synthetic full-journal fillers now use repeated blocked-canary requests,
+  which are legitimate same-boot producer events. Old repeated CLEAN_BOOT filler
+  records are not legitimate chronological completion evidence. Preservation,
+  fullness and legacy-upgrade assertions retain their original purpose; the
+  producer-valid fixture bytes and matching expected prefix were updated.

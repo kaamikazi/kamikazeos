@@ -162,7 +162,10 @@ def decode_entry(e: bytes) -> dict:
 def fill_journal(path: Path, count: int, boot: int = 1) -> None:
     """Write `count` valid filler entries from slot 0 (whole sectors)."""
     for i in range(count):
-        write_journal_slot(path, i, make_entry(boot, JE["CLEAN_BOOT"], code="FILLER"))
+        # Repeated blocked requests are real same-boot producer events. Repeated
+        # CLEAN_BOOT completions would instead constitute contradictory order.
+        write_journal_slot(path, i, make_entry(boot, JE["BLOCKED"], action=255,
+                                             result=0, risk=2, reversible=0, code="FILLER"))
 
 
 # ------------------------------------------------------------- state block

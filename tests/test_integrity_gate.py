@@ -189,7 +189,8 @@ class F1JournalIntegrity(KmzCase):
         self.assertEqual(st["boot_count"], 5)
         self.assertEqual(int(section_kv(rep, "RECOVERY_STORE")["durable_boot_count"]), 5)
         self.assertEqual(disk.journal_bytes(self.img)[:48],
-                         b"".join(disk.make_entry(4, disk.JE["CLEAN_BOOT"], code="FILLER")
+                          b"".join(disk.make_entry(4, disk.JE["BLOCKED"], action=255,
+                                                   result=0, risk=2, reversible=0, code="FILLER")
                                   for _ in range(3)))
 
     @unittest.skipUnless(BASELINE_ELF, "KMZ_BASELINE_ELF not set")

@@ -41,3 +41,21 @@ class T2EventSemantics(KmzCase):
         self.assertEqual(disk.read_sector(self.img, 17)[5], 17)
         for lba, raw in before.items():
             if lba != 17: self.assertEqual(disk.read_sector(self.img, lba), raw)
+
+class T3JournalChronology(KmzCase):
+    def check_order(self, boots, contradictory):
+        snap.T1SnapshotPlacement.history(self)
+        for lba in range(2,16): disk.write_sector(self.img, lba, bytes(512))
+        for i, boot in enumerate(boots):
+            disk.write_journal_slot(self.img, i, disk.make_entry(boot, disk.JE["CLEAN_BOOT"]))
+        before = {lba: disk.read_sector(self.img, lba) for lba in (1,50,*range(2,32))}
+        report = self.boot_once()
+        self.assertEqual(section_kv(report, "RECOVERY_MEMORY")["boot_count"], "33")
+        for lba in range(16,32): self.assertEqual(disk.read_sector(self.img, lba), before[lba])
+        if contradictory:
+            for lba, raw in before.items(): self.assertEqual(disk.read_sector(self.img, lba), raw)
+            self.assertEqual(section_kv(report, "RECOVERY_STORE")["journal_locked"], "1")
+
+    def test_reversed_append_stream_holds_persistence(self): self.check_order(range(32,0,-1), True)
+    def test_duplicate_completion_holds_persistence(self): self.check_order([*range(1,25),24,*range(25,33)], True)
+    def test_missing_completion_does_not_prove_snapshot_age(self): self.check_order([b for b in range(1,33) if b != 24], False)

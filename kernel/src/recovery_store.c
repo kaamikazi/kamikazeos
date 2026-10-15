@@ -73,6 +73,7 @@ static int      locked_warned;
 static int      redundancy_warned;
 static int      mirror_present;   /* capacity proves LBA 50 exists       */
 static int      journal_scan_valid;
+static int      journal_order_valid;
 static uint32_t dropped;          /* appends refused this boot           */
 static uint32_t corrupt_slots;    /* occupied slots failing validation   */
 static uint8_t  max_journal_boot; /* highest boot number in valid entries */
@@ -194,6 +195,31 @@ static int journal_entry_valid(const uint8_t *e)
     return 1;
 }
 
+struct journal_order_cursor {
+    uint8_t previous, have_previous;
+    uint8_t completed[256];  /* duplicate detection, NOT progression proof */
+    int valid;
+};
+
+static void journal_order_init(struct journal_order_cursor *c)
+{
+    kmemset(c, 0, sizeof(*c));
+    c->valid = 1;
+}
+
+static void journal_order_accept(struct journal_order_cursor *c, const uint8_t *e)
+{
+    if (c->have_previous && e[2] < c->previous)
+        c->valid = 0;
+    if (e[3] == JE_CLEAN_BOOT) {
+        if (c->completed[e[2]])
+            c->valid = 0;
+        c->completed[e[2]] = 1;
+    }
+    c->have_previous = 1;
+    c->previous = e[2];
+}
+
 static int v1_valid(const uint8_t *s)
 {
     uint8_t sum = 0;
@@ -272,6 +298,8 @@ static enum state_choice choose_state(const uint8_t *p, const uint8_t *m,
  */
 static int scan_journal(uint32_t *last_used, uint32_t *corrupt, uint8_t *max_boot)
 {
+    struct journal_order_cursor order;
+    journal_order_init(&order);
     *last_used = 0;
     *corrupt = 0;
     *max_boot = 0;
@@ -290,10 +318,12 @@ static int scan_journal(uint32_t *last_used, uint32_t *corrupt, uint8_t *max_boo
                 (*corrupt)++;
                 continue;
             }
+            journal_order_accept(&order, e);
             if (e[2] > *max_boot)
                 *max_boot = e[2];
         }
     }
+    journal_order_valid = complete && order.valid;
     return complete;
 }
 
@@ -320,6 +350,7 @@ void recovery_store_init(void)
     state_source = "none";
     mirror_present = 0;
     journal_scan_valid = 0;
+    journal_order_valid = 0;
     kmemset(loaded, 0, sizeof(loaded));
 
     ata_init();
@@ -397,6 +428,11 @@ void recovery_store_init(void)
         return;
     }
 
+    if (!journal_order_valid) {
+        lock_store("STORE-ERR-017", "Journal append chronology contradicts boot ordering");
+        return;
+    }
+
     if (max_journal_boot == 255 || (valid && loaded[SB_BOOTCNT] == 255)) {
         lock_store("STORE-ERR-015", "Boot number exhausted - persistent ordering held");
         return;
@@ -446,7 +482,7 @@ int recovery_store_load(struct recovery_memory *into)
 
 int recovery_store_save(const struct recovery_memory *from)
 {
-    if (!ata_available() || state_locked)
+    if (!ata_available() || state_locked || !journal_scan_valid || !journal_order_valid)
         return 0;
 
     kmemset(sector, 0, sizeof(sector));
@@ -507,11 +543,17 @@ void recovery_store_clear(void)
     if (!ata_available())
         return;
     kmemset(sector, 0, sizeof(sector));
-    ata_write_sector(LBA_STATE, sector);                 /* zero the state */
-    if (mirror_present)
-        ata_write_sector(LBA_STATE_MIRROR, sector);
+    int cleared = ata_write_sector(LBA_STATE, sector);
+    if (mirror_present && !ata_write_sector(LBA_STATE_MIRROR, sector))
+        cleared = 0;
     for (int s = 0; s < JOURNAL_SECTORS; s++)            /* zero the log   */
-        ata_write_sector((uint32_t)(LBA_JOURNAL + s), sector);
+        if (!ata_write_sector((uint32_t)(LBA_JOURNAL + s), sector))
+            cleared = 0;
+    if (!cleared) {
+        state_source = "clear_failed";
+        lock_store("STORE-ERR-018", "Recovery clear failed - ordering remains held");
+        return;
+    }
     valid  = 0;
     jcount = 0;
     generation = 0;
@@ -520,6 +562,8 @@ void recovery_store_clear(void)
     full_warned = locked_warned = 0;
     corrupt_slots = 0;
     max_journal_boot = 0;
+    boot_lower_bound = 0;
+    journal_scan_valid = journal_order_valid = 1;
     state_source = "cleared";
     error_log(SEV_INFO, "STORE-100", "RecoveryStore",
               "Durable recovery store cleared by user",
@@ -605,6 +649,11 @@ void recovery_journal_append(enum journal_event ev, uint8_t action_id,
         return;
     }
 
+    if (!journal_order_valid) {
+        lock_store("STORE-ERR-017", "Journal append chronology contradicts boot ordering");
+        return;
+    }
+
     if (!ata_write_sector(lba, buf)) {
         dropped++;
         error_log(SEV_WARNING, "STORE-WARN-006", "RecoveryStore",
@@ -667,6 +716,7 @@ void recovery_store_integrity(struct recovery_store_integrity *out)
     out->state_locked = state_locked;
     out->journal_locked = journal_locked;
     out->journal_scan_valid = journal_scan_valid;
+    out->journal_order_valid = journal_order_valid;
     out->journal_full = jcount >= JOURNAL_CAPACITY;
     out->journal_capacity = JOURNAL_CAPACITY;
     out->dropped_appends = dropped;
@@ -707,16 +757,13 @@ uint8_t recovery_store_boot_lower_bound(void)
 
 int recovery_journal_boot_progression_verified(uint8_t prior, uint8_t next)
 {
-    if (state_locked || journal_locked || !journal_scan_valid || next <= prior)
+    if (state_locked || journal_locked || !journal_scan_valid || !journal_order_valid || next <= prior)
         return 0;                   /* no 8-bit wrap may authorize rotation */
-    if ((uint32_t)prior + 1u == next)
-        return 1;                   /* consecutive historical snapshots */
-
-    /* A lone high boot number is only a lower bound, not proof that a ring
-       aged through every intervening boot. Corroborate gaps with successful,
-       domain-valid CLEAN_BOOT records; this is consistency, not authentication. */
-    uint8_t clean[256];
-    kmemset(clean, 0, sizeof(clean));
+    /* Re-read physical append order before destructive rotation. No sorting
+       or membership bitmap may establish a missing chronology. */
+    struct journal_order_cursor order;
+    journal_order_init(&order);
+    uint32_t required = (uint32_t)prior + 1;
     uint8_t buf[ATA_SECTOR_SIZE];
     uint32_t cached = 0xffffffffu;
     for (uint32_t i = 0; i < jcount; i++) {
@@ -727,11 +774,16 @@ int recovery_journal_boot_progression_verified(uint8_t prior, uint8_t next)
             cached = lba;
         }
         const uint8_t *e = buf + (i % ENTRIES_PER_SECTOR) * ENTRY_SIZE;
-        if (journal_entry_valid(e) && e[3] == JE_CLEAN_BOOT && e[4] == 0 && e[5] == 1)
-            clean[e[2]] = 1;
-    }
-    for (uint32_t boot = (uint32_t)prior + 1; boot < next; boot++)
-        if (!clean[boot])
+        if (!journal_entry_valid(e))
+            continue;
+        journal_order_accept(&order, e);
+        if (!order.valid)
             return 0;
-    return 1;
+        if (e[3] == JE_CLEAN_BOOT && e[2] > prior && e[2] < next) {
+            if (e[2] != required)
+                return 0;
+            required++;
+        }
+    }
+    return required == next;
 }

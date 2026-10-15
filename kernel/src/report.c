@@ -700,6 +700,7 @@ void report_send(void)
         serial_print("\njournal_dropped="); serial_print_dec(integ.dropped_appends);
         serial_print("\njournal_corrupt_entries=");
         serial_print_dec(integ.corrupt_entries);
+        serial_print("\njournal_order_valid="); serial_print_dec(integ.journal_order_valid);
     }
     serial_print("\n");
 
