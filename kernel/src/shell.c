@@ -2242,7 +2242,7 @@ static void cmd_reset_packages(const char *arg)
         return;
     }
     int states_cleared = package_state_clear();
-    int slots_cleared = module_slots_clear();
+    int slots_cleared = states_cleared && module_slots_clear();
     if (!states_cleared || !slots_cleared) {
         error_log(SEV_ERROR, "PST-RESET-ERR", "PackageState",
                   "Package reset was only partially persisted",

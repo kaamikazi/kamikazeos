@@ -268,3 +268,15 @@ def write_manifest(path: Path, slot: int, sector: bytes) -> None:
 
 def slots_sector(path: Path) -> bytes:
     return read_sector(path, LBA_SLOTS)
+
+
+def resign_package_state(sector: bytes, generation: int) -> bytes:
+    """Reseal existing v1 lifecycle records and their transaction sidecar."""
+    s = bytearray(sector)
+    count = s[5]
+    used = 6 + count * 37
+    s[used] = sum_byte(s[:used])
+    s[326:330] = generation.to_bytes(4, "little")
+    tx_used = 320 + 10 + count * 8
+    s[tx_used] = sum_byte(s[320:tx_used])
+    return bytes(s)

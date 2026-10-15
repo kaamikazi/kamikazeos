@@ -44,3 +44,18 @@ Both current and tagged sources keep the Ring 3 approval macro at zero.
 - Evidence: `build/test-runs/followup-n1-before` and `followup-n1-fixed`.
 - No format change. Genuine legacy state and mirror generation floors remain
   compatible. Existing journal prefixes are preserved.
+
+### N2: ambiguous generation ordering
+
+- Before: five tests ran; the two normal/wrap controls passed, while three
+  ambiguity tests produced five failing assertions (both half-range copy
+  orientations for recovery/package state, plus equal-generation differing
+  package sectors).
+- Correction: shared unsigned four-way generation comparison. Recovery locks
+  state/journal/snapshot writes on unordered generations. Package state is not
+  hydrated on ambiguity and persistence/transition creation is held. A failed
+  state reset cannot independently clear module slots.
+- After: **25 tests passed**, no failures/skips, in **202.454 seconds**, covering
+  N2, F1/F2, D2, L1 and tagged downgrade/re-upgrade.
+- Evidence: `build/test-runs/followup-n2-before` and `followup-n2-fixed`.
+- No format change. `0xffffffff` to zero remains a valid ordered wrap.

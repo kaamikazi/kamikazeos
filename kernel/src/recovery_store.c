@@ -3,6 +3,7 @@
 #include "recovery_store.h"
 #include "ata.h"
 #include "errors.h"
+#include "generation.h"
 #include "string.h"
 
 /* ------------------------------------------------------------------ */
@@ -166,12 +167,6 @@ static int ext_valid(const uint8_t *s)
            get_u32(s + EXT_CRC) == crc32(s, EXT_CRC);
 }
 
-/* Wrap-aware "a was written after b". */
-static int generation_newer(uint32_t a, uint32_t b)
-{
-    return (int32_t)(a - b) > 0;
-}
-
 static int sectors_equal(const uint8_t *a, const uint8_t *b)
 {
     for (int i = 0; i < ATA_SECTOR_SIZE; i++)
@@ -202,9 +197,12 @@ static enum state_choice choose_state(const uint8_t *p, const uint8_t *m,
     if (pe && me) {
         uint32_t gp = get_u32(p + EXT_GEN);
         uint32_t gm = get_u32(m + EXT_GEN);
-        if (gp == gm)
+        enum generation_order order = generation_compare(gm, gp);
+        if (order == GENERATION_AMBIGUOUS)
+            return CHOICE_AMBIGUOUS;
+        if (order == GENERATION_EQUAL)
             return sectors_equal(p, m) ? CHOICE_PRIMARY : CHOICE_AMBIGUOUS;
-        return generation_newer(gm, gp) ? CHOICE_MIRROR : CHOICE_PRIMARY;
+        return order == GENERATION_NEWER ? CHOICE_MIRROR : CHOICE_PRIMARY;
     }
     if (pe)
         return CHOICE_PRIMARY;
@@ -305,7 +303,7 @@ void recovery_store_init(void)
     if (choice == CHOICE_AMBIGUOUS) {
         state_source = "ambiguous";
         lock_store("STORE-ERR-011",
-                   "State copies conflict at the same generation");
+                   "State copy generation ordering is ambiguous");
         return;
     }
 

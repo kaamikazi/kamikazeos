@@ -48,6 +48,7 @@ establish a safe append position and remain locked.
 | valid with extension | valid with extension, different generation | newer generation wins |
 | valid with extension | valid, same generation, identical bytes | primary |
 | valid with extension | valid, same generation, **different bytes** | **ambiguous: store read-only this boot** (`STORE-ERR-011`) |
+| valid with extension | valid, generation distance exactly `0x80000000` | **unordered: store read-only this boot** (`STORE-ERR-011`) |
 | valid with extension | invalid or zero | primary |
 | valid v1, entire reserved tail zero | readable | primary supplies flags; retain a valid mirror's generation as the floor for the next write |
 | extension magic but bad CRC, or garbage | valid with extension | mirror (`STORE-WARN-009`) |
@@ -58,6 +59,13 @@ establish a safe append position and remain locked.
 Legacy recognition requires bytes 18-511 to be zero, matching actual legacy
 writers. A missing or damaged extension magic with a nonzero tail is damaged
 modern state, not permission to bypass the CRC through the v1 checksum.
+
+Recovery and package state share unsigned serial-number comparison: equality,
+newer, older, and the unordered half-range case are distinct. Normal wrap from
+`0xffffffff` to zero is supported. Package copies at LBA 48/49 also hold lifecycle
+writes (`PST-ERR-002`) on half-range separation or equal-generation differing
+sectors. No copy is hydrated on ambiguity. A refused package-state reset cannot
+proceed to reset module slots. No sector layout or checksum definition changes.
 
 ## Journal append position
 

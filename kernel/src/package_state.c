@@ -2,6 +2,7 @@
 #include "package_state.h"
 #include "ata.h"
 #include "errors.h"
+#include "generation.h"
 #include "string.h"
 
 #define LBA_PSTATE_PRIMARY 48
@@ -32,6 +33,7 @@ struct decoded_state {
 static struct pkg_pstate states[PSTATE_MAX];
 static uint32_t count;
 static uint32_t generation;
+static int persistence_locked;
 
 const char *package_transaction_phase_name(uint8_t phase)
 {
@@ -185,14 +187,17 @@ static void decode_sector(const uint8_t *sec, struct decoded_state *out)
     }
 }
 
-static int generation_newer(uint32_t a, uint32_t b)
+static int sectors_equal(const uint8_t *a, const uint8_t *b)
 {
-    return (int32_t)(a - b) > 0;
+    for (uint32_t i = 0; i < ATA_SECTOR_SIZE; i++)
+        if (a[i] != b[i])
+            return 0;
+    return 1;
 }
 
 int package_state_save(void)
 {
-    if (!ata_available())
+    if (!ata_available() || persistence_locked)
         return 0;
 
     generation++;
@@ -218,6 +223,7 @@ void package_state_init(void)
 {
     count = 0;
     generation = 0;
+    persistence_locked = 0;
     kmemset(states, 0, sizeof(states));
     if (!ata_available())
         return;
@@ -235,9 +241,19 @@ void package_state_init(void)
 
     const struct decoded_state *selected = 0;
     if (primary.valid && mirror.valid) {
+        enum generation_order order = generation_compare(mirror.generation,
+                                                          primary.generation);
+        if (primary.extension_valid && mirror.extension_valid &&
+            (order == GENERATION_AMBIGUOUS ||
+             (order == GENERATION_EQUAL && !sectors_equal(primary_sec, mirror_sec)))) {
+            persistence_locked = 1;
+            error_log(SEV_ERROR, "PST-ERR-002", "PackageState",
+                      "Package state copy generation ordering is ambiguous",
+                      "package transitions held - inspect both copies before retrying");
+            return;
+        }
         if (mirror.extension_valid &&
-            (!primary.extension_valid || generation_newer(mirror.generation,
-                                                          primary.generation)))
+            (!primary.extension_valid || order == GENERATION_NEWER))
             selected = &mirror;
         else
             selected = &primary;
@@ -261,6 +277,8 @@ void package_state_init(void)
 
 int package_state_clear(void)
 {
+    if (persistence_locked)
+        return 0;
     count = 0;
     kmemset(states, 0, sizeof(states));
     return package_state_save();
@@ -283,6 +301,8 @@ struct pkg_pstate *package_state_find(const char *package_id)
 
 struct pkg_pstate *package_state_ensure(const char *package_id)
 {
+    if (persistence_locked)
+        return 0;
     struct pkg_pstate *s = package_state_find(package_id);
     if (s)
         return s;
