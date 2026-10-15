@@ -28,17 +28,36 @@ int test_documented_journal_domains(void)
 int test_valid_journal_boundaries(void)
 {
     uint8_t e[16];
-    for (int event = 1; event <= 15; event++)
-        for (int result = 0; result <= 1; result++)
-            for (int risk = 0; risk <= 2; risk++)
-                for (int rev = 0; rev <= 1; rev++) {
-                    make_valid(e); e[2] = 255; e[3] = event;
-                    e[4] = event >= 9 ? 254 : 0;
-                    e[5] = result; e[6] = risk; e[7] = rev;
-                    e[15] = checksum_over(e, 15);
-                    if (!journal_entry_valid(e)) return 0;
-                }
+    /* Producer-valid boundaries, not an unsafe cross-product of event facts. */
+    const uint8_t tuples[][5] = {
+        {1,1,1,0,1}, {1,4,1,1,1}, {2,2,1,0,1}, {3,3,0,0,1}, {3,1,1,0,1},
+        {4,4,1,1,1}, {5,255,0,2,0}, {6,0,0,2,0}, {7,4,1,1,1}, {8,0,1,0,1},
+        {9,0,1,0,1}, {10,254,1,1,1}, {11,255,1,0,1}, {12,1,1,1,1},
+        {13,1,0,0,1}, {14,1,0,0,1}, {14,255,1,1,1}, {15,1,0,2,0}, {15,0,0,0,1}
+    };
+    for (uint32_t i = 0; i < sizeof(tuples)/sizeof(tuples[0]); i++) {
+        make_valid(e); e[2] = 255;
+        for (int j = 0; j < 5; j++) e[3+j] = tuples[i][j];
+        e[15] = checksum_over(e, 15);
+        if (!journal_entry_valid(e)) return 0;
+    }
     make_valid(e); e[8] = 0; e[9] = 0; e[10] = 0; e[11] = 0; e[12] = 0; e[13] = 0;
     e[15] = checksum_over(e, 15);
     return journal_entry_valid(e);
+}
+
+int test_event_specific_semantics(void)
+{
+    const uint8_t tuples[][5] = {
+        {1,1,0,0,1}, {8,1,1,0,1}, {8,0,1,2,0}, {6,0,1,0,1},
+        {7,4,1,0,1}, {1,1,1,1,1}, {5,1,0,0,1}, {15,1,1,0,1}, {12,1,1,2,1}
+    };
+    uint8_t e[16];
+    for (uint32_t i = 0; i < sizeof(tuples)/sizeof(tuples[0]); i++) {
+        make_valid(e);
+        for (int j = 0; j < 5; j++) e[3+j] = tuples[i][j];
+        e[15] = checksum_over(e, 15);
+        if (journal_entry_valid(e)) return 0;
+    }
+    return 1;
 }

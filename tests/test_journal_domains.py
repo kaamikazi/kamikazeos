@@ -11,7 +11,8 @@ class R5JournalDomains(unittest.TestCase):
     def setUpClass(cls):
         cls.directory = Path(os.environ["KMZ_TEST_RUN_DIR"]) / "journal-domains"
         cls.wasm = build_fixture("journal_domains_fixture.c", cls.directory,
-                                 ["test_documented_journal_domains", "test_valid_journal_boundaries"],
+                                 ["test_documented_journal_domains", "test_valid_journal_boundaries",
+                                  "test_event_specific_semantics"],
                                  ["kernel/src/string.c"])
 
     def check(self, name):
@@ -22,3 +23,4 @@ class R5JournalDomains(unittest.TestCase):
 
     def test_documented_journal_domains(self): self.check("test_documented_journal_domains")
     def test_valid_journal_boundaries(self): self.check("test_valid_journal_boundaries")
+    def test_event_specific_semantics(self): self.check("test_event_specific_semantics")

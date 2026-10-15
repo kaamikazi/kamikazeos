@@ -116,7 +116,19 @@ def entry_valid(entry: bytes) -> bool:
             and (sum(entry) & 0xFF) == 0):
         return False
     code = entry[8:14].split(b"\0", 1)[0]
-    return all(32 <= c <= 126 for c in code) and not any(entry[8 + len(code):14])
+    if not (all(32 <= c <= 126 for c in code) and not any(entry[8 + len(code):14])):
+        return False
+    event, action, result, risk, rev = entry[3:8]
+    if 1 <= event <= 4:
+        return (1 <= action <= 4 and rev == 1 and risk == (1 if action == 4 else 0)
+                and (event == 3 or result == 1))
+    if event == 5: return (action, result, risk, rev) == (255, 0, 2, 0)
+    if event == 6: return (action, result, risk, rev) == (0, 0, 2, 0)
+    if event == 7: return (action, result, risk, rev) == (4, 1, 1, 1)
+    if event == 8: return (action, result, risk, rev) == (0, 1, 0, 1)
+    if event == 15: return result == 0
+    if risk > 1 or rev != 1: return False
+    return result == (0 if event == 13 else 1) or event == 14
 
 
 def journal_entries(path: Path) -> list[bytes]:

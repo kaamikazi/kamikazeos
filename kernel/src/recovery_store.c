@@ -148,6 +148,31 @@ static int all_zero(const uint8_t *p, uint32_t n)
 
 /* One validity rule for ordering, reports, and lifecycle lookups. Occupancy
    is deliberately separate: invalid nonzero entries still reserve their slot. */
+static int journal_event_semantics(const uint8_t *e)
+{
+    uint8_t event = e[3], id = e[4], result = e[5], risk = e[6], rev = e[7];
+    if (event >= JE_SUGGESTED && event <= JE_ROLLED_BACK) {
+        if (id < 1 || id > 4 || rev != 1 ||
+            risk != (id == 4 ? RISK_MEDIUM : RISK_LOW))
+            return 0;
+        return event == JE_APPLIED || result == 1; /* APPLIED has a failure producer */
+    }
+    switch (event) {
+    case JE_BLOCKED: return id == 255 && result == 0 && risk == RISK_HIGH && rev == 0;
+    case JE_PANIC: return id == 0 && result == 0 && risk == RISK_HIGH && rev == 0;
+    case JE_SAFE_MODE_BOOT: return id == 4 && result == 1 && risk == RISK_MEDIUM && rev == 1;
+    case JE_CLEAN_BOOT: return id == 0 && result == 1 && risk == RISK_LOW && rev == 1;
+    case JE_PKG_BLOCKED: return result == 0; /* blocked packages may carry any supported risk/rev */
+    case JE_PKG_SUGGESTED:
+    case JE_PKG_APPROVED:
+    case JE_PKG_APPLIED:
+    case JE_PKG_VERIFIED: return result == 1 && risk <= RISK_MEDIUM && rev == 1;
+    case JE_PKG_FAILED: return result == 0 && risk <= RISK_MEDIUM && rev == 1;
+    case JE_PKG_ROLLED_BACK: return risk <= RISK_MEDIUM && rev == 1; /* success or stale refusal */
+    }
+    return 0;
+}
+
 static int journal_entry_valid(const uint8_t *e)
 {
     uint8_t sum = 0;
@@ -157,8 +182,7 @@ static int journal_entry_valid(const uint8_t *e)
         e[3] < JE_SUGGESTED || e[3] > JE_PKG_BLOCKED ||
         e[5] > 1 || e[6] > RISK_HIGH || e[7] > 1 || e[14] != 0)
         return 0;
-    /* Action events have fixed IDs; package events carry any package byte. */
-    if (e[3] < JE_PKG_SUGGESTED && e[4] > 4 && e[4] != 255)
+    if (!journal_event_semantics(e))
         return 0;
     int ended = 0;
     for (int i = 8; i < 14; i++) {
@@ -573,6 +597,14 @@ void recovery_journal_append(enum journal_event ev, uint8_t action_id,
         e[8 + i] = (uint8_t)short_code[i];
     e[15] = checksum_over(e, 15);
 
+    if (!journal_entry_valid(e)) {
+        dropped++;
+        error_log(SEV_ERROR, "STORE-ERR-016", "RecoveryStore",
+                  "Unsupported journal event tuple - append refused",
+                  "producer must satisfy the shared event contract");
+        return;
+    }
+
     if (!ata_write_sector(lba, buf)) {
         dropped++;
         error_log(SEV_WARNING, "STORE-WARN-006", "RecoveryStore",
@@ -657,7 +689,7 @@ uint8_t recovery_journal_last_action_event(uint8_t action_id)
         const uint8_t *e = buf + (i % ENTRIES_PER_SECTOR) * ENTRY_SIZE;
         if (!journal_entry_valid(e))
             continue;                  /* corrupt slots are skipped, kept */
-        if (e[4] == action_id && e[3] >= JE_SUGGESTED && e[3] <= JE_BLOCKED)
+        if (e[5] == 1 && e[4] == action_id && e[3] >= JE_SUGGESTED && e[3] <= JE_BLOCKED)
             return e[3];
     }
     return 0;

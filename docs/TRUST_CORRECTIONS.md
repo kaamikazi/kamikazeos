@@ -49,3 +49,24 @@ or relocated. Any failed preflight leaves the entire historical area unchanged.
   history and exhaustion cases, corroborated gaps and 18 real boots of rotation.
 - Evidence: `build/test-runs/trust-snapshot-before` and `trust-snapshot-fixed`.
 - Snapshot encoding, sector ownership and format versions are unchanged.
+
+## Producer-derived event semantics
+
+The shared validator now enforces the event table in `TRUST_INVARIANTS.md`,
+reviewed against actual current/baseline producers. It covers scanning, getters,
+exports, progression, lifecycle lookup and append itself. Tags remain opaque
+printable labels. Failed APPLIED and refused PKG_ROLLED_BACK remain supported;
+refused SUGGESTED and inconsistent boot-event facts do not grant authority.
+
+- Before: 6 focused tests, **2 passed / 4 failed**, no errors/skips, **15.944 s**.
+- After: **31/31 passed**, no failures/errors/skips, **195.469 s**, including
+  F1/F5, real Ring 0 fault persistence and 18-boot rotation.
+- Evidence: `build/test-runs/trust-event-before` and `trust-event-fixed`.
+- The old positive event/flag cross-product was replaced with producer-valid
+  boundaries. It previously asserted that impossible tuples were valid; no
+  producer-valid record or refusal evidence was discarded to make tests pass.
+- One latest-audit gap fixture assumes its malformed CLEAN_BOOT 17 still raises
+  the next boot to 18. Under earlier semantic rejection the correct next boot
+  is 17, with healthy replacement of boot 1 only and boot 2 preserved. Rechecks
+  must record this stronger expected result rather than preserve poisoned
+  ordering merely to satisfy that old intermediate expectation.

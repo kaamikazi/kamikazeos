@@ -96,6 +96,11 @@ six-byte tag is printable ASCII with zero padding after its first NUL.
 Package event IDs retain the full byte range. An occupied unsupported-version or unknown-event record
 is retained as evidence but cannot supply boot ordering, appear as a valid
 event, or suppress a newly changed recovery suggestion.
+In-range fields are also checked against the producer-derived event contract
+in `TRUST_INVARIANTS.md`: successful suggestions, canonical boot events, catalog
+action facts and supported package lifecycle outcomes. Failed/refused events
+cannot masquerade as successful suggestion evidence. The same check guards
+append before any invalid tuple can be written; tags are not authorization.
 
 Nothing in the kernel erases history except the explicit, confirmed
 `clear-store confirm` command.

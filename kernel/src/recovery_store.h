@@ -102,7 +102,7 @@ struct recovery_store_integrity {
 };
 void recovery_store_integrity(struct recovery_store_integrity *out);
 
-/* Event type (JE_SUGGESTED..JE_BLOCKED) of the most recent valid action
+/* Event type (JE_SUGGESTED..JE_BLOCKED) of the most recent successful valid action
    lifecycle entry for this action id, or 0 if none / unreadable. Package
    events are not considered (their id byte is a package number). */
 uint8_t recovery_journal_last_action_event(uint8_t action_id);
