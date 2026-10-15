@@ -116,6 +116,11 @@ intervening boot. Gaps without that evidence hold writes, preserving all slots;
 healthy 16-slot rotation and corroborated gaps remain allowed. This establishes
 format consistency, not authentication of checksummed disk contents.
 
+Every occupied snapshot must also be at `LBA 16 + boot % 16`, unique and older
+than the current boot. The actual destination must be empty or at least 16
+boots old. Global maximum age never substitutes for victim-specific eligibility.
+Misplaced/duplicate sectors are held unchanged, not relocated or repaired.
+
 Boot numbers remain one-byte fields. At 255, the next boot holds durable
 state, journal and snapshot writes with `STORE-ERR-015`; it does not wrap to
 zero. Widening the format requires a separately reviewed migration. CMOS

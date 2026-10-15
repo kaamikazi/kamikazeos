@@ -121,6 +121,37 @@ static void capture(struct boot_snapshot *s)
     s->health_score         = (uint8_t)hb.score;
 }
 
+static int snapshot_preflight(uint8_t next)
+{
+    uint8_t sec[ATA_SECTOR_SIZE];
+    uint8_t seen[256];
+    kmemset(seen, 0, sizeof(seen));
+    uint8_t latest = 0;
+    int history_present = 0;
+    for (uint32_t slot = 0; slot < SNAPSHOT_SLOTS; slot++) {
+        if (!ata_read_sector(LBA_SNAPSHOTS + slot, sec))
+            return 0;
+        int occupied = 0;
+        for (uint32_t i = 0; i < sizeof(sec); i++)
+            occupied |= sec[i];
+        if (!occupied)
+            continue;
+        uint8_t boot = sec[SN_OFF_BOOT];
+        if (!snapshot_valid(sec) || boot % SNAPSHOT_SLOTS != slot ||
+            seen[boot] || boot >= next)
+            return 0;
+        /* Check the actual victim, not merely the maximum historical boot.
+           Compare before subtraction so no wrap/underflow can grant age. */
+        if (slot == next % SNAPSHOT_SLOTS && (uint32_t)next - boot < SNAPSHOT_SLOTS)
+            return 0;
+        seen[boot] = 1;
+        history_present = 1;
+        if (boot > latest)
+            latest = boot;
+    }
+    return !history_present || recovery_journal_boot_progression_verified(latest, next);
+}
+
 int boot_snapshot_save(void)
 {
     if (!ata_available()) {
@@ -144,40 +175,13 @@ int boot_snapshot_save(void)
     struct boot_snapshot s;
     capture(&s);
 
-    uint8_t sec[ATA_SECTOR_SIZE];
-    uint8_t latest = 0;
-    int history_present = 0;
-    /* Read the entire history before selecting a ring slot. A stale boot
-       counter or unreadable/corrupt history is not permission to replace it. */
-    for (uint32_t slot = 0; slot < SNAPSHOT_SLOTS; slot++) {
-        if (!ata_read_sector(LBA_SNAPSHOTS + slot, sec)) {
-            error_log(SEV_WARNING, "SNAP-WARN-002", "BootSnapshot",
-                      "Snapshot history unreadable - writes held",
-                      "historical snapshot sectors preserved unchanged");
-            return 0;
-        }
-        int occupied = 0;
-        for (uint32_t i = 0; i < sizeof(sec); i++)
-            occupied |= sec[i];
-        if (occupied && (!snapshot_valid(sec) || sec[SN_OFF_BOOT] >= s.boot_number)) {
-            error_log(SEV_WARNING, "SNAP-WARN-002", "BootSnapshot",
-                      "Snapshot ordering uncertain - writes held",
-                      "inspect historical snapshots before resetting storage");
-            return 0;
-        }
-        if (occupied) {
-            history_present = 1;
-            if (sec[SN_OFF_BOOT] > latest)
-                latest = sec[SN_OFF_BOOT];
-        }
-    }
-    if (history_present &&
-        !recovery_journal_boot_progression_verified(latest, s.boot_number)) {
+    if (!snapshot_preflight(s.boot_number)) {
         error_log(SEV_WARNING, "SNAP-WARN-002", "BootSnapshot",
-                  "Snapshot progression unverified - writes held",
-                  "boot lower bounds alone cannot age out historical snapshots");
+                  "Snapshot placement or replacement authority uncertain - writes held",
+                  "historical sectors preserved without repair or relocation");
         return 0;
     }
+    uint8_t sec[ATA_SECTOR_SIZE];
     kmemset(sec, 0, sizeof(sec));
     sec[SN_OFF_MAGIC]     = SN_MAGIC0;
     sec[SN_OFF_MAGIC + 1] = SN_MAGIC1;

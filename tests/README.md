@@ -51,6 +51,7 @@ make test                                       # same, via make
 | N4 rollback ownership | ABA reuse, durable supersession, old ambiguous claims, staged apply abort/switch, tagged downgrade/re-upgrade, and actual C commit/reconciliation save failures |
 | R5 release journal | malformed field domains at boot 240, evidence/export/suggestion isolation, snapshot-gap corroboration, healthy 18-boot ring rotation, and actual C domain/boundary checks |
 | R6 release ownership | stale primary/mirror read/checksum failures, missing or legacy copies, sidecar corruption, erased state with slot history, actual interrupted writes, degraded current ownership and fault-clear reboots |
+| T1 snapshot authority | swapped/duplicate physical sectors, exact victim age and boot boundaries, healthy destination and unchanged refused history; actual-C preflight plus QEMU |
 
 The host fixtures require LLVM's wasm32 backend and wasm-ld plus Node.js.
 They mock port/state APIs and never emulate CPU privilege transitions. The
