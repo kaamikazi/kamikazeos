@@ -1,5 +1,19 @@
 # Changelog
 
+## v2.6.1 Release Blockers (Pending Independent Verification)
+
+- Preserved the complete independent REVISE audit and reproduced both blockers
+  before kernel edits.
+- Enforced journal field domains; malformed boot-240 records cannot affect
+  ordering, reports or suggestions. Snapshot gaps require corroborated progression.
+- Held ownership-dependent package mutations when copies are unreadable, missing,
+  damaged or unbound; preserved uncertain evidence without automatic repair.
+- Retained compatible sector formats, valid-owner rollback, staged recovery,
+  small disks and tagged downgrade/re-upgrade. Ring 3 remains disabled.
+- Complete repository suite: 93/93 passed. Preserved audit recheck: 17/17 QEMU
+  and 5/5 host checks passed. These are implementation results, not independent
+  acceptance. See `docs/RELEASE_BLOCKERS.md`.
+
 ## v2.6.1 Additional Integrity Corrections (Pending Independent Review)
 
 - Distinguished genuine zero-tail legacy recovery state from damaged modern

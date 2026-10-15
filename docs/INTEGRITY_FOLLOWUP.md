@@ -4,6 +4,11 @@ Implementation evidence, not independent acceptance. Work started 2026-10-15
 on `hardening/v2.6.1-integrity-gate`, with a clean worktree at
 `7ccb4d9b32941d6f850a274c07e6ad0148bd51cb`.
 
+Subsequent release review of `0cd86d8` returned **REVISE**. Its preserved report
+is under `audit-evidence/`; the two later blocker corrections and 93-test final
+result are recorded in `RELEASE_BLOCKERS.md`. The historical 70-test result
+below is not independent acceptance.
+
 ## Fresh unchanged-source baseline
 
 - Full rebuild using `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build.ps1`.

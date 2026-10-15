@@ -17,8 +17,8 @@ make test                                       # same, via make
 - Each test creates its own **disposable** 1 MiB disk image under
   `build/test-runs/<timestamp>/<test>/` and keeps the serial log,
   analyzer output and dashboard JSON next to it for review.
-- `build/recovery.img` is never opened. The runner hashes it before and
-  after the run and exits with code 3 if it changed.
+- `build/recovery.img` is never attached to QEMU or written. The runner hashes
+  it before and after the run and exits with code 3 if it changed.
 - Failure injection (torn appends, bad checksums, both state copies
   damaged, equal-generation conflicting copies, full journals, corrupted
   TinyFS data) only edits those disposable images, between power-ons.

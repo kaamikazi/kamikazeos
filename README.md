@@ -25,8 +25,9 @@ The current hardening work preserves recovery and snapshot evidence, supports
 small recovery disks, and corrects legacy validation, generation ordering,
 journal interpretation, rollback ownership and health classification.
 Implementation regression checks are separate from independent release review.
-The additional integrity follow-up passed all 70 regressions; provenance and
-limitations are recorded in [docs/INTEGRITY_FOLLOWUP.md](docs/INTEGRITY_FOLLOWUP.md).
+The release-blocker correction suite passed all 93 regressions, plus re-execution
+of the 22 preserved audit checks. Independent acceptance remains pending;
+evidence and limitations are in [docs/RELEASE_BLOCKERS.md](docs/RELEASE_BLOCKERS.md).
 
 ## Feature Overview
 

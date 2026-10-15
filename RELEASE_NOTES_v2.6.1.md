@@ -5,6 +5,14 @@ defects found by an independent read-only audit of v2.6.0. It adds **no
 OS features**. Ring 3 stays held (`execution_approved=no`), nothing repairs
 itself, and package and recovery policy is only tightened.
 
+The review of `0cd86d8` returned **REVISE**: its 70 supplied regressions passed,
+but eight additional audit cases exposed two remaining blockers. Subsequent
+implementation corrections pass **93/93 repository tests** plus re-execution
+of all **22 audit checks**. Journal field semantics and snapshot progression
+are constrained, and uncertain package redundancy no longer authorizes stale
+rollback. No format migration was required. Another independent reviewer must
+verify these corrections; see `docs/RELEASE_BLOCKERS.md` and `audit-evidence/`.
+
 ## Findings closed
 
 | # | Finding (reproduced on v2.6.0 `f6c1814`) | Fix |

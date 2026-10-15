@@ -4,6 +4,7 @@ Implementation checks, **not independent release acceptance**. Another reviewer
 must verify these corrections. Starting branch:
 `hardening/v2.6.1-integrity-gate`, starting HEAD:
 `0cd86d88a1cc2a57b6a13f8f0e8d003dadf85f59` (clean tracked source).
+Starting Git tree hash: `4f2fe3bcbcc06865a73f88c793ada03a13271568`.
 
 ## Preserved evidence and unchanged-source reproduction
 
@@ -100,3 +101,85 @@ and existing readable/ordered staged recovery remain supported. Old unbound or
 incomplete package metadata is intentionally held for investigation instead of
 being automatically upgraded; this is a stricter authorization policy, not a
 new disk format. Independent acceptance remains pending.
+
+## Final complete verification
+
+| Commit | Scope |
+|---|---|
+| `463c3a9` | Journal field domains, corroborated snapshot progression, failing regressions and preserved independent evidence |
+| `eee0030` | Explicit package ownership trust/holds, no stale fallback authority, failure/restart/compatibility tests |
+
+Final tested source commit: `eee00309885c18cfe13ecdc80e9b1c28e09c40b7`.
+Its Git tree hash is `fdc3c154fa5fdf117ef1d6040aec2e58449e01b6`.
+The final kernel was fully rebuilt with `scripts/build.ps1`; ELF SHA-256:
+
+```text
+4baf8b8e7c1474d1b05d4cb65cd5a540c44a31499e9d75457b8144b78ebd67d1
+```
+
+| Final suite | Result | Time |
+|---|---|---|
+| Complete repository suite (70 existing + 23 new regressions) | **93 passed, 0 failures/errors/skips** | **796.417 seconds** |
+| Preserved independent-audit QEMU assertions, run on corrected ELF | **17 passed, 0 failures/errors/skips** | **147.134 seconds** |
+| Preserved audit actual-C host assertions, run on corrected C | **5 passed, 0 failures** | not separately timed |
+
+The eight previously failing adversarial cases now pass. Re-execution of another
+reviewer's assertions by the implementing agent is **not a new independent
+review or release acceptance**.
+
+The preserved host fixtures were copied to a new build directory; only include
+paths were redirected to current kernel source, and the package fixture gained
+a `ata_capacity_sectors() == 64` mock required by the new capacity check. Audit
+assertions were unchanged. The original audit source, reports and archive were
+not edited. The QEMU adversarial script itself was run without changes.
+
+The tagged baseline ELF SHA-256 matched preserved independent provenance:
+`c9dd155dcaadeb8762dce76565c9a409a13f0f85a902a69db869227deee17da7`
+at `f6c18148e6b003dfe48d3fdded3f83e603d95d2e`.
+
+Commands and evidence:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build.ps1
+python -B tests/run_regression.py --no-build --baseline-elf "C:\Users\imran\AppData\Local\Temp\opencode\kmz-release-audit-0cd86d8\baseline\build\kamikaze.elf" --run-dir build/test-runs/revise-blockers-final
+python -B build/revise-blockers/recheck_audit.py
+python -B build/revise-blockers/finalize.py
+```
+
+- `build/test-runs/revise-blockers-final/summary.txt`: complete suite and
+  per-test disposable media, serial logs, analyzer/dashboard outputs.
+- `build/revise-blockers/current-audit-qemu/summary.txt`: all 17 audit cases.
+- `build/revise-blockers/current-audit-host/`: redirected host fixture source,
+  compiler output and WebAssembly artifacts.
+- `build/revise-blockers/audit-recheck.json` and `final.json`: exact results,
+  source commit, ELF hash and before/after recovery hashes.
+
+The original recovery image SHA-256 matched takeover after every completed run
+and the final explicit check. The preserved audit ZIP checksum also still
+matched. No original image was attached to QEMU, reset or deleted. Ring 3 source
+and assembly are unchanged from `0cd86d8`; the build-time approval remains zero
+and held-execution tests pass. No merge or push occurred.
+
+## Compatibility and limitations
+
+- No migration was required. Existing LBA owners, field offsets, format versions,
+  checksum coverage and record sizes are unchanged. The package-sector encoder
+  was explicitly compared with `0cd86d8` and is byte-for-byte unchanged in source.
+  New ownership state/reason/permission fields exist only in RAM and reports.
+- Full suite passes small-disk operation at 32/50/51/2048 sectors, tagged recovery
+  downgrade/re-upgrade, and package retirement across tagged downgrade/re-upgrade.
+- Legacy package records and incomplete redundancy are preserved but intentionally
+  held rather than automatically promoted to ownership authority. Persistent
+  uncertainty requires investigation; no automatic repair/reset bypass is added.
+- Consecutive snapshot rotation and complete clean-boot chains pass. A gap lacking
+  corroboration intentionally holds further snapshot writes. This favors retained
+  evidence over automatic history availability.
+- Physical power-loss/torn-sector/flush atomicity remains unproven. Tested guest
+  read/write errors and mocked host save failures do not establish that property.
+- Checksums/CRC are consistency checks, not authentication. Coherent rollback or
+  hostile rewriting of all metadata is not prevented. Kernel signature checking
+  remains simulated; older kernels retain older policy defects.
+- Serial generations retain the half-range assumption; boot numbers remain 8-bit
+  with the existing exhaustion hold. No memory-protection or CPL3 work is included.
+
+**Another reviewer must independently verify both corrections before acceptance.**
