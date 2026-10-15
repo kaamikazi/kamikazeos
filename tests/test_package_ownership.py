@@ -19,7 +19,8 @@ class JointFixtureTests(unittest.TestCase):
                        "test_candidate_approval_cannot_destroy_current_owner",
                        "test_scoped_reset_and_partial_reset_hold",
                        "test_coherent_owner_transfer_still_requires_durable_intent",
-                       "test_slot_flags_are_not_normalized_into_authority"]
+                       "test_slot_flags_are_not_normalized_into_authority",
+                       "test_case_aliases_cannot_split_package_authority"]
         cls.wasm = build_fixture("joint_authority_fixture.c", cls.directory, cls.exports,
                                   ["kernel/src/string.c", "kernel/src/package_state.c",
                                    "kernel/src/module_slots.c", "kernel/src/module_versions.c"])
@@ -45,3 +46,4 @@ class T4JointAuthorityC(JointFixtureTests):
     def test_scoped_reset_and_partial_reset_hold(self): self.check(self.exports[6])
     def test_coherent_owner_transfer_still_requires_durable_intent(self): self.check(self.exports[7])
     def test_slot_flags_are_not_normalized_into_authority(self): self.check(self.exports[8])
+    def test_case_aliases_cannot_split_package_authority(self): self.check(self.exports[9])

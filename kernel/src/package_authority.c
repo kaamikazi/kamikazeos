@@ -163,7 +163,7 @@ static const char *assess(int ram_state, int ram_slots, int *has_stage, int *fre
         if (!s->extension_valid && (live(s) || s->rolled_back || s->transaction_phase > PST_TX_COMMITTED))
             return "legacy_ownership_unbound";
         for (uint32_t j=0;j<i;j++)
-            if (!kstrcmp(view_get(ram_state,j)->package_id,s->package_id)) return "duplicate_package_identity";
+            if (!kstricmp(view_get(ram_state,j)->package_id,s->package_id)) return "duplicate_package_identity";
         if (s->extension_valid) {
             int found=0;
             for (uint32_t j=0;j<SLOT_MODULE_COUNT;j++)
@@ -214,7 +214,7 @@ const char *package_authority_reason(void)
 static const struct pkg_pstate *find_view(int ram,const char *id)
 {
     for(uint32_t i=0;i<view_count(ram);i++)
-        if(!kstrcmp(view_get(ram,i)->package_id,id)) return view_get(ram,i);
+        if(!kstricmp(view_get(ram,i)->package_id,id)) return view_get(ram,i);
     return 0;
 }
 static const struct module_slot *module_durable(uint8_t module)
@@ -227,7 +227,7 @@ static const struct module_slot *module_durable(uint8_t module)
 }
 static int same_binding(const struct pkg_pstate *a,const struct pkg_pstate *b)
 {
-    return !kstrcmp(a->package_id,b->package_id) && !kstrcmp(a->from_version,b->from_version) &&
+    return !kstricmp(a->package_id,b->package_id) && !kstrcmp(a->from_version,b->from_version) &&
         !kstrcmp(a->to_version,b->to_version) && a->manifest_identity==b->manifest_identity &&
         a->target_module==b->target_module && a->extension_valid==b->extension_valid;
 }

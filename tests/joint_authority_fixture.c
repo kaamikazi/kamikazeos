@@ -176,3 +176,16 @@ int test_slot_flags_are_not_normalized_into_authority(void)
     uint32_t before=write_count;cold_boot();
     return !package_authority_trusted() && pkg_rollback("PKG-201")==-4 && write_count==before;
 }
+
+int test_case_aliases_cannot_split_package_authority(void)
+{
+    setup();if(!update("PKG-201",1) || !update("PKG-202",1) || !update("PKG-203",1)) return 0;
+    /* package_state_find is case-insensitive. A retired alias preceding the
+       current record must not make the writer and authority select different rows. */
+    kstrcpy((char*)disk_image[48]+6,"pkg-203",PM_ID_MAX);
+    uint32_t used=6+disk_image[48][5]*37;
+    uint8_t sum=0;for(uint32_t i=0;i<used;i++) sum+=disk_image[48][i];
+    disk_image[48][used]=0u-sum;memcpy(disk_image[49],disk_image[48],512);
+    uint32_t before=write_count;cold_boot();
+    return !package_authority_trusted() && write_count==before;
+}

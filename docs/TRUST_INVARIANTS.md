@@ -73,6 +73,8 @@ cannot clear a slot contradiction. No reload may write to manufacture agreement.
   distinct valid before/after slots and not be retired with `SLOT_NONE`.
 - At most one current eligible claim per module is permitted. Retired records
   retain history but confer no mutation rights. Competing claims hold authority.
+- Package identity equality is case-insensitive, matching registry/state lookup;
+  aliases cannot select different records in validation and mutation code.
 - APPLIED/FAILED ownership requires active=after/to, rollback=before/from,
   verified known-good rollback storage, pending verification and an unverified
   active slot. VERIFIED requires the same version/slot correspondence with the

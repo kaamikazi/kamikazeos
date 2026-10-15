@@ -140,3 +140,18 @@ its two regression purposes now run through the actual persistence/slot engine.
 Only ATA outcomes, controlled manifest trust and health/log APIs are mocked in
 `joint_authority_fixture.c`. Cold-BSS reset in that fixture is test-only; no
 production API clears the sticky authority latch.
+
+### Identity-domain follow-up
+
+The first complete run passed 121 repository cases and both preserved review
+corpora. Final boundary review found that state lookup uses case-insensitive
+IDs while the new authority comparisons initially used case-sensitive IDs.
+A serialized retired `pkg-203` alias before current `PKG-203` was reproduced
+as incorrectly trusted (**1 failing actual-C case, 1.159 s**).
+
+Authority uniqueness, durable view lookup and binding identity equality now
+use the same case-insensitive domain as the mutator. **19/19 focused checks
+passed**, no failures/errors/skips, **111.797 s**. Evidence:
+`trust-identity-before` and `trust-identity-fixed`. A final complete run after
+this correction is required; the earlier 121-case run is not its acceptance
+result. No on-disk field or format changed.
