@@ -191,10 +191,12 @@ static enum state_choice choose_state(const uint8_t *p, const uint8_t *m,
 {
     int pe = ext_valid(p);
     int me = ext_valid(m);
-    /* A primary carrying the extension magic whose CRC fails was written
-       by this format and then damaged — its weak v1 checksum alone must
-       not outvote a fully valid mirror. */
-    int p_legacy = v1_valid(p) && !ext_magic_present(p);
+    /* Legacy writers zeroed the entire reserved tail. Missing extension
+       magic alone is insufficient: damaged modern magic must not bypass
+       CRC validation and outvote a valid mirror through the v1 checksum. */
+    int p_legacy = v1_valid(p) &&
+                   all_zero(p + SB_CHECKSUM + 1,
+                            ATA_SECTOR_SIZE - SB_CHECKSUM - 1);
     *primary_damaged = !pe && !p_legacy && !all_zero(p, ATA_SECTOR_SIZE);
 
     if (pe && me) {

@@ -49,11 +49,15 @@ establish a safe append position and remain locked.
 | valid with extension | valid, same generation, identical bytes | primary |
 | valid with extension | valid, same generation, **different bytes** | **ambiguous: store read-only this boot** (`STORE-ERR-011`) |
 | valid with extension | invalid or zero | primary |
-| valid v1, no extension | readable | primary supplies flags; retain a valid mirror's generation as the floor for the next write |
+| valid v1, entire reserved tail zero | readable | primary supplies flags; retain a valid mirror's generation as the floor for the next write |
 | extension magic but bad CRC, or garbage | valid with extension | mirror (`STORE-WARN-009`) |
 | invalid | invalid | flags from CMOS, `STORE-ERR-010`; journal still usable |
 | zero | zero | fresh store (`STORE-001`, `state_source=fresh`) |
 | either existing copy unreadable | any | store read-only this boot (`STORE-ERR-012`) |
+
+Legacy recognition requires bytes 18-511 to be zero, matching actual legacy
+writers. A missing or damaged extension magic with a nonzero tail is damaged
+modern state, not permission to bypass the CRC through the v1 checksum.
 
 ## Journal append position
 
