@@ -59,3 +59,17 @@ Both current and tagged sources keep the Ring 3 approval macro at zero.
   N2, F1/F2, D2, L1 and tagged downgrade/re-upgrade.
 - Evidence: `build/test-runs/followup-n2-before` and `followup-n2-fixed`.
 - No format change. `0xffffffff` to zero remains a valid ordered wrap.
+
+### N3: inconsistent journal validation
+
+- Before: two tests produced three failures: unknown events appeared in the
+  journal report, an unsupported-version suggestion was exported, and that
+  invalid suggestion suppressed a legitimate new suggestion after rollback.
+- Correction: one entry validator for scanning, individual reads and latest
+  action lookup. The host decoder now checks the same version/event bounds.
+  Occupancy remains independent of validity; no occupied slot is reused.
+- After: **21 tests passed**, no failures/skips, in **121.895 seconds**, covering
+  N3, F1, F5, R1 and tagged downgrade/re-upgrade (including host report consumers).
+- Evidence: `build/test-runs/followup-n3-before-confirm` and `followup-n3-fixed`.
+- No format change. Malformed entry bytes and all preceding history remain
+  unchanged; unsupported records cannot influence trusted journal consumers.

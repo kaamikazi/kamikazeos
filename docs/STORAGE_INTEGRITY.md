@@ -88,6 +88,12 @@ The position is rebuilt from the journal itself at every boot:
 - A full journal refuses appends, warns **once per boot**
   (`STORE-WARN-004`), and counts refused appends in `journal_dropped`.
 
+Scanning, exported journal/package history, and latest-action lookups share
+the same validator: magic, supported version, checksum and recognized event
+range must all pass. An occupied unsupported-version or unknown-event record
+is retained as evidence but cannot supply boot ordering, appear as a valid
+event, or suppress a newly changed recovery suggestion.
+
 Nothing in the kernel erases history except the explicit, confirmed
 `clear-store confirm` command.
 

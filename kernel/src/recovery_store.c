@@ -145,6 +145,17 @@ static int all_zero(const uint8_t *p, uint32_t n)
     return 1;
 }
 
+/* One validity rule for ordering, reports, and lifecycle lookups. Occupancy
+   is deliberately separate: invalid nonzero entries still reserve their slot. */
+static int journal_entry_valid(const uint8_t *e)
+{
+    uint8_t sum = 0;
+    for (int i = 0; i < ENTRY_SIZE; i++)
+        sum = (uint8_t)(sum + e[i]);
+    return e[0] == JE_MAGIC_BYTE && e[1] == ST_VERSION && sum == 0 &&
+           e[3] >= JE_SUGGESTED && e[3] <= JE_PKG_BLOCKED;
+}
+
 static int v1_valid(const uint8_t *s)
 {
     uint8_t sum = 0;
@@ -237,11 +248,7 @@ static int scan_journal(uint32_t *last_used, uint32_t *corrupt, uint8_t *max_boo
             if (all_zero(e, ENTRY_SIZE))
                 continue;
             *last_used = s * ENTRIES_PER_SECTOR + i + 1;
-            uint8_t sum = 0;
-            for (int b = 0; b < ENTRY_SIZE; b++)
-                sum = (uint8_t)(sum + e[b]);
-            if (e[0] != JE_MAGIC_BYTE || e[1] != 1 || sum != 0 ||
-                e[3] < JE_SUGGESTED || e[3] > JE_PKG_BLOCKED) {
+            if (!journal_entry_valid(e)) {
                 (*corrupt)++;
                 continue;
             }
@@ -584,10 +591,7 @@ int recovery_journal_get(uint32_t index, struct journal_entry *out)
         return 0;
 
     const uint8_t *e = buf + offset;
-    uint8_t sum = 0;
-    for (int i = 0; i < ENTRY_SIZE; i++)
-        sum = (uint8_t)(sum + e[i]);
-    if (e[0] != JE_MAGIC_BYTE || sum != 0)
+    if (!journal_entry_valid(e))
         return 0;                        /* corrupt entry: refuse it */
 
     out->boot_number = e[2];
@@ -637,10 +641,7 @@ uint8_t recovery_journal_last_action_event(uint8_t action_id)
             cached = lba;
         }
         const uint8_t *e = buf + (i % ENTRIES_PER_SECTOR) * ENTRY_SIZE;
-        uint8_t sum = 0;
-        for (int b = 0; b < ENTRY_SIZE; b++)
-            sum = (uint8_t)(sum + e[b]);
-        if (e[0] != JE_MAGIC_BYTE || sum != 0)
+        if (!journal_entry_valid(e))
             continue;                  /* corrupt slots are skipped, kept */
         if (e[4] == action_id && e[3] >= JE_SUGGESTED && e[3] <= JE_BLOCKED)
             return e[3];

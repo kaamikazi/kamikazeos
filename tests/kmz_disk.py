@@ -109,7 +109,9 @@ def journal_bytes(path: Path) -> bytes:
 
 
 def entry_valid(entry: bytes) -> bool:
-    return entry[0] == JE_MAGIC and (sum(entry) & 0xFF) == 0
+    return (len(entry) == ENTRY_SIZE and entry[0] == JE_MAGIC and entry[1] == 1
+            and JE["SUGGESTED"] <= entry[3] <= JE["PKG_BLOCKED"]
+            and (sum(entry) & 0xFF) == 0)
 
 
 def journal_entries(path: Path) -> list[bytes]:

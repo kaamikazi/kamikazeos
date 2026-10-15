@@ -114,3 +114,42 @@ class N2GenerationOrdering(KmzCase):
         self.assertEqual(self.rows(report, "RECOVERY_PACKAGES")["PKG-001"]["status"], "applied")
         with self.boot() as q:
             self.assertIn("PKG-ACT-003", q.run("verify-pkg PKG-001", PKG_ACT_OR_BLOCK))
+
+
+class N3JournalValidation(KmzCase):
+    def test_unknown_version_neither_exports_nor_suppresses_suggestion(self):
+        with self.boot() as q:
+            q.run("approve ACT-001", r"code=REC-ACT-003")
+            q.run("rollback ACT-001", r"code=REC-RB-001")
+        used = disk.journal_used_slots(self.img)
+        bad = bytearray(disk.make_entry(250, disk.JE["SUGGESTED"], action=1, code="BADVER"))
+        bad[1] = 2
+        bad[15] = disk.sum_byte(bad[:15])
+        disk.write_journal_slot(self.img, used, bytes(bad))
+        prefix = disk.journal_bytes(self.img)[:(used + 1) * 16]
+        report = self.boot_once()
+        codes = [row["code"] for row in report["JOURNAL"]]
+        with self.subTest(reader="report"):
+            self.assertNotIn("BADVER", codes)
+        self.assertEqual(section_kv(report, "RECOVERY_MEMORY")["boot_count"], "2")
+        self.assertEqual(section_kv(report, "RECOVERY_STORE")["journal_corrupt_entries"], "1")
+        self.assertEqual(disk.journal_bytes(self.img)[:len(prefix)], prefix)
+        new_suggestions = [e for e in disk.journal_entries(self.img)[used + 1:]
+                           if e[1] == 1 and e[3] == disk.JE["SUGGESTED"] and e[4] == 1]
+        with self.subTest(reader="latest_action"):
+            self.assertEqual(len(new_suggestions), 1, "invalid-version entry suppressed a new suggestion")
+
+    def test_unknown_events_stay_occupied_but_are_not_exported(self):
+        self.boot_once()
+        used = disk.journal_used_slots(self.img)
+        for offset, event in enumerate((0, 16, 255)):
+            disk.write_journal_slot(self.img, used + offset,
+                                    disk.make_entry(250, event, code=f"BADEV{offset}"))
+        prefix = disk.journal_bytes(self.img)[:(used + 3) * 16]
+        report = self.boot_once()
+        self.assertFalse([row for row in report["JOURNAL"]
+                          if row["code"].startswith("BADEV")])
+        self.assertFalse(report["PACKAGE_HISTORY"], "unknown events exported as package history")
+        self.assertEqual(section_kv(report, "RECOVERY_MEMORY")["boot_count"], "2")
+        self.assertEqual(section_kv(report, "RECOVERY_STORE")["journal_corrupt_entries"], "3")
+        self.assertEqual(disk.journal_bytes(self.img)[:len(prefix)], prefix)
