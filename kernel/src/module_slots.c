@@ -28,19 +28,28 @@ static const struct { enum module_id id; const char *base; } defaults[SLOT_MODUL
     { MOD_RC_SCHEMA,       "0.8" },
 };
 
+int module_slot_factory_record(uint32_t index, struct module_slot *out)
+{
+    if (index >= SLOT_MODULE_COUNT || !out)
+        return 0;
+    /* Zero first: every serialized version-array byte after the terminator
+       is part of the canonical image. */
+    kmemset(out, 0, sizeof(*out));
+    out->module = defaults[index].id;
+    kstrcpy(out->slot_a_version, defaults[index].base, SLOT_VER_MAX);
+    kstrcpy(out->slot_b_version, "-", SLOT_VER_MAX);
+    out->active_slot     = SLOT_A;
+    out->slot_a_verified = 1;     /* the shipped version is trusted */
+    out->slot_b_verified = 0;
+    out->rollback_slot   = SLOT_NONE;
+    out->pending_verify  = 0;
+    return 1;
+}
+
 static void load_defaults(void)
 {
-    for (int i = 0; i < SLOT_MODULE_COUNT; i++) {
-        kmemset(&slots[i], 0, sizeof(slots[i]));
-        slots[i].module = defaults[i].id;
-        kstrcpy(slots[i].slot_a_version, defaults[i].base, SLOT_VER_MAX);
-        kstrcpy(slots[i].slot_b_version, "-", SLOT_VER_MAX);
-        slots[i].active_slot     = SLOT_A;
-        slots[i].slot_a_verified = 1;     /* the shipped version is trusted */
-        slots[i].slot_b_verified = 0;
-        slots[i].rollback_slot   = SLOT_NONE;
-        slots[i].pending_verify  = 0;
-    }
+    for (int i = 0; i < SLOT_MODULE_COUNT; i++)
+        module_slot_factory_record((uint32_t)i, &slots[i]);
 }
 
 static int slot_text_valid(const char *s)
@@ -104,9 +113,10 @@ static void sync_module_versions(void)
 
 int module_slots_save(void)
 {
-    if (!ata_available())
-        return 0;
+    /* Authority first: a refused attempt must consume any reset grant. */
     if (!package_authority_allow_slot_write())
+        return 0;
+    if (!ata_available())
         return 0;
 
     uint8_t sec[ATA_SECTOR_SIZE];

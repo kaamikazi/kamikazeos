@@ -5,6 +5,17 @@ HEAD: `8e75093f1d880d8b546d4f0c8f0d6e7ef9506086`, branch
 `hardening/v2.6.1-integrity-gate`. Required invariants were written and committed
 as `3b853e4` **before kernel implementation**; see `TRUST_INVARIANTS.md`.
 
+Focused follow-up from `9d5f43e`: the review found that explicit transition-edge
+checks covered package-state proposals but were missing from module-slot writes.
+See `SLOT_TRANSITION_CORRECTION.md` for six reproduced failures, per-module
+forward authorization, and the subsequent 135-case full run. The historical
+passing results below did not establish that missing slot-writer property.
+The two reset-boundary findings from the independent review of that correction
+(F1 exact factory image, F2 one-shot reset grant) are recorded in
+[RESET_BOUNDARY_CORRECTION.md](RESET_BOUNDARY_CORRECTION.md), including their
+before/after reproductions and the complete **148 passed, 0 failed/errors/skips**
+run (exit code 0). The older result tables below remain historical evidence.
+
 ## Preservation and unchanged-source reproduction
 
 The complete newest independent audit is preserved outside temporary/build

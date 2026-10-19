@@ -228,7 +228,8 @@ static int sectors_equal(const uint8_t *a, const uint8_t *b)
 
 int package_state_save(void)
 {
-    if (!ata_available() || persistence_locked || !package_authority_allow_state_write())
+    /* Authority first: a refused attempt must consume any reset grant. */
+    if (!package_authority_allow_state_write() || !ata_available() || persistence_locked)
         return 0;
 
     generation++;

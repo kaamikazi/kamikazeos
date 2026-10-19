@@ -305,8 +305,16 @@ static int state_edges_valid(void)
 
 int package_authority_allow_state_write(void)
 {
-    if (authority_latched || !package_state_copies_trusted()) return 0;
-    if (reset_grant) return package_state_count()==0;
+    /* Any refused write while a reset grant is held consumes the grant: a
+       retry, corrected or not, must acquire a new one. */
+    if (authority_latched || !package_state_copies_trusted()) { reset_grant=0; return 0; }
+    if (reset_grant) {
+        if (package_state_count()==0) return 1;
+        reset_grant=0;
+        error_log_class(SEV_WARNING,HEALTH_OPERATOR_INPUT,"PST-REJECT-005","PackageAuthority",
+                        "Reset grant permits only empty package state","reset_grant_revoked");
+        return 0;
+    }
     if (!package_authority_trusted()) return 0;
     int pending,fresh;
     const char *why=assess(1,0,&pending,&fresh);
@@ -315,17 +323,106 @@ int package_authority_allow_state_write(void)
                              "Proposed package state lacks joint authority",why);
     return !why;
 }
+
+static int same_slot_record(const struct module_slot *a,const struct module_slot *b)
+{
+    if (a->module!=b->module || a->active_slot!=b->active_slot ||
+        a->rollback_slot!=b->rollback_slot || a->pending_verify!=b->pending_verify ||
+        a->slot_a_verified!=b->slot_a_verified || a->slot_b_verified!=b->slot_b_verified) return 0;
+    /* Compare every serialized byte, not struct padding or just string prefixes. */
+    for (uint32_t i=0;i<SLOT_VER_MAX;i++)
+        if (a->slot_a_version[i]!=b->slot_a_version[i] || a->slot_b_version[i]!=b->slot_b_version[i]) return 0;
+    return 1;
+}
+
+static int slot_edges_valid(void)
+{
+    for (uint32_t i=0;i<SLOT_MODULE_COUNT;i++) {
+        const struct module_slot *old=module_slot_durable_get(i), *next=module_slot_get(i);
+        if (!old || !next) return 0;
+        if (same_slot_record(old,next)) continue; /* unchanged records grant no rights */
+        if (module_slots_evidence()!=MS_VALID) return 0;
+        const struct pkg_pstate *stage=0;
+        for (uint32_t j=0;j<package_state_durable_count();j++) {
+            const struct pkg_pstate *s=package_state_durable_get(j);
+            if (s->target_module==old->module && s->transaction_phase>PST_TX_COMMITTED) {
+                if (stage) return 0;
+                stage=s;
+            }
+        }
+        if (!stage || !bound_frame(stage) || stage->status_before_transaction!=stage->status) return 0;
+
+        /* Recovery may classify either observed side. A WRITE must instead
+           advance the durable before side and preserve every unaffected field. */
+        struct module_slot expected=*old;
+        if (stage->transaction_phase==PST_TX_APPLY_STAGED) {
+            if (stage->status!=PKGST_APPROVED || old->active_slot!=stage->slot_before_apply ||
+                old->pending_verify || !verified_at(old,old->active_slot) ||
+                kstrcmp(module_slot_active_version(old),stage->from_version)) return 0;
+            if (stage->slot_after_apply==SLOT_A) {
+                kstrcpy(expected.slot_a_version,stage->to_version,SLOT_VER_MAX);
+                expected.slot_a_verified=0;
+            } else {
+                kstrcpy(expected.slot_b_version,stage->to_version,SLOT_VER_MAX);
+                expected.slot_b_verified=0;
+            }
+            expected.active_slot=stage->slot_after_apply;
+            expected.rollback_slot=stage->slot_before_apply;
+            expected.pending_verify=1;
+        } else if (stage->transaction_phase==PST_TX_VERIFY_STAGED) {
+            if (stage->status!=PKGST_APPLIED || !current_shape(stage,old,0)) return 0;
+            if (old->active_slot==SLOT_A) expected.slot_a_verified=1;
+            else expected.slot_b_verified=1;
+            expected.pending_verify=0;
+        } else if (stage->transaction_phase==PST_TX_ROLLBACK_STAGED) {
+            if (!live(stage) || !current_shape(stage,old,stage->status==PKGST_VERIFIED)) return 0;
+            expected.active_slot=stage->slot_before_apply;
+            expected.rollback_slot=SLOT_NONE;
+            expected.pending_verify=0;
+        } else return 0;
+        if (!same_slot_record(&expected,next)) return 0;
+    }
+    return 1;
+}
+
+/* The reset exception's only acceptable proposal: each record equals, in every
+   serialized field and version-array byte, the canonical factory record at the
+   same table position. This fixes identity, order and uniqueness. */
+static int exact_factory_image(void)
+{
+    struct module_slot canon;
+    for (uint32_t i=0;i<SLOT_MODULE_COUNT;i++) {
+        const struct module_slot *v=module_slot_get(i);
+        if (!v || !module_slot_factory_record(i,&canon) || !same_slot_record(&canon,v)) return 0;
+    }
+    return 1;
+}
+
 int package_authority_allow_slot_write(void)
 {
-    if (authority_latched || !package_state_copies_trusted()) return 0;
+    if (authority_latched || !package_state_copies_trusted()) { reset_grant=0; return 0; }
+    if (reset_grant) {
+        /* One-shot: the factory slot image is reset's final write. The grant is
+           consumed whether this proposal is accepted or rejected; an accepted
+           write that then fails at the ATA layer also latches uncertainty. */
+        reset_grant=0;
+        if (package_state_durable_count()==0 && exact_factory_image()) return 1;
+        error_log_class(SEV_WARNING,HEALTH_OPERATOR_INPUT,"SLOT-REJECT-002","PackageAuthority",
+                        "Reset proposal is not the exact factory slot image","reset_grant_revoked");
+        return 0;
+    }
     int all_factory=1;
     for (uint32_t i=0;i<SLOT_MODULE_COUNT;i++)
         if (!module_slot_record_valid(module_slot_get(i)) || !module_slot_is_pristine(module_slot_get(i))) all_factory=0;
-    if (reset_grant) return package_state_durable_count()==0 && all_factory;
     if (!package_authority_trusted()) return 0;
     int pending,fresh;
     const char *why=assess(0,1,&pending,&fresh);
     if (why) return 0;
+    if (!slot_edges_valid()) {
+        error_log_class(SEV_WARNING,HEALTH_OPERATOR_INPUT,"SLOT-REJECT-001","PackageAuthority",
+                        "Proposed module slots lack matching forward intent","unproven_slot_transition");
+        return 0;
+    }
     return pending || (module_slots_evidence()==MS_EMPTY && all_factory);
 }
 int package_authority_recovery_status(const struct pkg_pstate *s)

@@ -43,6 +43,41 @@ class T2EventSemantics(KmzCase):
             if lba != 17: self.assertEqual(disk.read_sector(self.img, lba), raw)
 
 class T3JournalChronology(KmzCase):
+    def gap_history(self, canonical):
+        snap.T1SnapshotPlacement.history(self)
+        n = disk.journal_used_slots(self.img)
+        completion = disk.make_entry(17, disk.JE["CLEAN_BOOT"]) if canonical else disk.make_entry(
+            17, disk.JE["CLEAN_BOOT"], risk=2, reversible=0, code="PANIC!")
+        disk.write_journal_slot(self.img, n, completion)
+        disk.write_journal_slot(self.img, n+1, disk.make_entry(18, disk.JE["CLEAN_BOOT"]))
+        return disk.journal_bytes(self.img)[:(n+2)*disk.ENTRY_SIZE]
+
+    def test_missing_clean_gap_stays_unproven_after_later_real_boots(self):
+        prefix = self.gap_history(canonical=False)
+        before = {lba: disk.read_sector(self.img, lba) for lba in range(16,32)}
+        # A genuine later completion forces boot 19, leaving required boot 17
+        # absent. Self-generated completions 19/20 cannot fill that older gap.
+        for expected in (19,20,21):
+            report = self.boot_once()
+            self.assertEqual(section_kv(report, "RECOVERY_MEMORY")["boot_count"], str(expected))
+            self.assertEqual(section_kv(report, "RECOVERY_STORE")["journal_locked"], "0")
+            self.assertEqual(disk.journal_bytes(self.img)[:len(prefix)], prefix)
+            for lba, raw in before.items():
+                self.assertEqual(disk.read_sector(self.img, lba), raw)
+            self.assertTrue(any(e[2] == expected and e[3] == disk.JE["CLEAN_BOOT"]
+                                and disk.entry_valid(e) for e in disk.journal_entries(self.img)))
+
+    def test_canonical_gap_allows_only_aged_destination(self):
+        prefix = self.gap_history(canonical=True)
+        before = {lba: disk.read_sector(self.img, lba) for lba in range(16,32)}
+        report = self.boot_once()
+        self.assertEqual(section_kv(report, "RECOVERY_MEMORY")["boot_count"], "19")
+        self.assertEqual(disk.read_sector(self.img, 19)[5], 19)
+        self.assertEqual(disk.journal_bytes(self.img)[:len(prefix)], prefix)
+        for lba, raw in before.items():
+            if lba != 19:
+                self.assertEqual(disk.read_sector(self.img, lba), raw)
+
     def check_order(self, boots, contradictory):
         snap.T1SnapshotPlacement.history(self)
         for lba in range(2,16): disk.write_sector(self.img, lba, bytes(512))

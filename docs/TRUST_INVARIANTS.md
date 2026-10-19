@@ -108,6 +108,17 @@ retain the persisted staged intent and do not publish an assumed abort. A failed
 state publication preserves staged intent. Cold recovery acts only after actual
 slot evidence becomes readable and jointly coherent.
 
+The slot writer checks every changed module against its last acknowledged
+durable slot record and that module's own durable stage. APPLY may advance only
+the real before/from side; VERIFY may change only active verification and
+pending state; ROLLBACK may change only active/rollback selection and pending
+state. All other serialized fields remain byte-identical. One module's intent
+cannot authorize another module, and one unauthorized change rejects the entire
+sector write. An outstanding stage cannot authorize reversing an acknowledged
+transition. Exact staged retries are harmless unchanged records, not new rights.
+Recovery's before/after classifier is not a slot-write transition grant:
+reconciliation publishes the observed package result without rewriting slots.
+
 ### A4. Initialization and explicit reset
 
 Before a first staged apply, explicitly requested package use initializes the
@@ -120,6 +131,19 @@ non-staged joint state by `reset-packages confirm`. It permits only empty packag
 state followed by the exact factory slot image, and is revoked on any failure.
 It is not resumed automatically after a crash. A partial reset that leaves
 inconsistent evidence holds on reboot; no new persistent reset phase is invented.
+
+"Exact factory slot image" means every record equals, in every serialized field
+and every version-array byte (including bytes after the terminator), the
+canonical factory record at the same table position from
+`module_slot_factory_record()`. Identity, order and uniqueness are therefore
+fixed, and the check runs before any ATA write. The grant is one-shot: any state
+or slot write refused while it is held (validation, out-of-order, latched or
+untrusted copies) consumes it, ATA failures latch uncertainty and revoke it, and
+the authorized factory slot write, reset's final step, consumes it too. A retry
+must acquire a new grant. The grant never reaches the ordinary transition path.
+
+See [reset-boundary correction evidence](RESET_BOUNDARY_CORRECTION.md) for the
+F1/F2 reproduction, source receipts and complete 148-case verification.
 
 ## B. Snapshot replacement
 

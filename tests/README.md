@@ -55,6 +55,13 @@ make test                                       # same, via make
 | T2 event contracts | actual producer tuples, successful-only suggestion facts, rejection before high boot bounds and healthy rotation without poisoned progression |
 | T3 append chronology | physical order, duplicate/missing completions, sector boundaries, no boot wrap, revalidation and failed-clear lock retention |
 | T4 joint authority | actual slot failure/contradiction, preserved stage intent, cold recovery, reload latch, durable transition edges and scoped/partial reset; real persistence/slot/engine C plus QEMU |
+| T5 slot transitions | per-module durable intent, forward-only changes, mixed-proposal rejection, unaffected fields, staged retries/reconciliation, and two-module QEMU lifecycle/reset |
+| T6 reset boundary | exact factory slot image (identity, order, uniqueness, version-array tail bytes, flags) and one-shot reset grant (revoked on rejection, out-of-order and I/O failure; consumed on success); actual authority/slot/state C |
+
+The completed v2.6.1 run contains **148 cases**, including **13 T6 reset-boundary
+cases**, with compatibility tests enabled by `--baseline-elf`. The verified full
+run, source/fixture hashes, before/after reproductions and remaining limits are
+recorded in [RESET_BOUNDARY_CORRECTION.md](../docs/RESET_BOUNDARY_CORRECTION.md).
 
 The host fixtures require LLVM's wasm32 backend and wasm-ld plus Node.js.
 They mock port/state APIs and never emulate CPU privilege transitions. The

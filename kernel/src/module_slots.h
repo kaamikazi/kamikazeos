@@ -55,6 +55,9 @@ const char *module_slots_evidence_reason(void);
 const struct module_slot *module_slot_durable_get(uint32_t index);
 int module_slot_record_valid(const struct module_slot *s);
 int module_slot_is_pristine(const struct module_slot *s);
+/* Canonical factory record for table position `index` (fixed identity order,
+   all unused version-array bytes zero). Returns 0 for an invalid index. */
+int module_slot_factory_record(uint32_t index, struct module_slot *out);
 
 uint32_t                  module_slot_count(void);
 const struct module_slot *module_slot_get(uint32_t index);
