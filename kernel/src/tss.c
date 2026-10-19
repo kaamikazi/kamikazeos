@@ -26,7 +26,7 @@ typedef char tss32_size_must_be_104[(sizeof(struct tss32) == 104u) ? 1 : -1];
 
 static struct tss32 kernel_tss __attribute__((aligned(16)));
 static uint8_t privilege_stack[TSS_PRIVILEGE_STACK_SIZE]
-    __attribute__((aligned(4096)));
+    __attribute__((section(".privilege_stack"), aligned(4096)));
 static int initialized;
 static int loaded;
 

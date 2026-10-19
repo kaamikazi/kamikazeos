@@ -39,8 +39,8 @@
 /* .bss takes no space in the binary; the loader zeroes it for us.     */
 /* ------------------------------------------------------------------ */
 
-.section .bss
-.align 16
+.section .bootstrap_stack, "aw", @nobits
+.balign 4096
 .global stack_bottom
 .global stack_top
 stack_bottom:

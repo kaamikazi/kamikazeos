@@ -4,6 +4,7 @@
 #include "gdt.h"
 #include "idt.h"
 #include "memory.h"
+#include "memory_layout.h"
 #include "string.h"
 #include "tss.h"
 
@@ -11,9 +12,10 @@
 #define IDENTITY_TABLES 4u
 #define IDENTITY_BYTES (IDENTITY_TABLES * PAGE_ENTRIES * PAGING_PAGE_SIZE)
 
-static uint32_t page_directory[PAGE_ENTRIES] __attribute__((aligned(PAGING_PAGE_SIZE)));
+static uint32_t page_directory[PAGE_ENTRIES]
+    __attribute__((section(".paging.directory"), aligned(PAGING_PAGE_SIZE)));
 static uint32_t identity_tables[IDENTITY_TABLES][PAGE_ENTRIES]
-    __attribute__((aligned(PAGING_PAGE_SIZE)));
+    __attribute__((section(".paging.tables"), aligned(PAGING_PAGE_SIZE)));
 static struct paging_status status;
 static struct user_memory_status user_status;
 static struct paging_range ranges[PAGING_MAX_RANGES];
@@ -57,25 +59,6 @@ static void add_range(const char *name, uint32_t start, uint32_t end,
     ranges[range_count].user_accessible = user_accessible;
     ranges[range_count].writable = writable;
     range_count++;
-}
-
-static int in_range(uint32_t address, uint32_t start, uint32_t end)
-{
-    return address >= start && address < end;
-}
-
-static int expected_user_page(uint32_t address)
-{
-    return in_range(address, (uint32_t)&_user_code_start,
-                    (uint32_t)&_user_code_end) ||
-           in_range(address, (uint32_t)&_user_stack_start,
-                    (uint32_t)&_user_stack_end);
-}
-
-static int expected_writable_page(uint32_t address)
-{
-    return !in_range(address, (uint32_t)&_user_code_start,
-                     (uint32_t)&_user_code_end);
 }
 
 static int table_needs_user(uint32_t table)
@@ -173,6 +156,7 @@ int paging_is_enabled(void)
 
 void paging_init_structures(void)
 {
+    memory_layout_init(); /* Metadata only; the legacy mapper below is unchanged. */
     kmemset(page_directory, 0, sizeof(page_directory));
     kmemset(identity_tables, 0, sizeof(identity_tables));
     kmemset(&status, 0, sizeof(status));
@@ -217,6 +201,10 @@ int paging_validate_identity_map(void)
         status.validation_error = "structures_not_prepared";
         return 0;
     }
+    if (!memory_layout_valid()) {
+        status.validation_error = memory_layout_error();
+        return 0;
+    }
     if (!status.prerequisites_valid) {
         status.validation_error = "gdt_or_exception_idt_missing";
         return 0;
@@ -246,8 +234,9 @@ int paging_validate_identity_map(void)
         for (uint32_t i = 0; i < PAGE_ENTRIES; i++) {
             uint32_t phys = (table * PAGE_ENTRIES + i) * PAGING_PAGE_SIZE;
             uint32_t entry = identity_tables[table][i];
-            int expected_user = expected_user_page(phys);
-            int expected_writable = expected_writable_page(phys);
+            uint32_t expected = mp_page_flags(memory_layout_get(), phys, MP_LEGACY_ACTIVE, 0);
+            int expected_user = (expected & PAGING_USER) != 0;
+            int expected_writable = (expected & PAGING_WRITABLE) != 0;
             if ((entry & PAGING_PRESENT) == 0)
                 return 0;
             if (((entry & PAGING_WRITABLE) != 0) !=
