@@ -9,6 +9,7 @@
 #define KMZ_MEMORY_H
 
 #include <stdint.h>
+#include "memory_accounting.h"
 
 /* 64 raw ranges can produce up to 128 boundaries plus kernel reservations. */
 #define MEMORY_MAX_REGIONS 144
@@ -72,5 +73,7 @@ int memory_region_get(uint32_t index, struct memory_region *out);
 const char *memory_region_type_name(uint32_t type);
 int memory_map_available(void);
 int memory_hardening_self_test(void);
+/* Phase A observability only. Does not alter legacy bitmap/heap eligibility. */
+const struct mp_ram_accounting *memory_accounting_status(int mapping_active);
 
 #endif /* KMZ_MEMORY_H */

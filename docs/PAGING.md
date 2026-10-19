@@ -1,5 +1,10 @@
 # KamikazeOS Paging
 
+See [v2.6.2 Phase A](MEMORY_PROTECTION_PHASE_A.md) for the explicit layout and
+central descriptive policy. Guard reservations are still mapped, page structures
+remain writable, and CR0.WP is not enabled by Phase A. The protected policy is a
+future plan, not installed hardware permissions or an NX/W^X guarantee.
+
 KamikazeOS v2.3 "Paging Gate" adds the first enabled paging foundation.
 
 ## Enabled Mode

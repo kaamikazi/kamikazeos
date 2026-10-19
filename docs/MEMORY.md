@@ -1,5 +1,9 @@
 # KamikazeOS Memory Map
 
+The v2.6.2 [Phase A groundwork](MEMORY_PROTECTION_PHASE_A.md) adds explicit
+linker spans and separate RAM-accounting metadata. Its eligibility numbers are
+descriptive only; legacy heap/bitmap behavior and the 16 MiB mapper remain active.
+
 KamikazeOS v2.1 added the first kernel memory management foundation. v2.2 uses
 that foundation to reserve a bounded kernel heap region. v2.3 enables a
 strictly validated low-memory identity map.

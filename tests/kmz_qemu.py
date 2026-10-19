@@ -44,13 +44,14 @@ class QemuSession:
 
     def __init__(self, elf: Path, image: Path, serial_log: Path,
                  boot_timeout: float = 60.0, read_error_lbas: tuple[int, ...] = (),
-                 write_error_lbas: tuple[int, ...] = ()):
+                 write_error_lbas: tuple[int, ...] = (), memory_mib: int = 64):
         self.elf = Path(elf)
         self.image = Path(image)
         self.serial_log = Path(serial_log)
         self.boot_timeout = boot_timeout
         self.read_error_lbas = read_error_lbas
         self.write_error_lbas = write_error_lbas
+        self.memory_mib = memory_mib
         self.proc: subprocess.Popen | None = None
         self.monitor_out: list[bytes] = []
         self.offset = 0          # serial-log read cursor for wait_for()
@@ -66,7 +67,7 @@ class QemuSession:
     def start(self) -> None:
         # Append mode keeps evidence from earlier power-ons in the same log.
         self.offset = self.serial_log.stat().st_size if self.serial_log.exists() else 0
-        args = [qemu_binary(), "-kernel", str(self.elf), "-m", "64",
+        args = [qemu_binary(), "-kernel", str(self.elf), "-m", str(self.memory_mib),
                 "-display", "none", "-monitor", "stdio",
                 "-chardev", f"file,id=ser0,path={self.serial_log},append=on",
                 "-serial", "chardev:ser0"]

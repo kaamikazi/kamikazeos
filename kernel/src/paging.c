@@ -11,6 +11,7 @@
 #define PAGE_ENTRIES 1024u
 #define IDENTITY_TABLES 4u
 #define IDENTITY_BYTES (IDENTITY_TABLES * PAGE_ENTRIES * PAGING_PAGE_SIZE)
+typedef char mp_aperture_matches_mapper[(IDENTITY_BYTES==MP_APERTURE_END) ? 1 : -1];
 
 static uint32_t page_directory[PAGE_ENTRIES]
     __attribute__((section(".paging.directory"), aligned(PAGING_PAGE_SIZE)));

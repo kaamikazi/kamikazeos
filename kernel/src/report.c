@@ -18,6 +18,7 @@
 #include "kheap.h"
 #include "keyboard.h"
 #include "memory.h"
+#include "memory_layout.h"
 #include "module_slots.h"
 #include "module_versions.h"
 #include "package_manifest.h"
@@ -335,6 +336,45 @@ void report_send(void)
         serial_print(";validated="); serial_print(range.validated ? "yes" : "no");
         serial_print("\n");
     }
+
+    /* Phase A metadata is additive. It does not activate the protected plan. */
+    serial_print("[MEMORY_POLICY]\nphase=v2.6.2_phase_a\n");
+    serial_print("layout_valid="); serial_print(memory_layout_valid() ? "yes" : "no");
+    serial_print("\nvalidation_error="); serial_print(memory_layout_error());
+    serial_print("\nactive_policy=legacy_16m_identity\nprotected_plan_installed=no");
+    serial_print("\ncr0_wp_configured_by_phase_a=no\npage_structures_mutable=yes");
+    serial_print("\nguard_pages_reserved=6\nguard_pages_active=0\nnx_enforced=no\nframe_allocator=no\n");
+    serial_print("[MEMORY_REGIONS]\n");
+    const struct mp_layout *layout=memory_layout_get();
+    for (uint32_t i=0;i<MP_REGION_COUNT;i++) {
+        serial_print("name="); serial_print(mp_region_name(i));
+        serial_print(";start="); serial_print_dec(layout->regions[i].start);
+        serial_print(";end="); serial_print_dec(layout->regions[i].end);
+        serial_print(";legacy_flags=");
+        serial_print_dec(mp_page_flags(layout,layout->regions[i].start,MP_LEGACY_ACTIVE,0));
+        serial_print(";plan_flags_if_ram=");
+        serial_print_dec(mp_page_flags(layout,layout->regions[i].start,MP_PROTECTED_PLAN,1));
+        serial_print("\n");
+    }
+    const struct mp_ram_accounting *ram=memory_accounting_status(pg_status->enabled && pg_status->identity_map_valid);
+    serial_print("[RAM_ACCOUNTING]\nvalid="); serial_print(ram->valid ? "yes" : "no");
+    serial_print("\nreason="); serial_print(ram->reason);
+    serial_print("\ndiscovery_trusted="); serial_print(ram->discovery_trusted ? "yes" : "no");
+    serial_print("\nmapping_active="); serial_print(ram->mapping_active ? "yes" : "no");
+    serial_print("\ndescribed_usable_bytes_low="); serial_print_dec((uint32_t)ram->described_usable_bytes);
+    serial_print("\ndescribed_usable_bytes_high="); serial_print_dec((uint32_t)(ram->described_usable_bytes>>32));
+    serial_print("\ndetected_usable_bytes_low="); serial_print_dec((uint32_t)ram->detected_usable_bytes);
+    serial_print("\ndetected_usable_bytes_high="); serial_print_dec((uint32_t)(ram->detected_usable_bytes>>32));
+    serial_print("\ntracker_ceiling_bytes="); serial_print_dec(MP_TRACKED_END);
+    serial_print("\nmapping_aperture_bytes="); serial_print_dec(MP_APERTURE_END);
+    serial_print("\ntracked_usable_pages="); serial_print_dec(ram->tracked_usable_pages);
+    serial_print("\nmapped_present_pages="); serial_print_dec(ram->mapped_present_pages);
+    serial_print("\nmapped_usable_pages="); serial_print_dec(ram->mapped_usable_pages);
+    serial_print("\nmapped_nonram_pages="); serial_print_dec(ram->mapped_nonram_pages);
+    serial_print("\nreserved_usable_pages="); serial_print_dec(ram->reserved_usable_pages);
+    serial_print("\nunmapped_usable_pages="); serial_print_dec(ram->unmapped_usable_pages);
+    serial_print("\neligible_pages="); serial_print_dec(ram->eligible_pages);
+    serial_print("\neligibility_enforced=no\n");
 
     serial_print("[PAGE_FAULT]\n");
     serial_print("present="); serial_print(pg_status->last_fault_present ? "yes" : "no");

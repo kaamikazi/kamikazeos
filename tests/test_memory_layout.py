@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 import struct
 import unittest
-from kmz_qemu import section_kv
+from kmz_qemu import QemuSession, section_kv
 from test_integrity_gate import KmzCase
 
 PREFIXES = (
@@ -92,3 +92,39 @@ class M1LayoutBoot(KmzCase):
         self.assertEqual(user["validated"], "yes")
         self.assertEqual(user["no_broad_user_exposure"], "yes")
         self.assertEqual(section_kv(report, "RING3")["execution_enabled"], "no")
+        policy = section_kv(report, "MEMORY_POLICY")
+        self.assertEqual(policy["layout_valid"], "yes")
+        self.assertEqual(policy["protected_plan_installed"], "no")
+        self.assertEqual(policy["guard_pages_active"], "0")
+        self.assertEqual(policy["cr0_wp_configured_by_phase_a"], "no")
+        self.assertEqual(policy["page_structures_mutable"], "yes")
+        self.assertEqual(policy["nx_enforced"], "no")
+        rows = {r["name"]: r for r in report["MEMORY_REGIONS"]}
+        self.assertEqual(len(rows), 21)
+        for name in ("text", "rodata", "page_directory", "page_tables"):
+            self.assertEqual(rows[name]["legacy_flags"], "3")
+            self.assertEqual(rows[name]["plan_flags_if_ram"], "1")
+        for name in (n for n in rows if "guard" in n):
+            self.assertEqual(rows[name]["legacy_flags"], "3")
+            self.assertEqual(rows[name]["plan_flags_if_ram"], "0")
+
+    def test_ram_profiles_report_bounded_shadow_eligibility_without_activation(self):
+        for mib in (4,16,128):
+            with self.subTest(memory_mib=mib):
+                with QemuSession(self.boot().elf, self.img, self.log, memory_mib=mib) as q:
+                    report = self.report(q)
+                ram = section_kv(report, "RAM_ACCOUNTING")
+                self.assertEqual(ram["valid"], "yes")
+                self.assertEqual(ram["discovery_trusted"], "yes")
+                self.assertEqual(ram["mapping_active"], "yes")
+                self.assertEqual(ram["mapped_present_pages"], "4096")
+                self.assertEqual(ram["eligibility_enforced"], "no")
+                usable = int(ram["mapped_usable_pages"])
+                self.assertEqual(usable + int(ram["mapped_nonram_pages"]), 4096)
+                self.assertGreater(int(ram["eligible_pages"]), 0)
+                self.assertLessEqual(int(ram["eligible_pages"]), usable)
+                if mib > 16:
+                    self.assertGreater(int(ram["unmapped_usable_pages"]), 0)
+                else:
+                    self.assertEqual(ram["unmapped_usable_pages"], "0")
+                self.assertEqual(section_kv(report, "RING3")["execution_enabled"], "no")

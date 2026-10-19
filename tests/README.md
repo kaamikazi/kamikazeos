@@ -57,11 +57,19 @@ make test                                       # same, via make
 | T4 joint authority | actual slot failure/contradiction, preserved stage intent, cold recovery, reload latch, durable transition edges and scoped/partial reset; real persistence/slot/engine C plus QEMU |
 | T5 slot transitions | per-module durable intent, forward-only changes, mixed-proposal rejection, unaffected fields, staged retries/reconciliation, and two-module QEMU lifecycle/reset |
 | T6 reset boundary | exact factory slot image (identity, order, uniqueness, version-array tail bytes, flags) and one-shot reset grant (revoked on rejection, out-of-order and I/O failure; consumed on success); actual authority/slot/state C |
+| M1 Phase A layout/policy | production pure-C permission model, all 4096 active leaves and five user pages, invalid spans, ELF boundaries/subsections, inactive guards and ordinary QEMU boot |
+| M2 Phase A RAM accounting | reserved-wins 64-bit RAM union, tracked/mapped/reserved/candidate eligibility, untrusted discovery, high/partial pages and RAM limits; actual pure C |
 
 The completed v2.6.1 run contains **148 cases**, including **13 T6 reset-boundary
 cases**, with compatibility tests enabled by `--baseline-elf`. The verified full
 run, source/fixture hashes, before/after reproductions and remaining limits are
 recorded in [RESET_BOUNDARY_CORRECTION.md](../docs/RESET_BOUNDARY_CORRECTION.md).
+
+Phase A preserves those 148 IDs. Its verification deliberately excludes the
+three `L3Ring0Faults` cases and the intentional panic test; no CPU fault injection
+or CPL3 transition is approved in this phase. `--exclude` records exact omitted
+IDs separately from results, rather than counting them as passed or skipped.
+See [Phase A evidence and scope](../docs/MEMORY_PROTECTION_PHASE_A.md).
 
 The host fixtures require LLVM's wasm32 backend and wasm-ld plus Node.js.
 They mock port/state APIs and never emulate CPU privilege transitions. The

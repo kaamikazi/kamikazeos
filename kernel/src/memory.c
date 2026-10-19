@@ -1,5 +1,6 @@
 /* memory.c - validated Multiboot map parsing and fixed 4 KiB page tracking. */
 #include "memory.h"
+#include "memory_layout.h"
 #include "errors.h"
 #include "string.h"
 
@@ -15,6 +16,8 @@
 #define LOW_MEMORY_LIMIT      0x00100000u
 #define FALLBACK_MEMORY_BYTES 0x01000000u /* conservative 16 MiB */
 #define KERNEL_HEAP_BYTES     0x00010000u /* 64 KiB fixed bump heap */
+typedef char mp_tracker_matches_legacy[(TRACKED_BYTES==MP_TRACKED_END) ? 1 : -1];
+typedef char mp_heap_matches_legacy[(KERNEL_HEAP_BYTES==MP_HEAP_BYTES) ? 1 : -1];
 
 struct multiboot_info_v1 {
     uint32_t flags;
@@ -45,6 +48,9 @@ struct raw_region {
 
 struct map_parse_result {
     struct raw_region regions[RAW_REGION_MAX];
+    struct mp_ram_region accounting_regions[MP_RAM_MAX];
+    uint32_t accounting_count;
+    int accounting_complete;
     uint32_t region_count;
     uint32_t valid_entries;
     uint32_t malformed_entries;
@@ -67,6 +73,14 @@ static uint32_t reserved_low_pages;
 static uint32_t reserved_kernel_pages;
 static uint32_t reserved_heap_pages;
 static int hardening_tests_passed;
+static struct mp_ram_region accounting_regions[MP_RAM_MAX];
+static uint32_t accounting_count;
+static int accounting_complete;
+static struct mp_reservation boot_reservations[2];
+static uint32_t boot_reservation_count;
+static int boot_eligibility_held;
+static struct mp_ram_accounting accounting;
+static int accounting_cached, accounting_mapping_active;
 
 static uint32_t min_u32(uint32_t a, uint32_t b)
 {
@@ -103,6 +117,7 @@ static int parse_mmap_buffer(const uint8_t *map, uint32_t length,
         return 0;
     kmemset(out, 0, sizeof(*out));
     out->error = "none";
+    out->accounting_complete = 1;
 
     uint32_t offset = 0;
     while (offset < length) {
@@ -140,6 +155,15 @@ static int parse_mmap_buffer(const uint8_t *map, uint32_t length,
         out->valid_entries++;
         if (end > out->highest_address)
             out->highest_address = end;
+
+        /* Preserve complete 64-bit discovery separately from clipped legacy
+           tracking. Capacity exhaustion holds only the new shadow accounting. */
+        if (size) {
+            if (out->accounting_count < MP_RAM_MAX) {
+                struct mp_ram_region *r=&out->accounting_regions[out->accounting_count++];
+                r->start=base;r->end=end;r->usable=entry.type==1u;
+            } else out->accounting_complete=0;
+        }
 
         if (size != 0 && base < (uint64_t)TRACKED_BYTES) {
             uint64_t clipped_end64 = end;
@@ -348,6 +372,10 @@ static int bitmap_consistency_check(void)
 
 static void install_parse_result(const struct map_parse_result *parsed)
 {
+    accounting_count=parsed->accounting_count;
+    accounting_complete=parsed->accounting_complete;
+    memcpy(accounting_regions,parsed->accounting_regions,
+           accounting_count*sizeof(accounting_regions[0]));
     raw_region_count = parsed->region_count;
     memcpy(raw_regions, parsed->regions,
            raw_region_count * sizeof(raw_regions[0]));
@@ -384,6 +412,13 @@ static void install_fallback(uint32_t bytes, const char *reason)
         fallback.region_count++;
     }
     fallback.valid_entries = fallback.region_count;
+    fallback.accounting_complete=1;
+    fallback.accounting_count=fallback.region_count;
+    for (uint32_t i=0;i<fallback.region_count;i++) {
+        fallback.accounting_regions[i].start=fallback.regions[i].start;
+        fallback.accounting_regions[i].end=fallback.regions[i].end;
+        fallback.accounting_regions[i].usable=fallback.regions[i].type==MEM_REGION_USABLE;
+    }
     fallback.highest_address = bytes;
     fallback.highest_tracked_end = bytes;
     fallback.error = reason;
@@ -466,6 +501,8 @@ void memory_init(uint32_t mb_magic, uint32_t mb_info)
     status.validation_error = "multiboot_map_unavailable";
     hardening_tests_passed = memory_hardening_tests();
     status.hardening_self_test = hardening_tests_passed;
+    accounting_count=0;accounting_complete=0;accounting_cached=0;
+    boot_reservation_count=0;boot_eligibility_held=0;
 
     int installed_map = 0;
     int map_rejected = 0;
@@ -474,9 +511,15 @@ void memory_init(uint32_t mb_magic, uint32_t mb_info)
     if (mb_magic == MULTIBOOT_BOOTLOADER_MAGIC && mb_info != 0) {
         const struct multiboot_info_v1 *mb =
             (const struct multiboot_info_v1 *)mb_info;
+        boot_reservations[boot_reservation_count++]=(struct mp_reservation){
+            mb_info,(uint64_t)mb_info+sizeof(*mb)};
+        if ((uint64_t)mb_info+sizeof(*mb)>0x100000000ULL ||
+            ((mb->flags&(1u<<3)) && mb->mods_count)) boot_eligibility_held=1;
         if ((mb->flags & MB_INFO_FLAG_MMAP) && mb->mmap_addr != 0 &&
             mb->mmap_length > 0 &&
-            mb->mmap_addr <= 0xFFFFFFFFu - mb->mmap_length) {
+             mb->mmap_addr <= 0xFFFFFFFFu - mb->mmap_length) {
+            boot_reservations[boot_reservation_count++]=(struct mp_reservation){
+                mb->mmap_addr,(uint64_t)mb->mmap_addr+mb->mmap_length};
             struct map_parse_result parsed;
             if (parse_mmap_buffer((const uint8_t *)mb->mmap_addr,
                                   mb->mmap_length, &parsed)) {
@@ -610,4 +653,25 @@ int memory_map_available(void)
 int memory_hardening_self_test(void)
 {
     return hardening_tests_passed;
+}
+
+const struct mp_ram_accounting *memory_accounting_status(int mapping_active)
+{
+    if (!accounting_cached || mapping_active!=accounting_mapping_active) {
+        mp_account_ram(memory_layout_get(),accounting_regions,
+                       accounting_complete?accounting_count:0,
+                       boot_reservations,boot_reservation_count,
+                       page_limit*MEMORY_PAGE_SIZE,status.map_validated,
+                       mapping_active,&accounting);
+        if (boot_eligibility_held && accounting.valid) {
+            accounting.eligible_pages=0;
+            accounting.reason="unclassified_boot_objects_eligibility_held";
+        }
+        if ((!status.bitmap_consistent || !status.hardening_self_test) && accounting.valid) {
+            accounting.eligible_pages=0;
+            accounting.reason="legacy_memory_validation_failed_eligibility_held";
+        }
+        accounting_mapping_active=mapping_active;accounting_cached=1;
+    }
+    return &accounting;
 }

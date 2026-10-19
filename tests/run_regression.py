@@ -52,6 +52,8 @@ def main() -> int:
     ap.add_argument("--no-build", action="store_true")
     ap.add_argument("-k", action="append", default=[],
                     help="only run tests whose id contains this text")
+    ap.add_argument("--exclude", action="append", default=[],
+                    help="exclude matching test-id substrings and record the omitted IDs")
     args = ap.parse_args()
 
     if not args.no_build:
@@ -76,9 +78,16 @@ def main() -> int:
     if args.k:
         suite = unittest.TestSuite(t for t in iter_tests(suite)
                                    if any(k in t.id() for k in args.k))
+    candidates = list(iter_tests(suite))
+    excluded = [t.id() for t in candidates if any(k in t.id() for k in args.exclude)]
+    suite = unittest.TestSuite(t for t in candidates if t.id() not in excluded)
+    (run_dir / "selected-tests.txt").write_text("\n".join(t.id() for t in iter_tests(suite)) + "\n")
+    (run_dir / "excluded-tests.txt").write_text("\n".join(excluded) + ("\n" if excluded else ""))
 
     print(f"kernel   : {args.elf}  sha256={sha256(args.elf)[:16]}")
     print(f"run dir  : {run_dir}")
+    if excluded:
+        print(f"explicitly excluded: {len(excluded)} (see excluded-tests.txt)")
     with (run_dir / "summary.txt").open("w") as fh:
         runner = unittest.TextTestRunner(stream=Tee(sys.stderr, fh), verbosity=2)
         result = runner.run(suite)

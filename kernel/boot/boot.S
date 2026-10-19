@@ -36,7 +36,7 @@
 
 /* ------------------------------------------------------------------ */
 /* Stack — C code cannot run without one. 16 KiB is plenty for now.    */
-/* .bss takes no space in the binary; the loader zeroes it for us.     */
+/* NOLOAD storage has no file bytes; the loader zeroes the memory.     */
 /* ------------------------------------------------------------------ */
 
 .section .bootstrap_stack, "aw", @nobits
