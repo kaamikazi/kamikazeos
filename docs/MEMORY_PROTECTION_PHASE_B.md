@@ -52,5 +52,43 @@ The extended host/ELF and ordinary-boot selection completed **36 passed,
 This extension preserves the accepted Phase A policy and existing test IDs while
 adding coverage for the new regions. It does not validate real overflow handling.
 
-Task-gate and fatal-entry integration are subsequent Phase B increments. Real
-fault validation remains separately authorized future work.
+## B3 architecture, frame and I/O prerequisites
+
+`x86_task.c` encodes the exact 104-byte 32-bit TSS, 8-byte TSS descriptor and
+8-byte DPL0 task gate. Compile-time offsets cover CR3/EIP/ESP/I/O-map base.
+Normal TSS selector `0x28` is retained; the added available DF TSS uses `0x30`.
+Only the normal descriptor may validate as busy. The DF gate has zero offsets,
+selector `0x30` and access `0x85`. The prepared task uses known kernel selectors,
+EFLAGS `2`, a page-aligned CR3, isolated stack and an entry inside kernel text;
+the validator compares every byte, including reserved fields. Descriptor/gate
+APIs alone do not execute a task switch.
+
+`emergency_frame.c` preserves the accepted 68-byte interrupt-frame prefix and
+conditional 8-byte CPL3 tail inside a fixed 100-byte assembly/C entry state.
+It validates stack classification, alignment and complete frame size before
+reading CPU-frame words. No saved EIP, user ESP or PUSHA ESP is followed as a
+pointer. PUSHA-time ESP keeps its historical meaning, distinct from reconstructed
+same-CPL pre-delivery ESP. Frame/call/previous-TSS provenance is explicit in the
+RAM record and persistence classifier. CPU-written TSS evidence is read through
+volatile-qualified pointers.
+
+ATA identify/read/write operations now carry an in-progress depth through their
+existing retries. The guard releases on success/failure; rejected requests do no
+I/O. Actual-C host port fixtures observe the guard during operations, including
+absent disks and retry failures. Disk layouts and the PIO algorithms are retained.
+
+The first integrated structural run exposed a real readiness failure: **53 pass,
+1 failure** in `build/test-runs/v262-phase-b-architecture-first/`. Clang folded
+`emergency_stacks_valid()` to false because separately declared C arrays and
+external linker aliases were treated as distinct objects. Disassembly confirmed
+the constant result. Loading the four linker addresses through volatile integer
+slots preserves runtime address validation; the assertion was retained. The
+corrected selection passed **54/54 in 18.994 seconds** under
+`build/test-runs/v262-phase-b-architecture-corrected/`.
+
+The final integration-focused selection also passed **54/54, zero failures,
+errors or skips, in 20.803 seconds** under
+`build/test-runs/v262-phase-b-integration/`. This includes descriptor/frame/ATA
+host tests, linked-entry inspection, Phase A policy/accounting tests and ordinary
+QEMU boot with read-only descriptor, register and full paging-table inspection.
+Real fault validation remains separately authorized future work.

@@ -34,6 +34,7 @@
 
 static int present;
 static uint32_t capacity_sectors;
+static volatile uint32_t io_depth;
 
 /* ~400ns settle delay after selecting a drive: the spec says give the
    drive four status-register read cycles before trusting the bits. */
@@ -99,7 +100,7 @@ static int completion_ok_patient(void)
     return (inb(REG_STATUS) & (ST_ERR | ST_DF)) == 0;
 }
 
-void ata_init(void)
+static void identify_disk(void)
 {
     present = 0;
     capacity_sectors = 0;
@@ -158,6 +159,12 @@ void ata_init(void)
     error_log(SEV_INFO, "STORE-000", "ata",
               "ATA disk detected (PIO mode)", "durable recovery store enabled");
 }
+
+void ata_init(void)
+{
+    io_depth++;identify_disk();io_depth--;
+}
+int ata_io_in_progress(void) { return io_depth!=0; }
 
 int ata_available(void)
 {
@@ -240,18 +247,18 @@ int ata_read_sector(uint32_t lba, uint8_t *buffer)
 {
     if (!request_valid(lba, buffer))
         return 0;
-    if (read_sector_once(lba, buffer))
-        return 1;
-    io_settle();
-    return read_sector_once(lba, buffer);
+    io_depth++;
+    int ok=read_sector_once(lba,buffer);
+    if(!ok) {io_settle();ok=read_sector_once(lba,buffer);}
+    io_depth--;return ok;
 }
 
 int ata_write_sector(uint32_t lba, const uint8_t *buffer)
 {
     if (!request_valid(lba, buffer))
         return 0;
-    if (write_sector_once(lba, buffer))
-        return 1;
-    io_settle();
-    return write_sector_once(lba, buffer);
+    io_depth++;
+    int ok=write_sector_once(lba,buffer);
+    if(!ok) {io_settle();ok=write_sector_once(lba,buffer);}
+    io_depth--;return ok;
 }

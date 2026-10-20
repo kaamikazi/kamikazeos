@@ -14,10 +14,14 @@ uint32_t emergency_df_stack_bottom(void) { return (uint32_t)double_fault_stack; 
 uint32_t emergency_df_stack_top(void) { return (uint32_t)(double_fault_stack+sizeof(double_fault_stack)); }
 int emergency_stacks_valid(void)
 {
-    return emergency_fatal_stack_bottom()==(uint32_t)&_fatal_stack_start &&
-        emergency_fatal_stack_top()==(uint32_t)&_fatal_stack_end &&
-        emergency_df_stack_bottom()==(uint32_t)&_df_stack_start &&
-        emergency_df_stack_top()==(uint32_t)&_df_stack_end &&
+    /* Linker aliases are not distinct C objects. Compare loaded integer bounds
+       so optimization cannot replace equal-address linker aliases with false. */
+    volatile uint32_t linked[4]={(uint32_t)&_fatal_stack_start,(uint32_t)&_fatal_stack_end,
+                                 (uint32_t)&_df_stack_start,(uint32_t)&_df_stack_end};
+    return emergency_fatal_stack_bottom()==linked[0] &&
+        emergency_fatal_stack_top()==linked[1] &&
+        emergency_df_stack_bottom()==linked[2] &&
+        emergency_df_stack_top()==linked[3] &&
         ((emergency_fatal_stack_bottom()|emergency_fatal_stack_top()|
           emergency_df_stack_bottom()|emergency_df_stack_top())&4095u)==0;
 }

@@ -1,17 +1,10 @@
 #include <stdint.h>
 #include "gdt.h"
 #include "idt.h"
+#include "x86_task.h"
 
 #define IDT_ENTRIES 256
 #define INTERRUPT_GATE 0x8E
-
-struct idt_entry {
-    uint16_t offset_low;
-    uint16_t selector;
-    uint8_t zero;
-    uint8_t flags;
-    uint16_t offset_high;
-} __attribute__((packed));
 
 struct idt_pointer {
     uint16_t limit;
@@ -84,6 +77,17 @@ int idt_is_loaded(void)
 {
     return loaded;
 }
+
+int idt_install_double_fault_gate(void)
+{
+    if(!loaded || !gdt_df_tss_descriptor_valid())return 0;
+    struct idt_entry gate;
+    if(!x86_make_df_gate(&gate,GDT_DF_TSS_SELECTOR))return 0;
+    idt[8]=gate;
+    __atomic_signal_fence(__ATOMIC_RELEASE);
+    return idt_double_fault_gate_valid();
+}
+int idt_double_fault_gate_valid(void) { return loaded && x86_df_gate_valid(&idt[8]); }
 
 int idt_irq_gates_installed(void)
 {

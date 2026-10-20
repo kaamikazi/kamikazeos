@@ -19,6 +19,8 @@ uint32_t em_persistence_unsafe(const struct em_evidence *e, const struct em_pers
     if (c->storage_ready!=1) bad|=EM_BAD_STORAGE;
     if (c->io_active) bad|=EM_IO_ACTIVE;
     if (e->kind!=EM_EXCEPTION && e->kind!=EM_PANIC) bad|=EM_BAD_CONTEXT;
+    if ((e->kind==EM_EXCEPTION && e->context_source!=EM_SOURCE_CPU_FRAME) ||
+        (e->kind==EM_PANIC && e->context_source!=EM_SOURCE_CALL_FRAME)) bad|=EM_BAD_FRAME;
     if (e->guard_hit) bad|=EM_GUARD_FAULT;
     if (e->paging_structure_hit || (e->vector==14 && (e->error_code&8u))) bad|=EM_PAGING_FAULT;
     if (!(e->cr0&0x80000000u) || !c->expected_cr3 || (c->expected_cr3&4095u) ||
@@ -49,6 +51,7 @@ int em_record_capture(struct em_crash_record *r, const struct em_evidence *e,
     n.stack_start=e->stack_start;n.stack_end=e->stack_end;n.frame_valid=e->frame_valid;
     n.origin_valid=e->origin_valid;n.eflags_known=e->eflags_known;
     n.cr2_applicable=e->kind==EM_EXCEPTION && e->vector==14;
+    n.context_source=e->context_source;
     memcpy(r,&n,sizeof(n));
     __atomic_signal_fence(__ATOMIC_RELEASE);
     r->magic=EM_MAGIC;
@@ -81,7 +84,7 @@ uint32_t em_record_emit(const struct em_crash_record *r, em_putc_fn put, void *c
     FIELD(cr0);FIELD(cr3);FIELD(cpu_esp);FIELD(origin_esp);FIELD(diagnostic_esp);
     FIELD(user_esp);FIELD(user_ss);FIELD(stack_kind);FIELD(stack_start);FIELD(stack_end);
     FIELD(frame_valid);FIELD(origin_valid);FIELD(eflags_known);FIELD(unsafe_flags);
-    FIELD(persistence_eligible);
+    FIELD(persistence_eligible);FIELD(context_source);FIELD(cr2_applicable);
     emit_text(&o,"repair_attempted=no\n");
     return o.sent;
 }

@@ -7,7 +7,7 @@ static struct em_evidence healthy(void)
     e.eip=0x100100;e.cs=8;e.eflags=0x202;e.cr0=0x80000011;e.cr3=0x140000;
     e.cpu_esp=0x152000;e.origin_esp=0x152010;e.diagnostic_esp=0x160000;
     e.stack_kind=EM_STACK_BOOT;e.stack_start=0x150000;e.stack_end=0x154000;
-    e.frame_valid=e.origin_valid=e.eflags_known=1;return e;
+    e.frame_valid=e.origin_valid=e.eflags_known=1;e.context_source=EM_SOURCE_CPU_FRAME;return e;
 }
 static struct em_persistence_context context(void)
 { struct em_persistence_context c={1,1,0,0x140000,0x100000,0x120000};return c; }
@@ -17,7 +17,7 @@ int test_verified_ordinary_faults_and_panics_are_eligible(void)
 {
     struct em_evidence e=healthy();struct em_persistence_context c=context();
     for(uint32_t i=0;i<3;i++){e.vector=i==0?0:i==1?6:14;if(em_persistence_unsafe(&e,&c))return 0;}
-    e.kind=EM_PANIC;e.vector=0xFFFFFFFFu;e.eflags_known=0;
+    e.kind=EM_PANIC;e.vector=0xFFFFFFFFu;e.eflags_known=0;e.context_source=EM_SOURCE_CALL_FRAME;
     return !em_persistence_unsafe(&e,&c);
 }
 int test_emergency_reentry_and_df_never_persist(void)

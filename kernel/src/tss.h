@@ -2,6 +2,7 @@
 #define KMZ_TSS_H
 
 #include <stdint.h>
+struct x86_tss32;
 
 #define TSS_PRIVILEGE_STACK_SIZE 16384u
 
@@ -22,6 +23,7 @@ struct tss_status {
 void tss_init(void);
 int tss_set_esp0(uint32_t esp0);
 int tss_is_loaded(void);
+const volatile struct x86_tss32 *tss_normal_state(void); /* CPU-written previous-task evidence */
 int tss_kernel_stack_valid(void);
 uint32_t tss_privilege_stack_bottom(void);
 uint32_t tss_privilege_stack_top(void);

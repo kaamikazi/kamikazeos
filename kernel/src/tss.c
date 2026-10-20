@@ -2,29 +2,9 @@
 #include "errors.h"
 #include "gdt.h"
 #include "string.h"
+#include "x86_task.h"
 
-struct tss32 {
-    uint32_t previous;
-    uint32_t esp0;
-    uint32_t ss0;
-    uint32_t esp1;
-    uint32_t ss1;
-    uint32_t esp2;
-    uint32_t ss2;
-    uint32_t cr3;
-    uint32_t eip;
-    uint32_t eflags;
-    uint32_t eax, ecx, edx, ebx;
-    uint32_t esp, ebp, esi, edi;
-    uint32_t es, cs, ss, ds, fs, gs;
-    uint32_t ldt;
-    uint16_t trap;
-    uint16_t io_map_base;
-} __attribute__((packed));
-
-typedef char tss32_size_must_be_104[(sizeof(struct tss32) == 104u) ? 1 : -1];
-
-static struct tss32 kernel_tss __attribute__((aligned(16)));
+static struct x86_tss32 kernel_tss __attribute__((aligned(16)));
 static uint8_t privilege_stack[TSS_PRIVILEGE_STACK_SIZE]
     __attribute__((section(".privilege_stack"), aligned(4096)));
 static int initialized;
@@ -96,9 +76,11 @@ void tss_init(void)
               loaded ? "TSS-000" : "TSS-102", "TSS",
               loaded ? "32-bit TSS loaded for privilege stack selection"
                      : "Task register did not retain the kernel TSS",
-              loaded ? "hardware task switching remains disabled"
+               loaded ? "normal task scheduling remains software cooperative"
                      : "keep user syscall gate disabled");
 }
+
+const volatile struct x86_tss32 *tss_normal_state(void) { return &kernel_tss; }
 
 int tss_is_loaded(void)
 {

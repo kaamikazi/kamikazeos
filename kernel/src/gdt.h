@@ -9,6 +9,7 @@
 #define GDT_USER_CODE_SELECTOR   0x1Bu
 #define GDT_USER_DATA_SELECTOR   0x23u
 #define GDT_TSS_SELECTOR         0x28u
+#define GDT_DF_TSS_SELECTOR      0x30u
 
 #define GDT_KERNEL_DPL 0u
 #define GDT_USER_DPL   3u
@@ -34,6 +35,8 @@ int gdt_is_loaded(void);
 int gdt_user_segments_valid(void);
 int gdt_install_tss_descriptor(uint32_t base, uint32_t limit);
 int gdt_tss_descriptor_valid(void);
+int gdt_install_df_tss_descriptor(uint32_t base,uint32_t limit);
+int gdt_df_tss_descriptor_valid(void);
 void gdt_status(struct gdt_status *out);
 
 #endif /* KMZ_GDT_H */

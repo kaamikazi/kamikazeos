@@ -7,6 +7,7 @@
 #define EM_STACK_BYTES 16384u
 #define EM_MIN_HEADROOM 1024u
 enum em_stack_kind { EM_STACK_UNKNOWN, EM_STACK_BOOT, EM_STACK_PRIV, EM_STACK_FATAL, EM_STACK_DF };
+enum em_context_source { EM_SOURCE_UNKNOWN, EM_SOURCE_CPU_FRAME, EM_SOURCE_CALL_FRAME, EM_SOURCE_PREVIOUS_TSS };
 enum em_unsafe {
     EM_BAD_FRAME=1u, EM_BAD_ORIGIN=2u, EM_BAD_STACK=4u, EM_NOT_READY=8u,
     EM_BAD_STORAGE=16u, EM_IO_ACTIVE=32u, EM_BAD_CONTEXT=64u,
@@ -16,7 +17,7 @@ struct em_evidence {
     uint32_t kind, vector, error_code, cr2, eip, cs, eflags, cr0, cr3;
     uint32_t cpu_esp, origin_esp, diagnostic_esp, user_esp, user_ss;
     uint32_t stack_kind, stack_start, stack_end, frame_valid, origin_valid, eflags_known;
-    uint32_t guard_hit, paging_structure_hit;
+    uint32_t guard_hit, paging_structure_hit, context_source;
 };
 struct em_persistence_context {
     uint32_t runtime_ready, storage_ready, io_active, expected_cr3, text_start, text_end;
@@ -25,7 +26,7 @@ struct em_crash_record {
     uint32_t magic, version, kind, unsafe_flags, vector, error_code, cr2, eip, cs, eflags;
     uint32_t cr0, cr3, cpu_esp, origin_esp, diagnostic_esp, user_esp, user_ss;
     uint32_t stack_kind, stack_start, stack_end, frame_valid, origin_valid;
-    uint32_t persistence_eligible, eflags_known, cr2_applicable, reserved[7];
+    uint32_t persistence_eligible, eflags_known, cr2_applicable, context_source, reserved[6];
 };
 typedef char em_record_size_check[sizeof(struct em_crash_record)==EM_RECORD_BYTES?1:-1];
 typedef char em_record_vector_check[__builtin_offsetof(struct em_crash_record,vector)==ER_VECTOR?1:-1];

@@ -37,5 +37,6 @@ uint32_t ata_capacity_sectors(void);
    (no disk, timeout, or error bit). Never blocks forever. */
 int ata_read_sector(uint32_t lba, uint8_t *buffer);
 int ata_write_sector(uint32_t lba, const uint8_t *buffer);
+int ata_io_in_progress(void); /* read-only emergency reentrancy/persistence guard */
 
 #endif /* KMZ_ATA_H */
