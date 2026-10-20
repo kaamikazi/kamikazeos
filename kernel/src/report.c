@@ -343,7 +343,8 @@ void report_send(void)
     serial_print("\nvalidation_error="); serial_print(memory_layout_error());
     serial_print("\nactive_policy=legacy_16m_identity\nprotected_plan_installed=no");
     serial_print("\ncr0_wp_configured_by_phase_a=no\npage_structures_mutable=yes");
-    serial_print("\nguard_pages_reserved=6\nguard_pages_active=0\nnx_enforced=no\nframe_allocator=no\n");
+    serial_print("\nguard_pages_reserved=");serial_print_dec(mp_guard_pages(memory_layout_get()));
+    serial_print("\nguard_pages_active=0\nnx_enforced=no\nframe_allocator=no\n");
     serial_print("[MEMORY_REGIONS]\n");
     const struct mp_layout *layout=memory_layout_get();
     for (uint32_t i=0;i<MP_REGION_COUNT;i++) {

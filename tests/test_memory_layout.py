@@ -10,6 +10,8 @@ PREFIXES = (
     "_kernel_text", "_kernel_rodata", "_kernel_data", "_kernel_bss", "_page_directory", "_page_tables",
     "_bootstrap_guard_low", "_bootstrap_stack", "_bootstrap_guard_high",
     "_privilege_guard_low", "_privilege_stack", "_privilege_guard_high",
+    "_fatal_guard_low", "_fatal_stack", "_fatal_guard_high",
+    "_df_guard_low", "_df_stack", "_df_guard_high",
     "_user_code", "_user_guard_low", "_user_stack", "_user_guard_high", "_heap_candidate",
 )
 
@@ -30,6 +32,21 @@ def elf_layout(path):
         name, value, length, info, other, section = struct.unpack_from("<IIIBBH", data, at)
         symbols[text(strings, name)] = (value, length)
     return data, by_name, symbols
+
+def elf_object_symbols(path):
+    data=Path(path).read_bytes()
+    off=struct.unpack_from("<I",data,32)[0]
+    size,count,_=struct.unpack_from("<HHH",data,46)
+    sections=[struct.unpack_from("<10I",data,off+i*size) for i in range(count)]
+    symbols=next(s for s in sections if s[1]==2)
+    names=sections[symbols[6]];strings=data[names[4]:names[4]+names[5]]
+    out=[]
+    for p in range(symbols[4],symbols[4]+symbols[5],symbols[9]):
+        name,address,length,info,_,index=struct.unpack_from("<IIIBBH",data,p)
+        if info&15==1 and length and index<len(sections) and sections[index][2]&2:
+            text=strings[name:strings.index(b"\0",name)].decode()
+            out.append((text,address,length))
+    return out
 
 class M1LinkedLayout(unittest.TestCase):
     @classmethod
@@ -57,14 +74,16 @@ class M1LinkedLayout(unittest.TestCase):
             self.assertEqual(s[prefix + "_end"][0] - s[prefix + "_start"][0], 4096)
         for name, prefix, size in (("page_directory", "_page_directory", 4096),
                                    ("identity_tables", "_page_tables", 16384),
-                                   ("privilege_stack", "_privilege_stack", 16384)):
+                                   ("privilege_stack", "_privilege_stack", 16384),
+                                   ("fatal_stack", "_fatal_stack", 16384),
+                                   ("double_fault_stack", "_df_stack", 16384)):
             self.assertEqual(s[name], (s[prefix + "_start"][0], size))
         self.assertEqual(s["_kernel_end"][0], s["_user_guard_high_end"][0])
         self.assertEqual(s["_heap_candidate_start"][0], s["_kernel_end"][0])
 
     def test_no_allocatable_orphans_and_rodata_strings_are_collected(self):
         expected = {".text", ".rodata", ".data", ".bss", ".page_directory", ".page_tables",
-                    ".bootstrap_stack", ".privilege_stack", ".usertext", ".userstack"}
+                    ".bootstrap_stack", ".privilege_stack", ".fatal_stack", ".df_stack", ".usertext", ".userstack"}
         actual = {n for n, s in self.sections.items() if s[2] & 2}
         self.assertEqual(actual, expected)
         self.assertNotIn(".rodata.str1.1", self.sections)
@@ -77,6 +96,18 @@ class M1LinkedLayout(unittest.TestCase):
         text = self.sections[".text"]
         self.assertEqual(struct.unpack_from("<I", self.data, text[4])[0], 0x1BADB002)
         self.assertLess(text[4], 8192)
+
+    def test_emergency_stacks_and_all_guards_have_no_unrelated_objects(self):
+        guards=[(self.symbols[p+"_start"][0],self.symbols[p+"_end"][0])
+                for p in PREFIXES if "guard" in p]
+        self.assertEqual(len(guards),10)
+        for name,start,size in elf_object_symbols(os.environ["KMZ_TEST_ELF"]):
+            end=start+size
+            self.assertFalse(any(start<b and end>a for a,b in guards),name)
+            for prefix,owner in (("_fatal_stack","fatal_stack"),("_df_stack","double_fault_stack")):
+                a,b=self.symbols[prefix+"_start"][0],self.symbols[prefix+"_end"][0]
+                if start<b and end>a:
+                    self.assertEqual((name,start,end),(owner,a,b))
 
 class M1LayoutBoot(KmzCase):
     def test_linked_layout_boots_with_legacy_paging_and_ring3_held(self):
@@ -100,7 +131,8 @@ class M1LayoutBoot(KmzCase):
         self.assertEqual(policy["page_structures_mutable"], "yes")
         self.assertEqual(policy["nx_enforced"], "no")
         rows = {r["name"]: r for r in report["MEMORY_REGIONS"]}
-        self.assertEqual(len(rows), 21)
+        self.assertEqual(len(rows), 27)
+        self.assertEqual(policy["guard_pages_reserved"], "10")
         for name in ("text", "rodata", "page_directory", "page_tables"):
             self.assertEqual(rows[name]["legacy_flags"], "3")
             self.assertEqual(rows[name]["plan_flags_if_ram"], "1")

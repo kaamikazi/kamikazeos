@@ -16,6 +16,8 @@ enum mp_region_id {
     MP_TEXT, MP_RODATA, MP_DATA, MP_BSS, MP_DIRECTORY, MP_TABLES,
     MP_BOOT_GUARD_LOW, MP_BOOT_STACK, MP_BOOT_GUARD_HIGH,
     MP_PRIV_GUARD_LOW, MP_PRIV_STACK, MP_PRIV_GUARD_HIGH,
+    MP_FATAL_GUARD_LOW, MP_FATAL_STACK, MP_FATAL_GUARD_HIGH,
+    MP_DF_GUARD_LOW, MP_DF_STACK, MP_DF_GUARD_HIGH,
     MP_USER_CODE, MP_USER_GUARD_LOW, MP_USER_STACK, MP_USER_GUARD_HIGH,
     MP_HEAP, MP_REGION_COUNT
 };
@@ -33,4 +35,6 @@ const char *mp_region_name(uint32_t id);
 uint32_t mp_page_flags(const struct mp_layout *layout, uint32_t address,
                        enum mp_policy_mode mode, int ram_usable);
 int mp_region_at(const struct mp_layout *layout, uint32_t address);
+int mp_region_is_guard(uint32_t id);
+uint32_t mp_guard_pages(const struct mp_layout *layout);
 #endif

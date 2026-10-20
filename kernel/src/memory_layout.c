@@ -8,6 +8,8 @@ DECLARE(_kernel_text); DECLARE(_kernel_rodata); DECLARE(_kernel_data); DECLARE(_
 DECLARE(_page_directory); DECLARE(_page_tables);
 DECLARE(_bootstrap_guard_low); DECLARE(_bootstrap_stack); DECLARE(_bootstrap_guard_high);
 DECLARE(_privilege_guard_low); DECLARE(_privilege_stack); DECLARE(_privilege_guard_high);
+DECLARE(_fatal_guard_low); DECLARE(_fatal_stack); DECLARE(_fatal_guard_high);
+DECLARE(_df_guard_low); DECLARE(_df_stack); DECLARE(_df_guard_high);
 DECLARE(_user_code); DECLARE(_user_guard_low); DECLARE(_user_stack); DECLARE(_user_guard_high);
 DECLARE(_heap_candidate);
 static struct mp_layout layout;
@@ -23,6 +25,8 @@ void memory_layout_init(void)
         SPAN(_page_directory),SPAN(_page_tables),
         SPAN(_bootstrap_guard_low),SPAN(_bootstrap_stack),SPAN(_bootstrap_guard_high),
         SPAN(_privilege_guard_low),SPAN(_privilege_stack),SPAN(_privilege_guard_high),
+        SPAN(_fatal_guard_low),SPAN(_fatal_stack),SPAN(_fatal_guard_high),
+        SPAN(_df_guard_low),SPAN(_df_stack),SPAN(_df_guard_high),
         SPAN(_user_code),SPAN(_user_guard_low),SPAN(_user_stack),SPAN(_user_guard_high),
         SPAN(_heap_candidate)
     };

@@ -1,4 +1,4 @@
-/* Phase A: explicit page-isolated layout. Guard reservations are NOT unmapped.
+/* Phases A/B: explicit page-isolated layout. Guard reservations are NOT unmapped.
    ELF flags describe intent; the existing legacy paging policy stays active. */
 ENTRY(_start)
 SECTIONS
@@ -39,6 +39,16 @@ SECTIONS
         _privilege_stack_start = .; KEEP(*(.privilege_stack)) _privilege_stack_end = .;
         _privilege_guard_high_start = .; . += 4K; _privilege_guard_high_end = .;
     }
+    .fatal_stack (NOLOAD) : ALIGN(4K) {
+        _fatal_guard_low_start = .; . += 4K; _fatal_guard_low_end = .;
+        _fatal_stack_start = .; KEEP(*(.fatal_stack)) _fatal_stack_end = .;
+        _fatal_guard_high_start = .; . += 4K; _fatal_guard_high_end = .;
+    }
+    .df_stack (NOLOAD) : ALIGN(4K) {
+        _df_guard_low_start = .; . += 4K; _df_guard_low_end = .;
+        _df_stack_start = .; KEEP(*(.df_stack)) _df_stack_end = .;
+        _df_guard_high_start = .; . += 4K; _df_guard_high_end = .;
+    }
     _kernel_privileged_end = .;
     .usertext : ALIGN(4K) {
         _user_code_start = .; KEEP(*(.usertext .usertext.*))
@@ -68,6 +78,10 @@ SECTIONS
     ASSERT(_bootstrap_stack_end - _bootstrap_stack_start == 16K, "bootstrap stack size")
     ASSERT(_bootstrap_guard_high_end == _privilege_guard_low_start, "stack region gap")
     ASSERT(_privilege_stack_end - _privilege_stack_start == 16K, "privilege stack size")
+    ASSERT(_privilege_guard_high_end == _fatal_guard_low_start, "privilege/fatal region gap")
+    ASSERT(_fatal_stack_end - _fatal_stack_start == 16K, "fatal diagnostic stack size")
+    ASSERT(_fatal_guard_high_end == _df_guard_low_start, "fatal/DF region gap")
+    ASSERT(_df_stack_end - _df_stack_start == 16K, "DF stack size")
     ASSERT(_user_code_start == _kernel_privileged_end, "privileged/user boundary")
     ASSERT(_user_code_end - _user_code_start == 4K, "exactly one user code page")
     ASSERT(_user_code_end == _user_guard_low_start, "user code/guard gap")

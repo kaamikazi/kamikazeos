@@ -5,6 +5,8 @@ static const char *const names[MP_REGION_COUNT] = {
     "text", "rodata", "data", "bss", "page_directory", "page_tables",
     "bootstrap_guard_low", "bootstrap_stack", "bootstrap_guard_high",
     "privilege_guard_low", "privilege_stack", "privilege_guard_high",
+    "fatal_guard_low", "fatal_stack", "fatal_guard_high",
+    "df_guard_low", "df_stack", "df_guard_high",
     "user_code", "user_guard_low", "user_stack", "user_guard_high", "heap_candidate"
 };
 
@@ -34,8 +36,11 @@ int mp_layout_validate(const struct mp_layout *l, const char **why)
         case MP_DIRECTORY: case MP_USER_CODE:
         case MP_BOOT_GUARD_LOW: case MP_BOOT_GUARD_HIGH:
         case MP_PRIV_GUARD_LOW: case MP_PRIV_GUARD_HIGH:
-        case MP_USER_GUARD_LOW: case MP_USER_GUARD_HIGH: required=MP_PAGE_SIZE; break;
+        case MP_USER_GUARD_LOW: case MP_USER_GUARD_HIGH:
+        case MP_FATAL_GUARD_LOW: case MP_FATAL_GUARD_HIGH:
+        case MP_DF_GUARD_LOW: case MP_DF_GUARD_HIGH: required=MP_PAGE_SIZE; break;
         case MP_TABLES: case MP_BOOT_STACK: case MP_PRIV_STACK: case MP_USER_STACK:
+        case MP_FATAL_STACK: case MP_DF_STACK:
             required=4u*MP_PAGE_SIZE; break;
         case MP_HEAP: required=MP_HEAP_BYTES; break;
         }
@@ -69,7 +74,9 @@ uint32_t mp_page_flags(const struct mp_layout *l, uint32_t address,
     case MP_NULL: case MP_LOW_BEFORE_VGA: case MP_LOW_AFTER_VGA:
     case MP_BOOT_GUARD_LOW: case MP_BOOT_GUARD_HIGH:
     case MP_PRIV_GUARD_LOW: case MP_PRIV_GUARD_HIGH:
-    case MP_USER_GUARD_LOW: case MP_USER_GUARD_HIGH: return 0;
+    case MP_USER_GUARD_LOW: case MP_USER_GUARD_HIGH:
+    case MP_FATAL_GUARD_LOW: case MP_FATAL_GUARD_HIGH:
+    case MP_DF_GUARD_LOW: case MP_DF_GUARD_HIGH: return 0;
     case MP_VGA: return flags;
     }
     if (!ram_usable || (id==MP_HEAP && !l->heap_available)) return 0;
@@ -79,4 +86,22 @@ uint32_t mp_page_flags(const struct mp_layout *l, uint32_t address,
     case MP_USER_STACK: return flags|MP_USER;
     default: return flags;
     }
+}
+
+int mp_region_is_guard(uint32_t id)
+{
+    switch(id) {
+    case MP_BOOT_GUARD_LOW: case MP_BOOT_GUARD_HIGH: case MP_PRIV_GUARD_LOW: case MP_PRIV_GUARD_HIGH:
+    case MP_FATAL_GUARD_LOW: case MP_FATAL_GUARD_HIGH: case MP_DF_GUARD_LOW: case MP_DF_GUARD_HIGH:
+    case MP_USER_GUARD_LOW: case MP_USER_GUARD_HIGH: return 1;
+    default:return 0;
+    }
+}
+uint32_t mp_guard_pages(const struct mp_layout *l)
+{
+    if(!mp_layout_validate(l,0))return 0;
+    uint32_t pages=0;
+    for(uint32_t i=0;i<MP_REGION_COUNT;i++)if(mp_region_is_guard(i))
+        pages+=(l->regions[i].end-l->regions[i].start)/MP_PAGE_SIZE;
+    return pages;
 }

@@ -11,7 +11,8 @@ static struct mp_layout layout(void)
     uint32_t at=0x100000;
     for (int i=MP_TEXT;i<MP_REGION_COUNT;i++) {
         uint32_t size=4096;
-        if (i==MP_TABLES || i==MP_BOOT_STACK || i==MP_PRIV_STACK || i==MP_USER_STACK) size=16384;
+        if (i==MP_TABLES || i==MP_BOOT_STACK || i==MP_PRIV_STACK || i==MP_USER_STACK ||
+            i==MP_FATAL_STACK || i==MP_DF_STACK) size=16384;
         if (i==MP_HEAP) size=65536;
         l.regions[i]=(struct mp_span){at,at+size};at+=size;
     }
@@ -78,7 +79,8 @@ int test_planned_section_permissions_do_not_imply_nx(void)
         case MP_TEXT: case MP_RODATA: case MP_DIRECTORY: case MP_TABLES: expected=1;break;
         case MP_USER_CODE:expected=5;break;case MP_USER_STACK:expected=7;break;
         case MP_BOOT_GUARD_LOW:case MP_BOOT_GUARD_HIGH:case MP_PRIV_GUARD_LOW:
-        case MP_PRIV_GUARD_HIGH:case MP_USER_GUARD_LOW:case MP_USER_GUARD_HIGH:expected=0;break;
+        case MP_PRIV_GUARD_HIGH:case MP_USER_GUARD_LOW:case MP_USER_GUARD_HIGH:
+        case MP_FATAL_GUARD_LOW:case MP_FATAL_GUARD_HIGH:case MP_DF_GUARD_LOW:case MP_DF_GUARD_HIGH:expected=0;break;
         }
         if (mp_page_flags(&l,l.regions[i].start,MP_PROTECTED_PLAN,1)!=expected) return 0;
     }
@@ -88,13 +90,14 @@ int test_guard_reservations_remain_present_under_active_policy(void)
 {
     struct mp_layout l=layout();int count=0;
     const int guards[]={MP_BOOT_GUARD_LOW,MP_BOOT_GUARD_HIGH,MP_PRIV_GUARD_LOW,
-        MP_PRIV_GUARD_HIGH,MP_USER_GUARD_LOW,MP_USER_GUARD_HIGH};
-    for (int i=0;i<6;i++) {
+        MP_PRIV_GUARD_HIGH,MP_FATAL_GUARD_LOW,MP_FATAL_GUARD_HIGH,MP_DF_GUARD_LOW,
+        MP_DF_GUARD_HIGH,MP_USER_GUARD_LOW,MP_USER_GUARD_HIGH};
+    for (int i=0;i<10;i++) {
         uint32_t a=l.regions[guards[i]].start;
         if (mp_page_flags(&l,a,MP_LEGACY_ACTIVE,1)!=3 || mp_page_flags(&l,a,MP_PROTECTED_PLAN,1)) return 0;
         count++;
     }
-    return count==6 && mp_page_flags(&l,0,MP_LEGACY_ACTIVE,1)==3 &&
+    return count==10 && mp_guard_pages(&l)==10 && mp_page_flags(&l,0,MP_LEGACY_ACTIVE,1)==3 &&
         !mp_page_flags(&l,0,MP_PROTECTED_PLAN,1);
 }
 int test_planned_ram_device_and_heap_availability_rules(void)
