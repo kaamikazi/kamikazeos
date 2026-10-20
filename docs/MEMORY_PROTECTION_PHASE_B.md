@@ -181,3 +181,94 @@ After independent source/ABI/persistence review and separate explicit approval:
 
 Each real-fault result needs its own evidence and review. Structural preparation
 does not authorize activating later memory protections or marking these paths safe.
+
+## Complete non-destructive verification
+
+Tested source commit: `7e9ec799b5976aad5c260e6fc7b3443360533a6f`.
+Tested tree: `8fde32d721837db7ae7f7a4640ef76648fb3a7ef`.
+The final evidence-only commit changes this document; executable source and tests
+remain identical to the tested commit.
+
+The full run at `build/test-runs/v262-phase-b-complete/` finished **198/198 passed,
+zero failures, errors or unittest skips**, exit code 0. Unittest time was
+**1059.242 seconds** (wrapper 1059.593 seconds), from
+2026-10-20 10:32:10 UTC to 10:49:50 UTC. Discovery found 202 unique IDs: every
+original 148 and accepted Phase A 171 ID is retained, with 31 new Phase B IDs.
+Selection comprises 144 original + 23 Phase A + 31 Phase B cases.
+
+The following four IDs were explicitly excluded, not passed or counted as skips:
+
+- `test_integrity_gate.F4HealthScore.test_intentional_panic_test_not_penalized_next_boot`
+- `test_panic_scope.L3Ring0Faults.test_divide_fault`
+- `test_panic_scope.L3Ring0Faults.test_invalid_opcode_fault`
+- `test_panic_scope.L3Ring0Faults.test_page_fault`
+
+The run used `tests/run_regression.py --no-build` with the preserved compatibility
+baseline ELF, a fresh run directory, `--exclude L3Ring0Faults` and
+`--exclude test_intentional_panic_test_not_penalized_next_boot`. The exact command,
+baseline ELF hash, commit/tree, discovery list and protected-file hashes are in
+`preflight.json`. `verify.py` in the run directory is the exact host receipt
+wrapper used; `result.json` records exit/counts, source/ELF preservation and hashes.
+Disposable per-case images were used. `source-before.json` and `source-after.json`
+are byte-identical inventories of every tracked working-tree file. Independent
+read-only monitor evidence is under
+`test_prepared_df_architecture_is_structural_only_and_normal_tr_is_preserved/monitor.log`;
+linked disassembly is under `emergency-entry-static/disassembly.txt`.
+
+| Artifact | SHA-256 |
+| --- | --- |
+| Tested kernel ELF | `7cc1262fb1caee2b104d17d601a19e172eb02eac6d93b56ad2b2612a228db7bc` |
+| Full summary | `9f774277b574b7b15af548bc817cc6afb834395b5ebd1441d7324baf8f97304c` |
+| Selected IDs | `27f1128e96ba0c277a72bc02ca799258600e1b7fa2d192ca613d4ababb04ce5e` |
+| Excluded IDs | `b53bfdb941d93d5313543d3087e4cf94333cd99dcf6c97964dc831b43f0cf915` |
+| Each source inventory | `51acd143d30dfd58ee289cbae2c6896b8e511ddeed6c8bea850e14162ea84477` |
+| Linked layout JSON | `725d63ad5698e0ee42561f5ff6615094e23eee9f52edeb79732bf99ffeb96dde` |
+| Read-only monitor log | `375d1876a0e4f186754c313960fe0da6eb5182364c00eaf77bbdc388e11943ba` |
+
+### Final linked layout
+
+All ends below are exclusive. Complete per-span bounds, including all ten guards,
+are in `layout.json`; guard adjacency/object exclusion is covered by ELF tests.
+
+| Region | Start | End |
+| --- | --- | --- |
+| Text | `0x00100000` | `0x0012b000` |
+| Rodata | `0x0012b000` | `0x0013c000` |
+| Data | `0x0013c000` | `0x0013d000` |
+| BSS | `0x0013d000` | `0x00148000` |
+| Page directory | `0x00148000` | `0x00149000` |
+| Four page tables | `0x00149000` | `0x0014d000` |
+| Bootstrap stack payload | `0x0014e000` | `0x00152000` |
+| Privilege stack payload | `0x00154000` | `0x00158000` |
+| Fatal stack payload | `0x0015a000` | `0x0015e000` |
+| DF stack payload | `0x00160000` | `0x00164000` |
+| User code | `0x00165000` | `0x00166000` |
+| User stack payload | `0x00167000` | `0x0016b000` |
+| Kernel extent | `0x00100000` | `0x0016c000` |
+| Heap candidate | `0x0016c000` | `0x0017c000` |
+
+Every stack payload remains 16 KiB. The broad identity aperture remains 16 MiB.
+Heap admission/allocation policy is unchanged by these reservations.
+
+### Preservation and local commits
+
+Accepted Phase A source/ELF/image snapshots remain under
+`build/preservation/v262-phase-a-accepted-d564130/`. Both accepted branch refs,
+the original recovery image, Phase A/v2.6.1 historical result/summary receipts
+and the complete pre-existing audit-file hash inventory were checked unchanged.
+
+- Recovery image: `4daf871c5c2982a2c6401a8a3336959f31bdd0143ae00f238f4cbdc7f453f19e`
+- Historical `release-8e75093.zip`: `f5982850ab1d46a4ca4f0d9bdb09fab31311abc9e66f64387848ae8a10235365`
+- Historical `release-0cd86d8.zip`: `bae909075761af2c3edafe33e993002487d79cc61c9c0dae483ffccb2b75be75`
+
+Reviewable local implementation commits, in order:
+
+1. `9381d86aa68c71399df1b0cebf1e318f517de865` — bounded record/UART/policy primitives.
+2. `070c4986cd087e61987365b4c8d47631b112bd9b` — isolated stack/guard reservations.
+3. `cca414c22a0bfd7a9582102d8c68d6ac3a85d8cd` — exact architecture/frame checks and ATA guard.
+4. `7e9ec799b5976aad5c260e6fc7b3443360533a6f` — fatal entry, DF preparation and live structural checks.
+
+The final documentation commit records these receipts. `final-verification.json`
+in the complete run directory binds that final commit/tree to the tested source,
+preserved binaries/source archive and unchanged accepted refs/protected artifacts.
+Phase B is ready for independent review; real fault-path acceptance is deferred.
