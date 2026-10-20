@@ -16,8 +16,8 @@
 struct interrupt_frame;
 
 /* Never returns. `code` is a stable ID like "TEST-PANIC-001". */
-void kpanic(const char *code, const char *msg, const char *hint);
-void kpanic_exception(const char *name, const struct interrupt_frame *frame);
+void kpanic(const char *code, const char *msg, const char *hint) __attribute__((noreturn));
+void kpanic_exception(const char *name, const struct interrupt_frame *frame) __attribute__((noreturn));
 
 /* v2.6.1: a test command calls this right before deliberately panicking
    or faulting, so the evidence is recorded as an intentional test (still

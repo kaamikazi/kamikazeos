@@ -35,6 +35,8 @@
 #include "syscall.h"
 #include "tinyfs.h"
 #include "tss.h"
+#include "emergency.h"
+#include "double_fault.h"
 #include "vga.h"
 
 /* The value a Multiboot loader leaves in EAX to prove it booted us. */
@@ -95,6 +97,7 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
      */
     serial_init();
     errors_init();
+    emergency_init();
     gdt_init();
     idt_init_exceptions();
     tss_init();
@@ -180,6 +183,11 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
         report_ok("identity paging enabled after strict validation");
     else
         report_warn("paging prepared but not enabled (validation gate held)");
+
+    int df_ready=double_fault_init();
+    emergency_set_runtime_ready(df_ready);
+    if(df_ready) report_ok("emergency stacks and exception-only double-fault task gate prepared");
+    else report_warn("double-fault gate held - inspect emergency architecture status");
 
     tinyfs_init();
     if (tinyfs_status()->formatted)

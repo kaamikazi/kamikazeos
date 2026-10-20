@@ -675,3 +675,12 @@ const struct mp_ram_accounting *memory_accounting_status(int mapping_active)
     }
     return &accounting;
 }
+
+int memory_discovery_range_usable(uint32_t start,uint32_t end)
+{
+    if(!status.map_validated || !accounting_complete || start>=end ||
+       end>MP_APERTURE_END || ((start|end)&4095u))return 0;
+    for(uint32_t page=start;page<end;page+=MP_PAGE_SIZE)
+        if(!mp_ram_page_usable(accounting_regions,accounting_count,page))return 0;
+    return 1;
+}

@@ -75,5 +75,7 @@ int memory_map_available(void);
 int memory_hardening_self_test(void);
 /* Phase A observability only. Does not alter legacy bitmap/heap eligibility. */
 const struct mp_ram_accounting *memory_accounting_status(int mapping_active);
+/* Read-only static architecture admission, not an allocation/mapping API. */
+int memory_discovery_range_usable(uint32_t start,uint32_t end);
 
 #endif /* KMZ_MEMORY_H */

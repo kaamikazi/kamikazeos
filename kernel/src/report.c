@@ -38,6 +38,9 @@
 #include "task.h"
 #include "tinyfs.h"
 #include "tss.h"
+#include "emergency.h"
+#include "double_fault.h"
+#include "emergency_stacks.h"
 
 #define KMZ_VERSION "2.6.1"
 
@@ -338,11 +341,12 @@ void report_send(void)
     }
 
     /* Phase A metadata is additive. It does not activate the protected plan. */
-    serial_print("[MEMORY_POLICY]\nphase=v2.6.2_phase_a\n");
+    serial_print("[MEMORY_POLICY]\nphase=v2.6.2_phase_b\n");
     serial_print("layout_valid="); serial_print(memory_layout_valid() ? "yes" : "no");
     serial_print("\nvalidation_error="); serial_print(memory_layout_error());
     serial_print("\nactive_policy=legacy_16m_identity\nprotected_plan_installed=no");
     serial_print("\ncr0_wp_configured_by_phase_a=no\npage_structures_mutable=yes");
+    serial_print("\ncr0_wp_configured_by_phase_b=no");
     serial_print("\nguard_pages_reserved=");serial_print_dec(mp_guard_pages(memory_layout_get()));
     serial_print("\nguard_pages_active=0\nnx_enforced=no\nframe_allocator=no\n");
     serial_print("[MEMORY_REGIONS]\n");
@@ -376,6 +380,33 @@ void report_send(void)
     serial_print("\nunmapped_usable_pages="); serial_print_dec(ram->unmapped_usable_pages);
     serial_print("\neligible_pages="); serial_print_dec(ram->eligible_pages);
     serial_print("\neligibility_enforced=no\n");
+
+    struct double_fault_status df;double_fault_status(&df);
+    serial_print("[EMERGENCY_ARCH]\nruntime_ready=");serial_print(emergency_runtime_is_ready()?"yes":"no");
+    serial_print("\nrecord_bytes=");serial_print_dec(sizeof(struct em_crash_record));
+    serial_print("\nentry_abi_bytes=");serial_print_dec(sizeof(struct em_entry_state));
+    serial_print("\nfirst_record_magic=");serial_print_dec(emergency_first_record.magic);
+    serial_print("\ndf_record_magic=");serial_print_dec(emergency_df_record.magic);
+    serial_print("\nreentry_record_magic=");serial_print_dec(emergency_reentry_record.magic);
+    serial_print("\nentry_busy=");serial_print_dec(emergency_entry_busy);
+    serial_print("\nreentry_count=");serial_print_dec(emergency_reentry_count);
+    serial_print("\natalayer_io_active=");serial_print(ata_io_in_progress()?"yes":"no");
+    serial_print("\nfatal_stack_start=");serial_print_dec(emergency_fatal_stack_bottom());
+    serial_print("\nfatal_stack_end=");serial_print_dec(emergency_fatal_stack_top());
+    serial_print("\ndf_stack_start=");serial_print_dec(df.stack_start);
+    serial_print("\ndf_stack_end=");serial_print_dec(df.stack_end);
+    serial_print("\ndf_prepared=");serial_print(df.prepared?"yes":"no");
+    serial_print("\ndf_descriptor_valid=");serial_print(df.descriptor_valid?"yes":"no");
+    serial_print("\ndf_gate_valid=");serial_print(df.gate_valid?"yes":"no");
+    serial_print("\ndf_state_valid=");serial_print(df.state_valid?"yes":"no");
+    serial_print("\nnormal_tss_selector=");serial_print_dec(df.normal_selector);
+    serial_print("\ndf_tss_selector=");serial_print_dec(df.selector);
+    serial_print("\ndf_tss_address=");serial_print_dec(df.tss_address);
+    serial_print("\ndf_cr3=");serial_print_dec(df.cr3);
+    serial_print("\ndf_entry=");serial_print_dec(df.entry);
+    serial_print("\ndf_reason=");serial_print(df.reason);
+    serial_print("\nhardware_task_scheduling=no\nintentional_fault_tests_approved=no");
+    serial_print("\nreal_fault_path_validation=deferred\n");
 
     serial_print("[PAGE_FAULT]\n");
     serial_print("present="); serial_print(pg_status->last_fault_present ? "yes" : "no");

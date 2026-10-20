@@ -8,6 +8,7 @@
 #include "ring3.h"
 #include "serial.h"
 #include "vga.h"
+#include "emergency.h"
 
 static void serial_print_hex32(uint32_t value)
 {
@@ -54,19 +55,25 @@ static enum health_class panic_class(void)
 
 static void record_panic(void)
 {
+    if(!emergency_persistence_allowed_now())return;
     recovery_memory_mark_panic(intentional_test);
     recovery_journal_append(JE_PANIC, 0, 0, 2, 0,
                             intentional_test ? "PANICT" : "PANIC0");
 }
 
+static void halt_forever(void) __attribute__((noreturn));
 static void halt_forever(void)
 {
     for (;;)
         __asm__ volatile ("cli; hlt");
 }
 
-void kpanic(const char *code, const char *msg, const char *hint)
+/* kpanic's assembly entry switches stacks and bounds/copies these strings.
+   This formatter is reachable only through a verified ordinary context. */
+void panic_ordinary(const char *code, const char *msg, const char *hint) __attribute__((noreturn));
+void panic_ordinary(const char *code, const char *msg, const char *hint)
 {
+    if(!emergency_panic_authorized())emergency_reentry_halt();
     /* 1. Record the event FIRST — diagnostics before cosmetics. This also
           streams the entry out the serial port to the host. */
     error_log_class(SEV_PANIC, panic_class(), code, "kernel", msg, hint);
@@ -102,12 +109,12 @@ void kpanic(const char *code, const char *msg, const char *hint)
     halt_forever();
 }
 
-void kpanic_exception(const char *name, const struct interrupt_frame *frame)
+void kpanic_exception(const char *supplied_name, const struct interrupt_frame *frame)
 {
-    if (!frame)
-        kpanic("CPU-EXCEPTION", "Exception entry supplied no saved frame",
-               "halt and inspect the interrupt entry ABI");
+    (void)supplied_name;
+    if(!emergency_exception_authorized(frame))emergency_reentry_halt();
     uint32_t vector = frame->vector;
+    const char *name=interrupt_exception_name(vector);
     uint32_t error_code = frame->error_code;
     uint32_t eip = frame->eip;
     uint32_t cs = frame->cs;
@@ -119,7 +126,7 @@ void kpanic_exception(const char *name, const struct interrupt_frame *frame)
     int user_stack_present =
         interrupt_frame_user_stack(frame, &user_esp, &user_ss);
     if (vector == 14)
-        __asm__ volatile ("mov %%cr2, %0" : "=r"(fault_address));
+        fault_address=emergency_first_record.cr2;
 
     __asm__ volatile ("cli");
     if (user_stack_present)

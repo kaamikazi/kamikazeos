@@ -1,24 +1,45 @@
 .intel_syntax noprefix
+#include "emergency_abi.h"
 
 .extern interrupt_dispatch
 
 .set GDT_KERNEL_DATA_SELECTOR, 0x10
 
+.macro ISR_FATAL number, error
+.global isr\number
+.type isr\number,@function
+isr\number:
+    cli
+    lock bts dword ptr [emergency_entry_busy],0
+    jc .Lreenter\number
+    mov dword ptr [emergency_entry_state+EE_VECTOR],\number
+    mov dword ptr [emergency_entry_state+EE_HAS_ERROR],\error
+    mov dword ptr [emergency_entry_state+EE_KIND],EM_EXCEPTION
+    jmp emergency_exception_common
+.Lreenter\number:
+    lock inc dword ptr [emergency_reentry_count]
+    cmp dword ptr [emergency_reentry_record],0
+    jne emergency_reentry_halt
+    mov dword ptr [emergency_reentry_record+ER_VECTOR],\number
+    jmp emergency_reentry_capture
+.size isr\number,.-isr\number
+.endm
+
 .macro ISR_NOERR number
+.if \number < 32
+    ISR_FATAL \number,0
+.else
 .global isr\number
 .type isr\number, @function
 isr\number:
     push 0
     push \number
     jmp interrupt_common
+.endif
 .endm
 
 .macro ISR_ERR number
-.global isr\number
-.type isr\number, @function
-isr\number:
-    push \number
-    jmp interrupt_common
+    ISR_FATAL \number,1
 .endm
 
 ISR_NOERR 0
