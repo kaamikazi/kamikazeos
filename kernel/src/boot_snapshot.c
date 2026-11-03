@@ -46,11 +46,13 @@ void boot_snapshot_health_now(struct health_breakdown *out)
     uint32_t warnings  = error_count_severity(SEV_WARNING);
     uint32_t criticals = error_count_severity(SEV_ERROR) +
                          error_count_severity(SEV_PANIC);
+    uint32_t production_isolated = st.isolated >= st.expected_test_failures
+                                 ? st.isolated - st.expected_test_failures : 0;
 
     out->base             = 100;
     out->panic_penalty    = recovery_memory_get()->prev_panic_detected ? -15 : 0;
     out->missing_penalty  = -10 * (int)st.missing;
-    out->isolated_penalty = -8  * (int)st.isolated;
+    out->isolated_penalty = -8  * (int)production_isolated;
     out->warning_penalty  = -5  * (int)warnings;
     out->critical_penalty = -25 * (int)criticals;
 
@@ -87,7 +89,8 @@ static void capture(struct boot_snapshot *s)
     s->attached_count       = cap8(st.attached);
     s->fallback_count       = cap8(st.fallback);
     s->missing_count        = cap8(st.missing);
-    s->isolated_count       = cap8(st.isolated);
+    s->isolated_count       = cap8(st.isolated >= st.expected_test_failures
+                                 ? st.isolated - st.expected_test_failures : 0);
     s->blocked_driver_count = blocked;
     s->warning_count        = cap8(error_count_severity(SEV_WARNING));
     s->critical_count       = cap8(error_count_severity(SEV_ERROR) +

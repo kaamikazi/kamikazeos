@@ -158,10 +158,35 @@ h2 {
 
 .card-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 14px;
+}
+
+.card-head h2 {
+  flex: 1 1 120px;
+  min-width: 0;
+}
+
+.card-head .badge {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  justify-content: center;
+  overflow-wrap: anywhere;
+  text-align: center;
+  white-space: normal;
+}
+
+.status-grid .card-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.status-grid .card-head .badge {
+  justify-self: start;
 }
 
 .hint {

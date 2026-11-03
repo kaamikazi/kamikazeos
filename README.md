@@ -1,22 +1,43 @@
 # KamikazeOS
 
-KamikazeOS is an experimental toy operating system that explores a narrow,
-auditable version of "self-healing" infrastructure: the kernel records what
-went wrong, exports structured reports, and allows only human-approved,
-policy-gated recovery actions and simulated package updates.
+KamikazeOS is an experimental operating system research prototype exploring
+auditable self-healing infrastructure. The kernel records failures, exports
+structured recovery reports, persists recovery evidence, and supports
+human-approved, policy-gated recovery actions and controlled package update
+flows.
 
-This is not a production OS. It is a learning and portfolio project. It runs
-in QEMU, has no user isolation, no networking stack, no real driver loading,
-and no production security guarantees.
+It runs in QEMU as a focused research OS prototype. It is not intended to
+replace Linux, Windows, or any production operating system. The goal is to
+demonstrate low-level OS mechanisms, durable recovery architecture, offline
+package trust tooling, and a read-only Recovery Center dashboard while keeping
+all repair/update actions explicit, logged, and human-approved.
 
-Current release: v1.5.0 "Public Demo Release". This is the stable public demo
-package: v1.2.0 "Trust Forge" remains the signing/tooling milestone, and v1.4.0
-"Recovery Center Pro" is the portfolio dashboard milestone.
+KamikazeOS is not production-ready and not a general-purpose operating system.
+It has no process isolation, no networking stack, no real driver loading, and
+no production security guarantees.
+
+Development branch: v2.6.0 "Ring 3 Seed". One explicitly approved disposable
+QEMU run completed the fixed CPL3 round trip after the pre-execution hardening
+audit. The approval was consumed and the default build returned to
+`execution_approved=no`; general user execution remains unavailable.
 
 ## Feature Overview
 
 - Bootable 32-bit x86 kernel in QEMU.
-- VGA text console and PS/2 keyboard polling shell.
+- Real x86 IDT, CPU exception stubs, legacy PIC remap, and PIT timer ticks.
+- Multiboot memory map parsing and fixed 4 KiB physical page tracking.
+- Bounded fixed-region kernel bump heap with allocation stats.
+- Enabled 32-bit x86 paging with a validated 0-16 MiB identity map and five
+  narrowly scoped user pages; all other mapped pages remain supervisor-only.
+- DPL3-capable `int 0x80` gate with nine fixed services and caller-CPL policy.
+- Flat DPL3 code/data descriptors and a loaded 32-bit TSS with bounded ESP0.
+- One build-time trusted CPL3 routine and fixed 16 KiB stack completed a
+  controlled `iretd`/`int 0x80`/`SYS_USER_EXIT` round trip in disposable QEMU;
+  the default build keeps the one-shot gate disabled.
+- Fixed kernel task records and cooperative built-in task steps.
+- Fixed-sector TinyFS with bounded checksummed text files.
+- Fixed kernel-managed app registry with policy-gated built-in app runs.
+- VGA text console and PS/2 IRQ keyboard shell with polling fallback.
 - GhostAttach device/driver recovery layer with verified fallback policy.
 - Structured kernel error logs and serial boot reports.
 - RecoveryMemory with CMOS fallback.
@@ -28,6 +49,7 @@ package: v1.2.0 "Trust Forge" remains the signing/tooling milestone, and v1.4.0
 - A/B module slot metadata for simulated package application.
 - Offline package manifest tooling with real host-side Ed25519 signatures.
 - Analyzer and read-only Recovery Center dashboard.
+- Integrated `system` and `diagnose` status commands for v2.x demos.
 
 ## Architecture
 
@@ -35,13 +57,22 @@ package: v1.2.0 "Trust Forge" remains the signing/tooling milestone, and v1.4.0
 flowchart TD
   QEMU["QEMU i386"] --> Kernel["KamikazeOS kernel"]
   Kernel --> VGA["VGA text console"]
-  Kernel --> Keyboard["PS/2 keyboard shell"]
+  Kernel --> IRQ["IDT + PIC + PIT"]
+  Kernel --> Memory["Memory map + page tracker"]
+  IRQ --> Keyboard["PS/2 IRQ keyboard shell"]
+  IRQ --> Tasks["Task table + tick accounting"]
+  Kernel --> Apps["Kernel-managed app registry"]
+  Kernel --> Privilege["User descriptors + TSS + ESP0 stack"]
+  Privilege --> Syscalls["Gated DPL3 syscall entry: int 0x80"]
+  Privilege --> Ring3["Prepared CPL3 routine: execution held"]
+  Ring3 --> Syscalls
   Kernel --> Ghost["GhostAttach"]
   Kernel --> Errors["Structured error log"]
   Kernel --> Store["RecoveryStore: ATA PIO recovery.img"]
   Store --> Journal["Durable journal"]
   Store --> Snapshots["Boot snapshots"]
   Store --> Manifests["Package manifest sectors"]
+  Store --> TinyFS["TinyFS: LBA 64-127"]
   Kernel --> Packages["Package lifecycle and A/B slot metadata"]
   Errors --> Serial["COM1 serial report"]
   Serial --> Analyzer["ai-recovery/analyze_logs.py"]
@@ -75,7 +106,7 @@ Run the OS:
 Prepare a demo checklist:
 
 ```powershell
-.\scripts\demo-v15.ps1
+.\scripts\demo-v20.ps1
 ```
 
 Analyze the captured serial report after running `export-logs` in the OS:
@@ -108,8 +139,22 @@ Inside KamikazeOS:
 
 ```text
 health
+system
+diagnose
 store
 snapshots
+tasks
+gdt
+tss
+privilege
+ring3-readiness
+user-memory
+ring3
+syscalls
+syscall-test
+fs
+apps
+run tinyfs-demo
 packages
 manifests
 trust
@@ -148,6 +193,11 @@ Real:
 - Host-side package manifest creation, validation, import/export.
 - Real host-side Ed25519 manifest signing and verification.
 - Kernel-side manifest checksum, trust-anchor, and policy enforcement.
+- DPL3-capable syscall gate, fixed dispatcher, registry, and reporting.
+- User segment descriptors, loaded TSS, and dedicated ESP0 kernel stack.
+- Verified `iretd`/return assembly for one linked CPL3 routine, with the
+  one-shot approval consumed and the default gate held disabled.
+- Minimal user code/stack PTEs and privilege-transition frame diagnostics.
 - Read-only analyzer and Recovery Center Pro dashboard.
 
 Simulated:
@@ -157,6 +207,9 @@ Simulated:
 - Internet update fetching.
 - AI auto-repair.
 - Driver downloads or arbitrary package execution.
+- General userspace programs, ELF loading, and execution from TinyFS.
+- Userspace pointers, multiple processes, process isolation, and per-process
+  address spaces.
 
 ## Safety Principles
 
@@ -171,6 +224,19 @@ Simulated:
 
 ## Version History
 
+- v2.6.0 "Ring 3 Seed" (development): one hardened fixed-routine CPL3 round
+  trip verified in disposable QEMU; no general or default user execution.
+- v2.5.0 "Privilege Boundary": DPL3 descriptors, TSS/ESP0 stack, and
+  privilege-readiness reporting.
+- v2.4.0 "Syscall Door": fixed kernel-internal `int 0x80` service interface.
+- v2.3.0 "Paging Gate": validated identity paging, CR3, and page-fault evidence.
+- v2.2.0 "Heap Seed": bounded kernel bump heap and heap reports.
+- v2.1.0 "Memory Map": Multiboot memory map parsing and page tracking.
+- v2.0.0 "Real Kernel Demo": integrated milestone with system diagnostics.
+- v1.9.0 "Userland Spark": fixed built-in app registry and safe run command.
+- v1.8.0 "TinyFS": bounded fixed-sector text file abstraction.
+- v1.7.0 "Task Seed": fixed task table and cooperative scheduler skeleton.
+- v1.6.0 "Kernel Discipline": IDT, CPU exceptions, PIC, PIT, and IRQ keyboard.
 - v1.5.0 "Public Demo Release": stable public demo docs and helper scripts.
 - v1.4.0 "Recovery Center Pro": polished read-only dashboard UI.
 - v1.3.0 "Public Release": documentation, demo, release polish.
@@ -185,17 +251,17 @@ See [docs/VERSION_HISTORY.md](docs/VERSION_HISTORY.md).
 
 ## Roadmap
 
-- Keep v1.x focused on reproducibility, documentation, and safer demos.
-- Possible future technical work: real in-kernel Ed25519 verification,
-  richer test automation, and more complete hardware discovery.
+- Possible future technical work: user/kernel copy helpers, a guarded user
+  stack, scheduler groundwork, real in-kernel Ed25519 verification, and richer
+  test automation.
 - Still out of scope: networking, driver downloads, binary patching, and
   autonomous repair.
 
 ## Portfolio Description
 
-KamikazeOS is a small x86 toy OS built to demonstrate operating-systems
-fundamentals, recovery-system design, update policy, offline signing tooling,
-and honest AI-adjacent safety boundaries. It is deliberately constrained:
-the interesting part is not that the OS can magically fix itself, but that it
-can explain state, preserve evidence, reject unsafe changes, and keep humans
-in control.
+KamikazeOS is a QEMU-based experimental kernel built to demonstrate
+operating-systems fundamentals, recovery-system design, update policy, offline
+signing tooling, and honest AI-adjacent safety boundaries. It is deliberately
+constrained: the interesting part is not that the OS can magically fix itself,
+but that it can explain state, preserve evidence, reject unsafe changes, and
+keep humans in control.

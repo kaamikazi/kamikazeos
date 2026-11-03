@@ -67,6 +67,12 @@ package states, or module slots.
 
 Field limits mirror the kernel sector format:
 
+All text fields must be printable ASCII and may not contain `;`, `=`, or
+control characters because those bytes delimit the serial report contract.
+Unknown top-level JSON fields are rejected rather than silently left unsigned.
+`reversible` and `requires_approval` must be JSON booleans, and every accepted
+package must set `requires_approval` to `true`.
+
 | Field | Limit / Values |
 |---|---|
 | `package_id` | ASCII, max 9 bytes, `PKG-` plus decimal digits |

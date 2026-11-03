@@ -27,10 +27,10 @@ function scoreClass(score) {
 
 function classify(value) {
   const v = String(value ?? "").toLowerCase();
-  if (["yes", "1", "ok", "allowed", "verified", "attached", "loaded", "trusted"].includes(v)) return "good";
-  if (["fallback", "suggested", "available", "medium", "pending", "applied"].includes(v)) return "warn";
-  if (["no", "0", "blocked", "failed", "invalid", "unsigned", "isolated", "missing_driver", "high", "error", "panic"].includes(v)) return "bad";
-  if (["low", "disk_imported", "builtin_seed"].includes(v)) return "info";
+  if (["yes", "1", "ok", "allowed", "verified", "attached", "loaded", "trusted", "enabled", "irq", "none", "running", "completed"].includes(v)) return "good";
+  if (["fallback", "suggested", "available", "medium", "pending", "applied", "sleeping", "apply_staged", "verify_staged", "rollback_staged", "kernel_managed_builtin_apps"].includes(v)) return "warn";
+  if (["no", "0", "blocked", "failed", "invalid", "unsigned", "isolated", "missing_driver", "high", "error", "panic", "crashed"].includes(v)) return "bad";
+  if (["low", "disk_imported", "builtin_seed", "ready", "cooperative"].includes(v)) return "info";
   return "neutral";
 }
 
@@ -106,6 +106,275 @@ function renderHealth(data) {
   box.appendChild(metric("Delta", data.health?.health_delta));
 }
 
+function renderV20Overview(data) {
+  const status = data.system_status || {};
+  const diag = data.diagnostics || {};
+  const box = $("v20-overview");
+  box.innerHTML = "";
+  box.appendChild(metric("Kernel", status.kernel_version || data.version));
+  box.appendChild(metric("Interrupts", `GDT ${status.gdt_loaded || "?"}, IDT ${status.idt_loaded || "?"}, PIC ${status.pic_remapped || "?"}, keyboard ${status.keyboard_mode || "?"}`));
+  box.appendChild(metric("Memory", `map ${status.memory_map || data.kernel_memory?.map_available || "?"}, free pages ${status.free_pages || data.pages?.free_pages || "?"}`));
+  box.appendChild(metric("Heap", `${status.heap_available || data.kernel_heap?.available || "?"}, remaining ${status.heap_remaining || data.kernel_heap?.remaining_bytes || "?"} bytes`));
+  box.appendChild(metric("Paging", `${status.paging_mode || data.paging?.mode || "?"}`));
+  box.appendChild(metric("Privilege", `${status.privilege_foundation || data.ring3_readiness?.readiness || "?"}, controlled Ring 3 ${status.ring3_execution_enabled || data.ring3?.execution_enabled || "no"}`));
+  box.appendChild(metric("Storage", `${status.recovery_backend || data.backend || "?"}, TinyFS ${status.tinyfs_status || "?"}`));
+  box.appendChild(metric("Apps", `${status.app_registry || data.apps_status?.total_apps || "?"} fixed built-ins`));
+  box.appendChild(metric("Packages", status.package_trust_mode || data.trust?.signature_verification || "?"));
+  box.appendChild(metric("Health", `${status.health_score || data.health?.score || "?"}/100`));
+  box.appendChild(metric("Last critical", status.last_critical || "none"));
+  box.appendChild(metric("Demo next command", diag.recommended_command || "none"));
+  box.appendChild(metric("Auto repair", diag.auto_repair || "no"));
+  const privilegeFoundation = status.privilege_foundation ||
+    data.ring3_readiness?.readiness;
+  const ready = status.gdt_loaded === "yes" &&
+    status.idt_loaded === "yes" &&
+    status.irq_gates_installed === "yes" &&
+    status.pic_remapped === "yes" &&
+    parseInt(status.free_pages || data.pages?.free_pages || "0", 10) > 0 &&
+    (status.heap_available || data.kernel_heap?.available) === "yes" &&
+    (status.paging_prepared || data.paging?.prepared) === "yes" &&
+    (data.paging?.identity_map_valid || "yes") === "yes" &&
+    ["ready", "foundation_ready", "controlled_test_ready", "roundtrip_verified"].includes(privilegeFoundation) &&
+    status.tinyfs_status === "formatted" &&
+    (status.recovery_backend || "").includes("disk") &&
+    parseInt(status.app_registry || "0", 10) > 0;
+  setBadge("v20-status", ready ? "integrated demo ready" : "review report",
+    ready ? "good" : "warn");
+}
+
+function renderPaging(data) {
+  const paging = data.paging || {};
+  const box = $("paging-panel");
+  box.innerHTML = "";
+  box.appendChild(metric("Prepared", paging.prepared || "?"));
+  box.appendChild(metric("Enabled", paging.enabled || "?"));
+  box.appendChild(metric("Mode", paging.mode || "prepared_not_enabled"));
+  box.appendChild(metric("Identity valid", paging.identity_map_valid || "?"));
+  box.appendChild(metric("Required ranges", paging.required_ranges_valid || "?"));
+  box.appendChild(metric("Directory", paging.page_directory || "?"));
+  box.appendChild(metric("Active CR3", paging.active_cr3 || "?"));
+  box.appendChild(metric("Mapped range", `${paging.mapped_start || "?"} - ${paging.mapped_end || "?"}`));
+  box.appendChild(metric("Fault handler", paging.page_fault_handler || "?"));
+  box.appendChild(metric("Validation error", paging.validation_error || "none"));
+  const valid = paging.prepared === "yes" && paging.identity_map_valid === "yes" &&
+    paging.required_ranges_valid === "yes";
+  setBadge("paging-status", paging.enabled === "yes" ? "enabled" :
+    valid ? "prepared" : "invalid",
+    valid ? (paging.enabled === "yes" ? "good" : "info") : "bad");
+
+  renderTable("page-map", data.page_map || [], [
+    { key: "type", label: "Type" },
+    { key: "name", label: "Range", wrap: true },
+    { key: "virtual_start", label: "Virtual Start" },
+    { key: "virtual_end", label: "Virtual End" },
+    { key: "physical_start", label: "Physical Start" },
+    { key: "physical_end", label: "Physical End" },
+    { key: "flags", label: "Flags", wrap: true },
+    { key: "validated", label: "Validated", badge: true },
+  ]);
+
+  const fault = data.page_fault || {};
+  const fbox = $("page-fault-panel");
+  fbox.innerHTML = "";
+  fbox.appendChild(metric("Present", fault.present || "no"));
+  fbox.appendChild(metric("Fault address", fault.fault_address || "none"));
+  fbox.appendChild(metric("Error code", fault.error_code || "0"));
+  fbox.appendChild(metric("Instruction", fault.eip || "none"));
+  fbox.appendChild(metric("Recovery attempted", fault.recovery_attempted || "no"));
+  setBadge("page-fault-status", fault.present === "yes" ? "fault recorded" : "none recorded",
+    fault.present === "yes" ? "bad" : "good");
+}
+
+function renderSyscalls(data) {
+  const syscalls = data.syscalls || {};
+  const box = $("syscall-panel");
+  box.innerHTML = "";
+  box.appendChild(metric("Initialized", syscalls.initialized || "?"));
+  box.appendChild(metric("Vector", syscalls.vector ? `${syscalls.vector} (0x80)` : "?"));
+  box.appendChild(metric("Registered", syscalls.registered_count || "0"));
+  box.appendChild(metric("Total calls", syscalls.total_calls || "0"));
+  box.appendChild(metric("Failed calls", syscalls.failed_calls || "0"));
+  box.appendChild(metric("Last syscall", `${syscalls.last_id || "none"} ${syscalls.last_name || ""}`.trim()));
+  box.appendChild(metric("Last result", syscalls.last_result || "?"));
+  box.appendChild(metric("Validated origin", `${syscalls.last_origin || "?"} / ${syscalls.last_origin_valid || "?"}`));
+  box.appendChild(metric("Origin policy test", syscalls.origin_policy_self_test || "?"));
+  box.appendChild(metric("Register restore test", syscalls.register_preservation_test || "?"));
+  box.appendChild(metric("User mode", syscalls.user_mode_available || "no"));
+  box.appendChild(metric("Gate DPL", syscalls.syscall_gate_dpl || "?"));
+  box.appendChild(metric("User gate", syscalls.syscall_user_gate || "disabled"));
+  box.appendChild(metric("Pointer arguments", syscalls.pointer_arguments || "no"));
+  const failed = parseInt(syscalls.failed_calls || "0", 10) > 0;
+  const ready = syscalls.initialized === "yes";
+  setBadge("syscall-status", ready ? (failed ? "failures recorded" : `DPL${syscalls.syscall_gate_dpl || "?"}`) : "unavailable",
+    ready ? (failed ? "warn" : "info") : "bad");
+
+  renderTable("syscall-table", data.syscall_table || [], [
+    { key: "id", label: "ID" },
+    { key: "name", label: "Name" },
+    { key: "argument_mode", label: "Arguments" },
+    { key: "caller_mode", label: "Caller", badge: true },
+    { key: "pointer_arguments", label: "Pointers", badge: true },
+  ]);
+}
+
+function renderPrivilege(data) {
+  const gdt = data.gdt || {};
+  const tss = data.tss || {};
+  const privilege = data.privilege || {};
+  const readiness = data.ring3_readiness || {};
+
+  const gbox = $("gdt-panel");
+  gbox.innerHTML = "";
+  gbox.appendChild(metric("Kernel code", `${gdt.kernel_code_selector || "?"} / DPL ${gdt.kernel_code_dpl || "0"}`));
+  gbox.appendChild(metric("Kernel data", `${gdt.kernel_data_selector || "?"} / DPL ${gdt.kernel_data_dpl || "0"}`));
+  gbox.appendChild(metric("User code", `${gdt.user_code_selector || "?"} / DPL ${gdt.user_code_dpl || "3"}`));
+  gbox.appendChild(metric("User data", `${gdt.user_data_selector || "?"} / DPL ${gdt.user_data_dpl || "3"}`));
+  gbox.appendChild(metric("TSS selector", gdt.tss_selector || "?"));
+  gbox.appendChild(metric("User segments", gdt.user_segments_valid || "?"));
+  gbox.appendChild(metric("Accessed-bit validation", gdt.accessed_bit_validation || "?"));
+  setBadge("gdt-status", gdt.loaded === "yes" && gdt.user_segments_valid === "yes" ? "segments valid" : "review",
+    gdt.loaded === "yes" && gdt.user_segments_valid === "yes" ? "good" : "bad");
+
+  const tbox = $("tss-panel");
+  tbox.innerHTML = "";
+  tbox.appendChild(metric("Loaded", tss.tss_loaded || "?"));
+  tbox.appendChild(metric("Selector", tss.selector || "?"));
+  tbox.appendChild(metric("SS0", tss.ss0 || "?"));
+  tbox.appendChild(metric("ESP0", tss.esp0 || "?"));
+  tbox.appendChild(metric("Kernel stack", `${tss.stack_bottom || "?"} - ${tss.stack_top || "?"}`));
+  tbox.appendChild(metric("Stack bytes", tss.stack_size || "?"));
+  tbox.appendChild(metric("Guard policy", tss.guard_policy || "none"));
+  tbox.appendChild(metric("Hardware switching", tss.hardware_task_switching || "no"));
+  const tssReady = tss.tss_loaded === "yes" && tss.kernel_stack_valid === "yes";
+  setBadge("tss-status", tssReady ? "esp0 ready" : "invalid", tssReady ? "good" : "bad");
+
+  const pbox = $("privilege-panel");
+  pbox.innerHTML = "";
+  pbox.appendChild(metric("Current CPL", privilege.current_cpl || "0"));
+  pbox.appendChild(metric("Foundation", readiness.readiness || "?"));
+  pbox.appendChild(metric("Syscall gate DPL", readiness.syscall_gate_dpl || "?"));
+  pbox.appendChild(metric("User stack", readiness.user_stack || "no"));
+  pbox.appendChild(metric("User page mappings", readiness.user_page_mappings || "no"));
+  pbox.appendChild(metric("ELF loader", readiness.elf_loader || "no"));
+  pbox.appendChild(metric("Process isolation", readiness.process_isolation || "no"));
+  pbox.appendChild(metric("Ring 3 execution", readiness.execution_enabled || "no"));
+  const foundationReady = ["foundation_ready", "controlled_test_ready", "roundtrip_verified"].includes(readiness.readiness);
+  setBadge("privilege-status", foundationReady ? "privilege foundation ready" : "not ready",
+    foundationReady ? "good" : "warn");
+}
+
+function renderRing3(data) {
+  const ring3 = data.ring3 || {};
+  const execution = data.user_execution || {};
+  const memory = data.user_memory || {};
+  const fault = data.user_fault || {};
+
+  const rbox = $("ring3-panel");
+  rbox.innerHTML = "";
+  rbox.appendChild(metric("Initialized", ring3.initialized || "?"));
+  rbox.appendChild(metric("Execution enabled", ring3.execution_enabled || "no"));
+  rbox.appendChild(metric("Approval consumed", ring3.approval_consumed || "no"));
+  rbox.appendChild(metric("Fault test approved", ring3.fault_test_approved || "no"));
+  rbox.appendChild(metric("Trusted routine", ring3.trusted_routine || "builtin_linked_only"));
+  rbox.appendChild(metric("Test status", ring3.test_status || execution.test_status || "never_run"));
+  rbox.appendChild(metric("Last caller CPL", execution.last_cpl || ring3.last_cpl || "0"));
+  rbox.appendChild(metric("Last syscall", execution.last_syscall || ring3.last_syscall || "none"));
+  rbox.appendChild(metric("Exit result", execution.exit_result || ring3.exit_result || "0"));
+  rbox.appendChild(metric("ESP0 switch", execution.esp0_switch_observed || ring3.esp0_switch_observed || "no"));
+  rbox.appendChild(metric("Returned to kernel", execution.returned_to_kernel || ring3.returned_to_kernel || "no"));
+  rbox.appendChild(metric("Context preserved", execution.context_preservation_verified || ring3.context_preservation_verified || "no"));
+  const roundtripVerified = (ring3.test_status || execution.test_status) === "passed" &&
+    (execution.returned_to_kernel || ring3.returned_to_kernel) === "yes" &&
+    (execution.context_preservation_verified || ring3.context_preservation_verified) === "yes";
+  setBadge("ring3-status", roundtripVerified ? "CPL3 verified; gate held" :
+    (ring3.execution_enabled === "yes" ? "fixed test enabled" : "execution disabled"),
+    roundtripVerified || ring3.execution_enabled === "yes" ? "good" : "warn");
+
+  const mbox = $("user-memory-panel");
+  mbox.innerHTML = "";
+  mbox.appendChild(metric("Code", `${memory.user_code_start || "?"} - ${memory.user_code_end || "?"}`));
+  mbox.appendChild(metric("Code user/read-only", `${memory.code_user_accessible || "?"}/${memory.code_read_only || "?"}`));
+  mbox.appendChild(metric("Stack", `${memory.user_stack_start || "?"} - ${memory.user_stack_end || "?"}`));
+  mbox.appendChild(metric("Stack user/writable", `${memory.stack_user_accessible || "?"}/${memory.stack_writable || "?"}`));
+  mbox.appendChild(metric("Kernel supervisor-only", memory.kernel_supervisor_only || "?"));
+  mbox.appendChild(metric("Page structures supervisor-only", memory.page_structures_supervisor_only || "?"));
+  mbox.appendChild(metric("No broad user exposure", memory.no_broad_user_exposure || "?"));
+  mbox.appendChild(metric("Validation", memory.validation_error || "?"));
+  const memorySafe = memory.validated === "yes" && memory.kernel_supervisor_only === "yes" &&
+    memory.page_structures_supervisor_only === "yes" && memory.no_broad_user_exposure === "yes";
+  setBadge("user-memory-status", memorySafe ? "minimal mapping valid" : "unsafe / incomplete",
+    memorySafe ? "good" : "bad");
+
+  const fbox = $("user-fault-panel");
+  fbox.innerHTML = "";
+  fbox.appendChild(metric("Present", fault.present || "no"));
+  fbox.appendChild(metric("Origin", fault.fault_origin || "none"));
+  fbox.appendChild(metric("Vector", fault.vector || "none"));
+  fbox.appendChild(metric("Address", fault.fault_address || "none"));
+  fbox.appendChild(metric("User ESP / SS", `${fault.user_esp || "none"} / ${fault.user_ss || "none"}`));
+  fbox.appendChild(metric("Intentional test", fault.intentional_test || "no"));
+  const intentional = fault.present === "yes" && fault.intentional_test === "yes";
+  setBadge("user-fault-status", fault.present === "yes" ?
+    (intentional ? "intentional test evidence" : "unexpected CPL3 fault") : "none recorded",
+    fault.present === "yes" ? (intentional ? "info" : "bad") : "good");
+}
+
+function renderHeap(data) {
+  const heap = data.kernel_heap || {};
+  const box = $("heap-panel");
+  box.innerHTML = "";
+  box.appendChild(metric("Available", heap.available || "?"));
+  box.appendChild(metric("Start", heap.heap_start || "?"));
+  box.appendChild(metric("End", heap.heap_end || "?"));
+  box.appendChild(metric("Total", heap.total_bytes ? `${heap.total_bytes} bytes` : "?"));
+  box.appendChild(metric("Used", heap.used_bytes ? `${heap.used_bytes} bytes` : "0 bytes"));
+  box.appendChild(metric("Remaining", heap.remaining_bytes ? `${heap.remaining_bytes} bytes` : "?"));
+  box.appendChild(metric("Allocations", heap.allocation_count || "0"));
+  box.appendChild(metric("Failures", heap.failed_count || "0"));
+  box.appendChild(metric("free()", heap.free_supported || "no"));
+  const low = parseInt(heap.total_bytes || "0", 10) > 0 &&
+    parseInt(heap.remaining_bytes || "0", 10) * 10 < parseInt(heap.total_bytes || "0", 10);
+  const failed = parseInt(heap.failed_count || "0", 10) > 0;
+  setBadge("heap-status", heap.available === "yes" ? (low ? "low remaining" : "bump heap") : "unavailable",
+    heap.available !== "yes" ? "bad" : failed || low ? "warn" : "good");
+}
+
+function renderMemory(data) {
+  const mem = data.kernel_memory || {};
+  const pages = data.pages || {};
+  const box = $("memory-panel");
+  box.innerHTML = "";
+  box.appendChild(metric("Map available", mem.map_available || "?"));
+  box.appendChild(metric("Fallback used", mem.fallback_used || "?"));
+  box.appendChild(metric("Map validated", mem.map_validated || "?"));
+  box.appendChild(metric("Normalized", mem.normalized || "?"));
+  box.appendChild(metric("Parser self-test", mem.hardening_self_test || "?"));
+  box.appendChild(metric("Bitmap consistent", mem.bitmap_consistent || "?"));
+  box.appendChild(metric("Critical ranges", mem.critical_ranges_reserved || "?"));
+  box.appendChild(metric("Validation result", mem.validation_error || "?"));
+  box.appendChild(metric("Regions", mem.region_count || "0"));
+  box.appendChild(metric("Usable", mem.usable_kib ? `${mem.usable_kib} KiB` : "?"));
+  box.appendChild(metric("Reserved", mem.reserved_kib ? `${mem.reserved_kib} KiB` : "?"));
+  box.appendChild(metric("Free pages", `${pages.free_pages || "?"} / ${pages.total_pages || "?"}`));
+  box.appendChild(metric("Kernel pages", pages.reserved_kernel_pages || "?"));
+  box.appendChild(metric("Mode", mem.allocation_mode || "physical_page_tracker_only"));
+  const healthy = (mem.map_available === "yes" || mem.fallback_used === "yes") &&
+    mem.bitmap_consistent === "yes" && mem.critical_ranges_reserved === "yes" &&
+    mem.hardening_self_test === "pass" &&
+    parseInt(pages.free_pages || "0", 10) > 0;
+  setBadge("memory-status", mem.map_available === "yes" ? "multiboot map" :
+    mem.fallback_used === "yes" ? "fallback map" : "missing",
+    healthy ? (mem.map_available === "yes" ? "good" : "warn") : "bad");
+
+  renderTable("memory-map", data.memory_map || [], [
+    { key: "index", label: "Index" },
+    { key: "base", label: "Base" },
+    { key: "length", label: "Length" },
+    { key: "kib", label: "KiB" },
+    { key: "type", label: "Type", badge: true },
+  ]);
+}
+
 function renderBackend(data) {
   const store = data.store || {};
   setBadge("backend-status", data.backend || "unknown", store.disk_available === "1" ? "good" : "warn");
@@ -147,6 +416,137 @@ function renderTrust(data) {
   box.appendChild(metric("Signature mode", trust.signature_verification || "simulated_kernel_check_host_ed25519"));
   box.appendChild(metric("Note", trust.note || "Host Ed25519 real; kernel Ed25519 simulated."));
   setBadge("trust-status", "read-only trust view", "info");
+}
+
+function renderKernelFoundation(data) {
+  const interrupts = data.kernel_interrupts || {};
+  const timing = data.kernel_timing || {};
+  const exceptions = data.kernel_exceptions || {};
+
+  const ibox = $("interrupt-panel");
+  ibox.innerHTML = "";
+  ibox.appendChild(metric("IDT loaded", interrupts.idt_loaded));
+  ibox.appendChild(metric("PIC remapped", interrupts.pic_remapped));
+  ibox.appendChild(metric("Timer IRQ", interrupts.timer_enabled));
+  ibox.appendChild(metric("Interrupts enabled", interrupts.interrupts_enabled));
+  ibox.appendChild(metric("Handled", interrupts.interrupts_handled));
+  ibox.appendChild(metric("Last vector", interrupts.last_vector));
+  ibox.appendChild(metric("Keyboard mode", interrupts.keyboard_mode));
+  const foundationOk = interrupts.idt_loaded === "yes" &&
+    interrupts.pic_remapped === "yes" && interrupts.timer_enabled === "yes";
+  setBadge("interrupt-status", foundationOk ? interrupts.keyboard_mode || "ready" : "degraded",
+    foundationOk ? (interrupts.keyboard_mode === "polling_fallback" ? "warn" : "good") : "bad");
+
+  const tbox = $("timing-panel");
+  tbox.innerHTML = "";
+  tbox.appendChild(metric("Tick count", timing.tick_count));
+  tbox.appendChild(metric("Frequency", timing.frequency_hz ? `${timing.frequency_hz} Hz` : "?"));
+  tbox.appendChild(metric("IRQ state", timing.timer_irq));
+  setBadge("timer-status", timing.timer_irq || "unknown", classify(timing.timer_irq));
+
+  const ebox = $("exception-panel");
+  ebox.innerHTML = "";
+  ebox.appendChild(metric("Last exception", exceptions.last_exception || "none"));
+  ebox.appendChild(metric("Vector", exceptions.last_vector || "none"));
+  ebox.appendChild(metric("Error code", exceptions.last_error_code || "0"));
+  ebox.appendChild(metric("Frame ABI", exceptions.frame_layout_valid || "?"));
+  ebox.appendChild(metric("Caller CPL", exceptions.caller_cpl || "none"));
+  ebox.appendChild(metric("CS / EIP", `${exceptions.last_cs || "none"} / ${exceptions.last_eip || "none"}`));
+  ebox.appendChild(metric("EFLAGS", exceptions.last_eflags || "none"));
+  ebox.appendChild(metric("Origin valid", exceptions.origin_valid || "not applicable"));
+  ebox.appendChild(metric("User stack", exceptions.user_stack_present === "yes" ?
+    `${exceptions.user_ss || "?"}:${exceptions.user_esp || "?"}` : "not present (same CPL)"));
+  ebox.appendChild(metric("Recovery attempted", exceptions.recovery_attempted || "no"));
+  const hasException = exceptions.last_exception && exceptions.last_exception !== "none";
+  setBadge("exception-status", hasException ? "exception recorded" : "none recorded",
+    hasException ? "bad" : "good");
+}
+
+function renderTaskFoundation(data) {
+  const tasks = data.kernel_tasks || {};
+  const box = $("task-panel");
+  box.innerHTML = "";
+  box.appendChild(metric("Scheduler", tasks.scheduler_mode));
+  box.appendChild(metric("Preemptive switching", tasks.preemptive_switching));
+  box.appendChild(metric("Current task", tasks.running_task));
+  box.appendChild(metric("Total", tasks.total_tasks));
+  box.appendChild(metric("Ready", tasks.ready_count));
+  box.appendChild(metric("Sleeping", tasks.sleeping_count));
+  box.appendChild(metric("Blocked", tasks.blocked_count));
+  box.appendChild(metric("Crashed", tasks.crashed_count));
+  const unhealthy = parseInt(tasks.blocked_count || "0", 10) > 0 ||
+    parseInt(tasks.crashed_count || "0", 10) > 0;
+  setBadge("task-status", unhealthy ? "manual inspection" : "cooperative",
+    unhealthy ? "bad" : "info");
+
+  renderTable("tasks", data.tasks || [], [
+    { key: "task_id", label: "ID" },
+    { key: "name", label: "Name" },
+    { key: "state", label: "State", badge: true },
+    { key: "priority", label: "Priority" },
+    { key: "ticks_run", label: "Ticks Run" },
+    { key: "created_at_tick", label: "Created" },
+    { key: "last_run_tick", label: "Last Run" },
+  ]);
+}
+
+function renderTinyFS(data) {
+  const fs = data.tinyfs || {};
+  const box = $("tinyfs-panel");
+  box.innerHTML = "";
+  box.appendChild(metric("Available", fs.available));
+  box.appendChild(metric("Formatted", fs.formatted));
+  box.appendChild(metric("Files", `${fs.file_count || "0"} / ${fs.max_files || "?"}`));
+  box.appendChild(metric("Data start LBA", fs.data_start_lba));
+  box.appendChild(metric("Max file size", fs.max_file_size ? `${fs.max_file_size} bytes` : "?"));
+  box.appendChild(metric("Last error", fs.last_error));
+  const ready = fs.available === "yes" && fs.formatted === "yes";
+  setBadge("tinyfs-status", ready ? "formatted" :
+    fs.available === "yes" ? "not formatted" : "unavailable",
+    ready ? "good" : "warn");
+
+  renderTable("tinyfs-files", data.tinyfs_files || [], [
+    { key: "name", label: "Name" },
+    { key: "size", label: "Size" },
+    { key: "start_lba", label: "Start LBA" },
+    { key: "sector_count", label: "Sectors" },
+    { key: "checksum", label: "Checksum" },
+    { key: "flags", label: "Flags" },
+  ]);
+}
+
+function renderApps(data) {
+  const apps = data.apps_status || {};
+  const box = $("apps-panel");
+  box.innerHTML = "";
+  box.appendChild(metric("Userland mode", apps.userland_mode || "kernel_managed_builtin_apps"));
+  box.appendChild(metric("Total apps", apps.total_apps));
+  box.appendChild(metric("Last app", apps.last_app));
+  box.appendChild(metric("Last result", apps.last_result));
+  box.appendChild(metric("Blocked attempts", apps.blocked_attempts || "0"));
+  box.appendChild(metric("Boundary", "kernel-managed built-ins only"));
+  const blocked = parseInt(apps.blocked_attempts || "0", 10) > 0;
+  setBadge("apps-status", blocked ? "blocked attempts" : "fixed registry",
+    blocked ? "warn" : "info");
+
+  renderTable("apps", data.apps || [], [
+    { key: "app_id", label: "ID" },
+    { key: "name", label: "Name" },
+    { key: "description", label: "Description", wrap: true },
+    { key: "version", label: "Version" },
+    { key: "type", label: "Type", badge: true },
+    { key: "status", label: "Status", badge: true },
+    { key: "run_count", label: "Runs" },
+    { key: "last_result", label: "Last Result", badge: true },
+  ]);
+
+  renderTable("app-log", data.app_log || [], [
+    { key: "seq", label: "Seq" },
+    { key: "name", label: "Name" },
+    { key: "result", label: "Result", badge: true },
+    { key: "status", label: "Status", badge: true },
+    { key: "message", label: "Message", wrap: true },
+  ]);
 }
 
 function renderTrend(snapshots) {
@@ -290,10 +690,21 @@ function render(data) {
   setBadge("system-badge", "read-only JSON view", "info");
   if (data.safety_notice) $("safety-banner").textContent = data.safety_notice;
 
+  renderV20Overview(data);
   renderHealth(data);
   renderBackend(data);
   renderBootWarnings(data);
   renderTrust(data);
+  renderMemory(data);
+  renderHeap(data);
+  renderPaging(data);
+  renderSyscalls(data);
+  renderPrivilege(data);
+  renderRing3(data);
+  renderKernelFoundation(data);
+  renderTaskFoundation(data);
+  renderTinyFS(data);
+  renderApps(data);
   renderTrend(data.snapshots || []);
   renderRecommendations(data);
   renderTimelines(data);
@@ -301,7 +712,9 @@ function render(data) {
 
   const attached = (data.devices || []).filter(d => d.status === "attached").length;
   const total = (data.devices || []).length;
-  $("device-summary").textContent = `${attached}/${total} attached`;
+  const expectedTests = data.ghostattach?.expected_self_test_failures || "0";
+  $("device-summary").textContent =
+    `${attached}/${total} attached | ${expectedTests} expected canary failure`;
 
   renderTable("devices", data.devices || [], [
     { key: "id", label: "ID" },
@@ -346,6 +759,8 @@ function render(data) {
     { key: "rolled_back", label: "Rolled Back", badge: true },
     { key: "from", label: "From" },
     { key: "to", label: "To" },
+    { key: "transaction_phase", label: "Transaction" },
+    { key: "binding_valid", label: "Bound", badge: true },
   ]);
   setBadge("pending-verification",
     data.pending_verification ? "verification pending" : "no pending verification",

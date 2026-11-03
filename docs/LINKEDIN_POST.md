@@ -1,7 +1,7 @@
 # LinkedIn Post Draft
 
-I built KamikazeOS v1.3.0 "Public Release", an experimental x86 toy operating
-system focused on safe recovery and update-system design.
+I built KamikazeOS v1.3.0 "Public Release", an experimental x86 operating
+system research prototype focused on safe recovery and update-system design.
 
 It boots in QEMU, has a VGA/keyboard shell, a GhostAttach device recovery
 layer, structured kernel logs, serial boot reports, disk-backed recovery state,

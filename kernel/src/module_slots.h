@@ -50,8 +50,8 @@ uint32_t                  module_slot_count(void);
 const struct module_slot *module_slot_get(uint32_t index);
 struct module_slot       *module_slot_for(enum module_id id); /* 0 if not updatable */
 
-void module_slots_save(void);
-void module_slots_clear(void);   /* back to defaults + save */
+int module_slots_save(void);
+int module_slots_clear(void);   /* back to defaults + save */
 
 /* Convenience: the active slot's version string for a module. */
 const char *module_slot_active_version(const struct module_slot *s);

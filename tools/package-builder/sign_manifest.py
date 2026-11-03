@@ -11,6 +11,7 @@ from pathlib import Path
 from cryptography.hazmat.primitives import serialization
 
 from manifest_lib import TRUST_ANCHOR_ID, Manifest, load_manifest, validate_manifest
+from trust_anchor import TRUSTED_PUBLIC_KEY_RAW_HEX
 
 
 def main() -> int:
@@ -28,6 +29,9 @@ def main() -> int:
         encoding=serialization.Encoding.Raw,
         format=serialization.PublicFormat.Raw,
     )
+    if public_raw.hex() != TRUSTED_PUBLIC_KEY_RAW_HEX:
+        print("error: private key does not match the pinned KMZ-ROOT-1 public key")
+        return 1
 
     manifest.signature_status = "trusted"
     manifest.trust_anchor_id = TRUST_ANCHOR_ID
