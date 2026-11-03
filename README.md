@@ -1,19 +1,66 @@
 # KamikazeOS
 
-KamikazeOS is an experimental toy operating system that explores a narrow,
-auditable version of "self-healing" infrastructure: the kernel records what
-went wrong, exports structured reports, and allows only human-approved,
-policy-gated recovery actions and simulated package updates.
+KamikazeOS is an experimental operating system research prototype exploring
+auditable self-healing infrastructure. The kernel records failures, exports
+structured recovery reports, persists recovery evidence, and supports
+human-approved, policy-gated recovery actions and controlled package update
+flows.
 
-This is not a production OS. It is a learning and portfolio project. It runs
-in QEMU, has no user isolation, no networking stack, no real driver loading,
-and no production security guarantees.
+It runs in QEMU as a focused research OS prototype. It is not intended to
+replace Linux, Windows, or any production operating system. The goal is to
+demonstrate low-level OS mechanisms, durable recovery architecture, offline
+package trust tooling, and a read-only Recovery Center dashboard while keeping
+all repair/update actions explicit, logged, and human-approved.
 
-Current release: v1.5.0 "Public Demo Release". This is the stable public demo
-package: v1.2.0 "Trust Forge" remains the signing/tooling milestone, and v1.4.0
-"Recovery Center Pro" is the portfolio dashboard milestone.
+**KamikazeOS is not production-ready and not a general-purpose operating system.**
+It has no production security guarantees, general process isolation, networking
+stack or real driver loading.
 
-## Feature Overview
+## Current Research Status
+
+**The research stream is v2.6.2, memory-protection Phase B.** The latest archived
+Stage 2B design is **Revision 2**. Neither is a newly accepted stable release.
+
+The code on GitHub's default `main` branch remains the older **v1.5 public demo
+baseline**. This README is a documentation-only overview of the newer public
+branches; those kernel changes have not been merged into `main`. Building `main`
+still builds v1.5, not v2.6.2.
+
+| Research milestone | Public source and evidence | Boundary |
+| --- | --- | --- |
+| v2.3-v2.5: paging, syscalls and privilege foundations | [Pre-v2.3 hardening through v2.5](https://github.com/kaamikazi/kamikazeos/tree/hardening/pre-v2.3) | Identity paging, fixed syscall interface, GDT and TSS foundations; not general userspace. |
+| v2.6: Ring 3 Seed | [Ring 3 branch](https://github.com/kaamikazi/kamikazeos/tree/feature/v2.6-ring3-seed) | One fixed linked CPL3 routine completed a separately approved disposable QEMU round trip; the approval was consumed and default execution remains held. |
+| v2.6.1: Integrity Gate | [Integrity hardening branch](https://github.com/kaamikazi/kamikazeos/tree/hardening/v2.6.1-integrity-gate) | Recovery, journal, snapshot, package authority and health corrections; implementation regression evidence is not independent release acceptance. |
+| v2.6.2 Phase A | [Memory-layout and policy branch](https://github.com/kaamikazi/kamikazeos/tree/feature/v2.6.2-memory-protection-phase-a) | Descriptive memory policy, layout and accounting; reserved guards are not active guard pages. |
+| v2.6.2 Phase B | [Emergency diagnostics branch](https://github.com/kaamikazi/kamikazeos/tree/feature/v2.6.2-memory-protection-phase-b) | Isolated fatal/DF stack preparation, bounded records and architecture checks; not complete fault-path safety acceptance. |
+| Stage 2B Design Revision 2 | [Design and review archive](https://github.com/kaamikazi/kamikazeos/tree/feature/v2.6.2-memory-protection-phase-b/audit-evidence/stage2b) | Design only. A1 execution is blocked; build/RAM evidence, CMOS calibration and operational writer coverage remain incomplete. |
+
+The latest [Revision 2 design](https://github.com/kaamikazi/kamikazeos/blob/feature/v2.6.2-memory-protection-phase-b/audit-evidence/stage2b/design-revision-2/STAGE2B_DESIGN_REVISION_2.md)
+retains separate implementation, calibration, execution and review gates.
+Publishing these branches does not authorize new faults, protection activation
+or Ring 3 execution. Raw historical evidence is not fully included in Git;
+the archive explains its scope and preservation qualifications.
+
+## Research Feature Overview
+
+The newer branches add to the public demo baseline:
+
+- IDT exception handling, PIC/PIT interrupts and IRQ keyboard support.
+- Multiboot memory-map validation, physical-page accounting and a bounded heap.
+- Validated 32-bit identity paging with page-fault diagnostics.
+- A cooperative kernel task model, fixed-sector TinyFS and built-in app registry.
+- A fixed `int 0x80` syscall interface with caller-origin policy, GDT/TSS support
+  and a tightly controlled historical CPL3 experiment, not general userspace.
+- Recovery and package trust-boundary hardening with documented regression evidence.
+- Phase B emergency diagnostics preparation, with remaining safety gates explicit.
+
+See the [Phase B implementation and verification notes](https://github.com/kaamikazi/kamikazeos/blob/feature/v2.6.2-memory-protection-phase-b/docs/MEMORY_PROTECTION_PHASE_B.md)
+for test scope, excluded cases and limitations. Those are historical receipts,
+not tests rerun by this README update.
+
+## Public Demo Baseline
+
+The following describes the v1.5 code currently on `main`:
 
 - Bootable 32-bit x86 kernel in QEMU.
 - VGA text console and PS/2 keyboard polling shell.
@@ -30,6 +77,10 @@ package: v1.2.0 "Trust Forge" remains the signing/tooling milestone, and v1.4.0
 - Analyzer and read-only Recovery Center dashboard.
 
 ## Architecture
+
+This diagram describes the recovery pipeline present on `main`. The newer
+[architecture documentation](https://github.com/kaamikazi/kamikazeos/blob/feature/v2.6.2-memory-protection-phase-b/docs/ARCHITECTURE.md)
+covers the later kernel foundations.
 
 ```mermaid
 flowchart TD
@@ -51,6 +102,19 @@ flowchart TD
 ```
 
 ## Quickstart
+
+Choose the source first. For the latest published research branch, use a
+separate checkout so it does not share the older demo's recovery image:
+
+```powershell
+git clone --branch feature/v2.6.2-memory-protection-phase-b https://github.com/kaamikazi/kamikazeos.git kamikazeos-research
+cd kamikazeos-research
+```
+
+A default clone without `--branch` selects the older `main` demo. Do not mix
+instructions or disk images between branches without reviewing compatibility.
+The commands below are the existing Windows build/run entry points; this
+documentation update did not rerun them.
 
 Requirements on Windows:
 
@@ -104,6 +168,11 @@ Serve the dashboard locally:
 
 ## Demo Flow
 
+This is the v1.5 `main` demo flow. For later research commands and their safety
+boundaries, see the [research command reference](https://github.com/kaamikazi/kamikazeos/blob/feature/v2.6.2-memory-protection-phase-b/docs/COMMAND_REFERENCE.md)
+and [Ring 3 restrictions](https://github.com/kaamikazi/kamikazeos/blob/feature/v2.6.2-memory-protection-phase-b/docs/RING3.md).
+Do not treat a historical experiment as permission to repeat it.
+
 Inside KamikazeOS:
 
 ```text
@@ -140,7 +209,7 @@ historical screenshots live under [docs/screenshots](docs/screenshots).
 
 ## Real vs Simulated
 
-Real:
+Real in the public demo baseline:
 
 - Bootable kernel, shell, VGA, keyboard, serial output.
 - ATA PIO disk persistence and durable journal.
@@ -150,13 +219,23 @@ Real:
 - Kernel-side manifest checksum, trust-anchor, and policy enforcement.
 - Read-only analyzer and Recovery Center Pro dashboard.
 
-Simulated:
+Real kernel mechanisms on the research branches include interrupt handling,
+identity paging, physical-page tracking, a bounded heap, fixed task/app tables,
+TinyFS, syscall dispatch and GDT/TSS preparation. The fixed CPL3 round trip is
+historical experimental evidence, not general or default user execution.
+
+Simulated or metadata-only:
 
 - In-kernel Ed25519 verification.
 - Binary patching and real module replacement.
-- Internet update fetching.
-- AI auto-repair.
-- Driver downloads or arbitrary package execution.
+
+Not implemented or deliberately excluded:
+
+- Networking, internet update fetching and driver/package downloads.
+- AI auto-repair, automatic package application and arbitrary code execution.
+- ELF loading, general userspace, per-process address spaces and process isolation.
+- Active stack guard pages and newly enabled CR0.WP protection in current Phase B.
+- Complete acceptance of all emergency fault paths and Stage 2B observer coverage.
 
 ## Safety Principles
 
@@ -171,7 +250,21 @@ Simulated:
 
 ## Version History
 
-- v1.5.0 "Public Demo Release": stable public demo docs and helper scripts.
+- v2.6.2 (research): memory-layout/policy and emergency-diagnostic preparation;
+  Stage 2B Design Revision 2 remains design-only with execution gates blocked.
+- v2.6.1 "Integrity Gate" (research): recovery and package authority hardening.
+- v2.6.0 "Ring 3 Seed" (research): fixed CPL3 experiment; default execution held.
+- v2.5.0 "Privilege Boundary": user descriptors, TSS and readiness reporting.
+- v2.4.0 "Syscall Door": fixed kernel service interface.
+- v2.3.0 "Paging Gate": validated identity paging and fault diagnostics.
+- v2.2.0 "Heap Seed": bounded kernel heap.
+- v2.1.0 "Memory Map": physical-memory tracking.
+- v2.0.0 "Real Kernel Demo": integrated system diagnostics.
+- v1.9.0 "Userland Spark": kernel-managed built-in apps, not isolated userspace.
+- v1.8.0 "TinyFS": fixed-sector file abstraction.
+- v1.7.0 "Task Seed": cooperative kernel task skeleton.
+- v1.6.0 "Kernel Discipline": interrupt and exception foundations.
+- v1.5.0 "Public Demo Release": older public demo baseline still on `main`.
 - v1.4.0 "Recovery Center Pro": polished read-only dashboard UI.
 - v1.3.0 "Public Release": documentation, demo, release polish.
 - v1.2.0 "Trust Forge": offline signing pipeline and trust metadata.
@@ -181,21 +274,25 @@ Simulated:
 - v0.8.0 "Vital Signs": boot snapshots and health scoring.
 - v0.7.0 "Black Box": disk-backed RecoveryStore and durable journal.
 
-See [docs/VERSION_HISTORY.md](docs/VERSION_HISTORY.md).
+See the [research version history](https://github.com/kaamikazi/kamikazeos/blob/feature/v2.6.2-memory-protection-phase-b/docs/VERSION_HISTORY.md)
+and the [older main history](docs/VERSION_HISTORY.md). Milestone names do not
+imply a newly published GitHub Release or independent safety acceptance.
 
 ## Roadmap
 
-- Keep v1.x focused on reproducibility, documentation, and safer demos.
-- Possible future technical work: real in-kernel Ed25519 verification,
-  richer test automation, and more complete hardware discovery.
+- Complete the outstanding Stage 2B build, RAM, CMOS and writer-observation
+  evidence under separately reviewed authorization gates.
+- Continue independent review before activating further memory protections or
+  authorizing another controlled privilege-transition experiment.
+- Potential later work includes real in-kernel Ed25519 verification and richer
+  test automation; these are not implemented guarantees.
 - Still out of scope: networking, driver downloads, binary patching, and
   autonomous repair.
 
 ## Portfolio Description
 
-KamikazeOS is a small x86 toy OS built to demonstrate operating-systems
-fundamentals, recovery-system design, update policy, offline signing tooling,
-and honest AI-adjacent safety boundaries. It is deliberately constrained:
-the interesting part is not that the OS can magically fix itself, but that it
-can explain state, preserve evidence, reject unsafe changes, and keep humans
-in control.
+KamikazeOS is an experimental operating system research prototype focused on
+auditable recovery architecture, kernel diagnostics, durable failure memory,
+and policy-gated update safety. It demonstrates low-level x86 mechanisms,
+offline trust tooling and explicit evidence/approval boundaries while keeping
+its incomplete security and userspace foundations visible.
