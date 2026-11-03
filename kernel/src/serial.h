@@ -15,9 +15,17 @@
 #ifndef KMZ_SERIAL_H
 #define KMZ_SERIAL_H
 
+#include <stdint.h>
+#define SERIAL_MAX_POLLS 100000u
+#define SERIAL_MAX_STRING 4096u
+
 void serial_init(void);             /* configure COM1: 38400 baud, 8N1 */
 int  serial_present(void);          /* 1 if loopback self-test passed  */
 void serial_putc(char c);
+/* Finite per-character budget; no timer, heap, error log or persistence calls. */
+int serial_putc_bounded(char c, uint32_t polls);
+uint32_t serial_print_bounded(const char *s, uint32_t chars, uint32_t polls);
 void serial_print(const char *s);
+void serial_print_field(const char *s);
 
 #endif /* KMZ_SERIAL_H */

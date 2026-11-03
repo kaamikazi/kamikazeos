@@ -1,0 +1,14 @@
+{
+  "original_files_checked": 6507,
+  "changed_original_files": [],
+  "historical_trees_unchanged": true,
+  "refs_unchanged": true,
+  "clean": true,
+  "head": "dbf23ce74a2a7103ae6fce04fba51969b7807178",
+  "original_failed_case_unchanged": true,
+  "original_recovery_sha256": "4daf871c5c2982a2c6401a8a3336959f31bdd0143ae00f238f4cbdc7f453f19e",
+  "builds_executed": 0,
+  "qemu_instances_launched": 0,
+  "tests_executed": 0,
+  "fault_fixtures_implemented": 0
+}

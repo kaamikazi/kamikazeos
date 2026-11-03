@@ -1,0 +1,252 @@
+{
+  "sha256": "7cc1262fb1caee2b104d17d601a19e172eb02eac6d93b56ad2b2612a228db7bc",
+  "symbols": {
+    "emergency_exception_common": {
+      "address": 1048608,
+      "size": 220,
+      "section": 1,
+      "info": 18
+    },
+    "isr6": {
+      "address": 1049664,
+      "size": 82,
+      "section": 1,
+      "info": 18
+    },
+    "emergency_handle_entry": {
+      "address": 1060080,
+      "size": 548,
+      "section": 1,
+      "info": 18
+    },
+    "em_record_capture": {
+      "address": 1062560,
+      "size": 308,
+      "section": 1,
+      "info": 18
+    },
+    "em_record_emit": {
+      "address": 1062880,
+      "size": 11094,
+      "section": 1,
+      "info": 18
+    },
+    "console_put": {
+      "address": 1060640,
+      "size": 56,
+      "section": 1,
+      "info": 2
+    },
+    "ordinary_authorized": {
+      "address": 1301832,
+      "size": 4,
+      "section": 4,
+      "info": 1
+    },
+    "runtime_ready": {
+      "address": 1301836,
+      "size": 4,
+      "section": 4,
+      "info": 1
+    },
+    "emergency_entry_busy": {
+      "address": 1301828,
+      "size": 4,
+      "section": 4,
+      "info": 17
+    },
+    "emergency_reentry_count": {
+      "address": 1301824,
+      "size": 4,
+      "section": 4,
+      "info": 17
+    },
+    "emergency_entry_state": {
+      "address": 1301328,
+      "size": 100,
+      "section": 4,
+      "info": 17
+    },
+    "emergency_first_record": {
+      "address": 1301440,
+      "size": 128,
+      "section": 4,
+      "info": 17
+    },
+    "emergency_df_record": {
+      "address": 1301568,
+      "size": 128,
+      "section": 4,
+      "info": 17
+    },
+    "emergency_reentry_record": {
+      "address": 1301696,
+      "size": 128,
+      "section": 4,
+      "info": 17
+    },
+    "emergency_reentry_capture": {
+      "address": 1048910,
+      "size": 64,
+      "section": 1,
+      "info": 18
+    },
+    "emergency_reentry_halt": {
+      "address": 1048974,
+      "size": 59,
+      "section": 1,
+      "info": 18
+    },
+    "read_sector_once": {
+      "address": 1056064,
+      "size": 225,
+      "section": 1,
+      "info": 2
+    },
+    "write_sector_once": {
+      "address": 1056400,
+      "size": 258,
+      "section": 1,
+      "info": 2
+    },
+    "io_depth": {
+      "address": 1301172,
+      "size": 4,
+      "section": 4,
+      "info": 1
+    },
+    "_bootstrap_stack_start": {
+      "address": 1368064,
+      "size": 0,
+      "section": 7,
+      "info": 16
+    },
+    "_bootstrap_stack_end": {
+      "address": 1384448,
+      "size": 0,
+      "section": 7,
+      "info": 16
+    },
+    "_fatal_stack_start": {
+      "address": 1417216,
+      "size": 0,
+      "section": 9,
+      "info": 16
+    },
+    "_fatal_stack_end": {
+      "address": 1433600,
+      "size": 0,
+      "section": 9,
+      "info": 16
+    },
+    "_bootstrap_guard_low_start": {
+      "address": 1363968,
+      "size": 0,
+      "section": 7,
+      "info": 16
+    },
+    "_page_directory_start": {
+      "address": 1343488,
+      "size": 0,
+      "section": 5,
+      "info": 16
+    },
+    "_page_tables_end": {
+      "address": 1363968,
+      "size": 0,
+      "section": 6,
+      "info": 16
+    },
+    "interrupts_trigger_invalid_opcode_test": {
+      "address": 1080368,
+      "size": 7,
+      "section": 1,
+      "info": 18
+    },
+    "em_persistence_unsafe": {
+      "address": 1062096,
+      "size": 453,
+      "section": 1,
+      "info": 18
+    },
+    "em_decode_exception": {
+      "address": 1061504,
+      "size": 582,
+      "section": 1,
+      "info": 18
+    }
+  },
+  "instruction_bytes": {
+    "common_pre_mov": {
+      "address": "0x1000ea",
+      "bytes": "bc00e01500"
+    },
+    "common_pre_call": {
+      "address": "0x1000f2",
+      "bytes": "e8f92b0000"
+    },
+    "capture_call": {
+      "address": "0x102e58",
+      "bytes": "e843080000"
+    },
+    "emitter_call": {
+      "address": "0x102e6e",
+      "bytes": "e86d090000"
+    },
+    "authorization_store": {
+      "address": "0x102e8a",
+      "bytes": "a348dd1300"
+    },
+    "unsafe_terminal": {
+      "address": "0x102ec0",
+      "bytes": "faf4ebfc"
+    },
+    "dispatcher_fallback": {
+      "address": "0x102eb0",
+      "bytes": "faf4ebfc"
+    },
+    "pre_magic": {
+      "address": "0x1037be",
+      "bytes": "c70652434d45"
+    },
+    "emitter_prologue": {
+      "address": "0x1037e0",
+      "bytes": "5589e553575683ec0c"
+    },
+    "ata_read_out": {
+      "address": "0x101daa",
+      "bytes": "ee"
+    },
+    "ata_post_out": {
+      "address": "0x101dab",
+      "bytes": "b9a0860100"
+    },
+    "ata_first_inw": {
+      "address": "0x101de0",
+      "bytes": "66ed"
+    },
+    "parent_ud2": {
+      "address": "0x107c33",
+      "bytes": "0f0b"
+    },
+    "reentry_terminal": {
+      "address": "0x1001c5",
+      "bytes": "faf4ebfc"
+    }
+  },
+  "A1_static_geometry": {
+    "bottom": 1368064,
+    "top": 1384448,
+    "initial_esp": 1369096,
+    "hardware_esp": 1369084,
+    "frame_bytes": 12,
+    "frame_interval": [
+      1369084,
+      1369096
+    ],
+    "headroom": 1020,
+    "inside_payload": true,
+    "below_policy_1024": true
+  },
+  "future_fixture_bindings_exist": false
+}

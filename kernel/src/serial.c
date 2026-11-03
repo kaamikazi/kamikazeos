@@ -40,20 +40,41 @@ int serial_present(void)
     return present;
 }
 
-void serial_putc(char c)
+int serial_putc_bounded(char c, uint32_t polls)
 {
-    if (!present)
-        return;                              /* no UART: drop silently */
-    while ((inb(REG_LINE_STATUS) & 0x20) == 0)
-        ;                                    /* wait: transmitter busy */
-    outb(REG_DATA, (uint8_t)c);
+    if (!present) return 0;
+    if (polls>SERIAL_MAX_POLLS) polls=SERIAL_MAX_POLLS;
+    for (uint32_t i=0;i<polls;i++) if (inb(REG_LINE_STATUS)&0x20) {
+        outb(REG_DATA,(uint8_t)c);return 1;
+    }
+    return 0;
 }
 
-void serial_print(const char *s)
+void serial_putc(char c) { (void)serial_putc_bounded(c,SERIAL_MAX_POLLS); }
+
+uint32_t serial_print_bounded(const char *s, uint32_t chars, uint32_t polls)
 {
-    while (*s) {
-        if (*s == '\n')
-            serial_putc('\r');               /* terminals want \r\n */
-        serial_putc(*s++);
+    if (!s) return 0;
+    if (chars>SERIAL_MAX_STRING) chars=SERIAL_MAX_STRING;
+    uint32_t i=0;
+    for (;i<chars && s[i];i++) {
+        if (s[i]=='\n' && !serial_putc_bounded('\r',polls)) break;
+        if (!serial_putc_bounded(s[i],polls)) break;
+    }
+    return i;
+}
+
+void serial_print(const char *s) { (void)serial_print_bounded(s,SERIAL_MAX_STRING,SERIAL_MAX_POLLS); }
+
+void serial_print_field(const char *s)
+{
+    if (!s) {
+        serial_print("?");
+        return;
+    }
+    for (uint32_t i=0;i<SERIAL_MAX_STRING && s[i];i++) {
+        unsigned char c = (unsigned char)s[i];
+        char value=(c < 0x20 || c == 0x7f || c == ';' || c == '=') ? '?' : (char)c;
+        if (!serial_putc_bounded(value,SERIAL_MAX_POLLS)) break;
     }
 }

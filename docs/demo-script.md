@@ -2,8 +2,9 @@
 
 ## Opening
 
-KamikazeOS is a bootable x86 toy OS that explores safe recovery and update
-systems. It is not a production OS. The point is the control plane: evidence,
+KamikazeOS is a bootable x86 operating system recovery prototype that explores
+safe recovery and update systems. KamikazeOS is not production-ready and not a
+general-purpose operating system. The point is the control plane: evidence,
 policy gates, human approval, durable history, and read-only analysis.
 
 ## Demo Beats

@@ -1,0 +1,480 @@
+{
+  "kind": "DESIGN_REVISION_2_PROVENANCE_NOT_ACCEPTANCE",
+  "date_local": "2026-10-29",
+  "timezone": "Asia/Dhaka",
+  "created_utc": "2026-10-29T05:41:58.259970+00:00",
+  "output_directory": "${LOCAL_REVIEW_OUTPUTS}\\stage2b-design-rev2-20261029",
+  "scope": "Documentation and read-only existing source/symbol/hash/Git inspection only",
+  "production": {
+    "root": "${REPOSITORY}",
+    "head": "dbf23ce74a2a7103ae6fce04fba51969b7807178",
+    "tree": "62ff1f4fbd5d70163c074fb7c259f4f2115c4d77",
+    "branch": "feature/v2.6.2-memory-protection-phase-b",
+    "status": "",
+    "elf_sha256": "7cc1262fb1caee2b104d17d601a19e172eb02eac6d93b56ad2b2612a228db7bc",
+    "recovery_sha256": "4daf871c5c2982a2c6401a8a3336959f31bdd0143ae00f238f4cbdc7f453f19e"
+  },
+  "latest_review_facts_preserved": {
+    "production_matching": 6507,
+    "historical_expected": 7343,
+    "historical_present_matching": 7279,
+    "absent_empty_paths": 64,
+    "branch_tag_refs_matching": true,
+    "then_current_codex_internal_ref_differences": 2,
+    "causal_attribution": "Unknown; no author attribution and no restoration"
+  },
+  "current_content_inspection": {
+    "production": {
+      "expected": 6507,
+      "present_matching": 6507,
+      "missing": [],
+      "changed": [],
+      "additional_paths_in_declared_scope": []
+    },
+    "historical": {
+      "${LOCAL_EVIDENCE}\\kmz-v262-phase-a-review": {
+        "expected": 1285,
+        "present_matching": 1275,
+        "missing": [
+          {
+            "path": "selected-167/health-policy/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "selected-167/journal-chronology/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "selected-167/journal-domains/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "selected-167/memory-accounting-actual/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "selected-167/memory-policy-actual/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "selected-167/ownership-joint-actual/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "selected-167/panic-scope/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "selected-167/reset-boundary-actual/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "selected-167/slot-transitions-actual/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "selected-167/snapshot-preflight/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        ],
+        "changed": [],
+        "additional_paths": []
+      },
+      "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-review-dbf23ce": {
+        "expected": 1368,
+        "present_matching": 1352,
+        "missing": [
+          {
+            "path": "oracle-compile.log",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "worker-error.log",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "regression/emergency-architecture-actual/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "regression/emergency-ata-actual/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "regression/emergency-record-actual/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "regression/emergency-uart-actual/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "regression/health-policy/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "regression/journal-chronology/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "regression/journal-domains/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "regression/memory-accounting-actual/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "regression/memory-policy-actual/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "regression/ownership-joint-actual/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "regression/panic-scope/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "regression/reset-boundary-actual/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "regression/slot-transitions-actual/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "regression/snapshot-preflight/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        ],
+        "changed": [],
+        "additional_paths": []
+      },
+      "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce": {
+        "expected": 2536,
+        "present_matching": 2498,
+        "missing": [
+          {
+            "path": "divide/excluded-tests.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "divide/test_divide_fault/observation-boot-1/cpu-before.trace",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "divide/test_divide_fault/observation-boot-1/cpu.trace",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "divide-recheck/excluded-tests.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "divide-recheck/test_divide_fault/observation-boot-1/cpu.trace",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "divide-recheck/test_divide_fault/observation-boot-2/cpu.trace",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "full/excluded-tests.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "full/emergency-architecture-actual/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "full/emergency-ata-actual/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "full/emergency-record-actual/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "full/emergency-uart-actual/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "full/health-policy/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "full/journal-chronology/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "full/journal-domains/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "full/memory-accounting-actual/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "full/memory-policy-actual/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "full/ownership-joint-actual/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "full/panic-scope/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "full/reset-boundary-actual/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "full/slot-transitions-actual/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "full/snapshot-preflight/compile.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "full/test_divide_fault/observation-boot-1/cpu.trace",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "full/test_divide_fault/observation-boot-2/cpu.trace",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "full/test_intentional_panic_test_not_penalized_next_boot/observation-boot-1/cpu.trace",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "full/test_intentional_panic_test_not_penalized_next_boot/observation-boot-2/cpu.trace",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "full/test_invalid_opcode_fault/observation-boot-1/cpu.trace",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "full/test_invalid_opcode_fault/observation-boot-2/cpu.trace",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "full/test_page_fault/observation-boot-1/cpu.trace",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "full/test_page_fault/observation-boot-2/cpu.trace",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "invalid/excluded-tests.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "invalid/test_invalid_opcode_fault/observation-boot-1/cpu.trace",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "invalid/test_invalid_opcode_fault/observation-boot-2/cpu.trace",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "page/excluded-tests.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "page/test_page_fault/observation-boot-1/cpu.trace",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "page/test_page_fault/observation-boot-2/cpu.trace",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "panic/excluded-tests.txt",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "panic/test_intentional_panic_test_not_penalized_next_boot/observation-boot-1/cpu.trace",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "panic/test_intentional_panic_test_not_penalized_next_boot/observation-boot-2/cpu.trace",
+            "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        ],
+        "changed": [],
+        "additional_paths": []
+      },
+      "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage2a-dbf23ce": {
+        "expected": 463,
+        "present_matching": 463,
+        "missing": [],
+        "changed": [],
+        "additional_paths": []
+      },
+      "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage2a-revalidate-dbf23ce": {
+        "expected": 822,
+        "present_matching": 822,
+        "missing": [],
+        "changed": [],
+        "additional_paths": []
+      },
+      "${LOCAL_EVIDENCE}\\kmz-v262-stage2a-acceptance-dbf23ce": {
+        "expected": 829,
+        "present_matching": 829,
+        "missing": [],
+        "changed": [],
+        "additional_paths": []
+      },
+      "${LOCAL_EVIDENCE}\\kmz-v262-stage2b-design-dbf23ce": {
+        "expected": 21,
+        "present_matching": 21,
+        "missing": [],
+        "changed": [],
+        "additional_paths": []
+      },
+      "${LOCAL_EVIDENCE}\\kmz-v262-stage2b-adversarial-review-dbf23ce": {
+        "expected": 19,
+        "present_matching": 19,
+        "missing": [],
+        "changed": [],
+        "additional_paths": []
+      }
+    },
+    "historical_expected": 7343,
+    "historical_present_matching": 7279,
+    "historical_missing": 64,
+    "missing_recorded_empty": 64
+  },
+  "current_ref_maps": {
+    "observed": {
+      "refs/codex/turn-diffs/captures/1793251775068/f9d82ad5-949c-47b0-b1b3-258d56362bc9/base": "62ff1f4fbd5d70163c074fb7c259f4f2115c4d77",
+      "refs/codex/turn-diffs/checkpoints/d40e19b360b04e56170bc69dd4fa6b8c/208d72c59e23a310236732d48009b279/1793249057192/9b0577eb-8028-47f8-813a-db76d830f80e": "62ff1f4fbd5d70163c074fb7c259f4f2115c4d77",
+      "refs/heads/feature/v2.6-ring3-seed": "f6c18148e6b003dfe48d3fdded3f83e603d95d2e",
+      "refs/heads/feature/v2.6.2-memory-protection-phase-a": "d564130ecf6f56f8ea3a9683f4ec78d8dd49c5e4",
+      "refs/heads/feature/v2.6.2-memory-protection-phase-b": "dbf23ce74a2a7103ae6fce04fba51969b7807178",
+      "refs/heads/hardening/pre-v2.3": "12a609008e7249ad3a3bc476e1e8662d8b0c7ad9",
+      "refs/heads/hardening/v2.6.1-integrity-gate": "fb5b58f69249dd22ea7e0e0f42a055c6584ac3f5",
+      "refs/heads/main": "86a5f195eba872bf9c90829d118138763a939b51",
+      "refs/remotes/origin/HEAD": "6ca5f0f1cb34fc7b3fa6c8dfa739c6494a64391f",
+      "refs/remotes/origin/main": "6ca5f0f1cb34fc7b3fa6c8dfa739c6494a64391f",
+      "refs/t3/checkpoints/aW1wb3J0OmNsYXVkZUFnZW50Ojc3ZWY1YjZjLWY3MGItNGM5NC1iZmQxLWM5MTVmMTIwZGExZg/turn/0": "6a1d81ee73be3c066c1a836d931092e31fdf85a4",
+      "refs/tags/v1.0": "68e54a27d3acbcaa6ec30232230098ab741dd292",
+      "refs/tags/v1.1": "b1494434bd6179edf3a812a4a1a48a422f33a2be",
+      "refs/tags/v1.2": "f2a75de12470e5517ad900db3e893ad0bb361b56",
+      "refs/tags/v1.3": "2ae096e205ca220e7116bafdc8c5e450745b5f4a",
+      "refs/tags/v1.4": "2a99788e076951f918ac284b92af2ef58e6c7f81",
+      "refs/tags/v1.5": "6ca5f0f1cb34fc7b3fa6c8dfa739c6494a64391f",
+      "refs/tags/v1.6": "593f8fc4aee9c54c05ff3441b0beba0166c8927a",
+      "refs/tags/v1.7": "d65de935d2fb2f98ba673c8e69f6ded8c88175f0",
+      "refs/tags/v1.8": "58899744e3c1243f4604851ab42fe6b390fcee40",
+      "refs/tags/v1.9": "2adafb155166c4d80b6f7b1dda430841f91a8565",
+      "refs/tags/v2.0": "3d2bd0086b04647ba081811832a3aeefcc0baba5",
+      "refs/tags/v2.1": "3fbde6a77fe8b59b3d4170065ceca59f53740805",
+      "refs/tags/v2.2": "69b0b9e9acac07c9e563398992cc31ad4f071612",
+      "refs/tags/v2.2.1-hardening": "2af8f0ed4a453a9d46c5e7a7a338edbb08fbc0f6",
+      "refs/tags/v2.5": "86a5f195eba872bf9c90829d118138763a939b51",
+      "refs/tags/v2.6.0-pre-audit-baseline": "ce3e4e4263cc29111bf8f8ad33b3b12aa24585cd"
+    },
+    "delta_vs_latest_review": {
+      "refs/codex/turn-diffs/captures/1793248237470/6b4935b3-8650-457c-8a00-247b1da492ee/base": {
+        "reference": "62ff1f4fbd5d70163c074fb7c259f4f2115c4d77",
+        "current": null
+      },
+      "refs/codex/turn-diffs/captures/1793251775068/f9d82ad5-949c-47b0-b1b3-258d56362bc9/base": {
+        "reference": null,
+        "current": "62ff1f4fbd5d70163c074fb7c259f4f2115c4d77"
+      },
+      "refs/codex/turn-diffs/checkpoints/d40e19b360b04e56170bc69dd4fa6b8c/208d72c59e23a310236732d48009b279/1793249057192/9b0577eb-8028-47f8-813a-db76d830f80e": {
+        "reference": null,
+        "current": "62ff1f4fbd5d70163c074fb7c259f4f2115c4d77"
+      }
+    },
+    "delta_vs_revision1_receipt": {
+      "refs/codex/turn-diffs/checkpoints/4857c41bac1b2ab76f5dedd4b5d1a35f/d327ba33e11f872c9fd7f268cdb0edd2/1792149965400/a87f2024-332c-4f90-85be-b5b517c13ccd": {
+        "reference": "c7dd73bba1c1868c2b1b8b0707e4adfbc3f3195c",
+        "current": null
+      },
+      "refs/codex/turn-diffs/captures/1793251775068/f9d82ad5-949c-47b0-b1b3-258d56362bc9/base": {
+        "reference": null,
+        "current": "62ff1f4fbd5d70163c074fb7c259f4f2115c4d77"
+      },
+      "refs/codex/turn-diffs/checkpoints/d40e19b360b04e56170bc69dd4fa6b8c/208d72c59e23a310236732d48009b279/1793249057192/9b0577eb-8028-47f8-813a-db76d830f80e": {
+        "reference": null,
+        "current": "62ff1f4fbd5d70163c074fb7c259f4f2115c4d77"
+      }
+    },
+    "branch_tag_delta_vs_latest_review": {},
+    "cause_timing": "Not established; no reviewer Git writes"
+  },
+  "authoritative_inputs": {
+    "${LOCAL_REVIEW_OUTPUTS}\\stage2b-r1-review-20261029\\STAGE2B_REVISION_1_INDEPENDENT_REVIEW.md": "a566df6cfd0a849897936a0c087fcf825592bd540a2a03e44a647a8766c633d6",
+    "${LOCAL_REVIEW_OUTPUTS}\\stage2b-r1-review-20261029\\STAGE2B_REVISION_1_FINDING_MATRIX.md": "5eaed3001f27194a35b945a1ddcc787192d1343b79526094193b2d0e8dd9732f",
+    "${LOCAL_REVIEW_OUTPUTS}\\stage2b-r1-review-20261029\\STAGE2B_H0_CORE_READINESS.md": "a5984597e486cd9b811a295892f8abbe005930e12c1037625638d76bd4041ee5",
+    "${LOCAL_REVIEW_OUTPUTS}\\stage2b-r1-review-20261029\\STAGE2B_A1_UD_READINESS.md": "3eccb18705ba242216386e42ac2d3fc7dc8013a95831ebcffe3420a52f1999b7",
+    "${LOCAL_REVIEW_OUTPUTS}\\stage2b-r1-review-20261029\\STAGE2B_ORACLE_AUDIT.md": "0a3ef16e5b239148fff5cd7813983e56bfdc2dde05acfa4888a5fcd1501cf2bb",
+    "${LOCAL_REVIEW_OUTPUTS}\\stage2b-r1-review-20261029\\STAGE2B_PRESERVATION_AUDIT.md": "dc4547ff37e5b6ee9fbf997c148a4066e537572dbc38f52d37e448eb1866a199",
+    "${LOCAL_REVIEW_OUTPUTS}\\stage2b-r1-review-20261029\\STAGE2B_REVIEW_PROVENANCE.json": "685eed0da3b755ff453b796fc2e4b37cbd2bdfab934207592723675f8bed5572"
+  },
+  "review_artifact_manifest_sha256": "2ff8209ac3396f0d52579f6c8b01f37a36a146835f21694a4bb1e47e76e412e6",
+  "review_manifest_mismatches": [],
+  "revision1_artifact_manifest_sha256": "9c3ebe13c108e0f837005cb2a34a7e3b3a8efd4206defdd1edb043a9a17c396b",
+  "revision1_manifest_mismatches": [],
+  "inspected_production_source_sha256": {
+    "kernel/linker.ld": "a3a0a7331d44cafdfc22b83dcac9bb4bf27892e11137f6a8951947c41a86f744",
+    "kernel/src/emergency_entry.S": "dd629c4884137f4a9541e923feed38d58de9a6f6974a41edfff87c59e1324792",
+    "kernel/src/interrupt_stubs.S": "d4f576459618aa210fd461dbfc83f7873e3ddef2a5a3a76881ec0653352a63ab",
+    "kernel/src/emergency.c": "d12b560fca789b209e6d7f74b7abb20e88158ad7b0cb795be18cd9e6f0189b1c",
+    "kernel/src/emergency_record.h": "0f0617123e806a42dbd6aa465c31dfbe46dfceb619995614595b0bfc83621709",
+    "kernel/src/ata.c": "6a64a5186577d6fc2c20575a5021b5f8c78a0f96c2251b67f4c8f0da09b952e4",
+    "kernel/src/recovery_memory.c": "487f42cbcfbd2e09f9cbad0bcd318b9d6284b963cef570830120510e8859667f",
+    "kernel/src/recovery_store.c": "4ddb11a25e52c3331b5494a7f530192c69c5168165ba18bea3a9f4ebc525d4df"
+  },
+  "evidence_type": "Existing source, prior hash-bound independent ELF bindings and read-only llvm-nm symbols; no new fixture or behavioral oracle",
+  "exact_future_build_binding": {
+    "exists": false,
+    "arm_ack_numeric_addresses": "UNASSIGNED",
+    "stack_store_union_cardinality": "UNASSIGNED",
+    "architectural_word_mask_set": "UNASSIGNED",
+    "writer_registry_numeric_sites": "UNASSIGNED",
+    "sensor_calibration": "NOT_PERFORMED"
+  },
+  "finding_status": {
+    "F02": "PARTIALLY RESOLVED; U-BUILD/U-RAM OPEN",
+    "F04": "PARTIALLY RESOLVED; CMOS-T1 UNVERIFIED",
+    "F05": "UNRESOLVED; OPERATIONAL WRITER COVERAGE NOT DEMONSTRATED"
+  },
+  "authorization_status": {
+    "H0": "READY FOR OWNER AUTHORIZATION CONSIDERATION FOR H0-I ONLY; NO IMPLEMENTATION OR H0-C AUTHORITY",
+    "A1": "BLOCKED; REVISE BEFORE A1-E AUTHORIZATION",
+    "P1_R1": "SEPARATE LATER DECISIONS",
+    "global": "REVISE BEFORE AUTHORIZATION",
+    "authorization_granted": false,
+    "independent_acceptance": false
+  },
+  "execution_counts": {
+    "builds": 0,
+    "tests": 0,
+    "host_controls": 0,
+    "qemu_launches": 0,
+    "injections": 0,
+    "fixtures_created_or_activated": 0,
+    "production_mutations": 0,
+    "git_writes": 0
+  },
+  "actions": "Only read/hash/source/symbol/Git operations and new design documents/provenance. No build/test/fixture/calibration/observer or END Engine code imported or executed.",
+  "limits": [
+    "A future build/observer cannot be certified from design text",
+    "Content hashes do not prove no transient same-byte writes or every historical process",
+    "Codex-internal namespace drift is recorded without causality claims",
+    "No model source-to-binary RTC or complete write-site coverage is established"
+  ],
+  "read_only_command_note": "One unquoted HEAD^{tree} PowerShell read query was parsed incorrectly; its failure was preserved in tool output and corrected with quoted revision. No Git write command was issued."
+}

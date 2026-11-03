@@ -1,0 +1,113 @@
+{
+  "review_type": "INDEPENDENT_ADVERSARIAL_DESIGN_REVIEW_ONLY",
+  "started_utc": "2026-10-23T17:19:09.940401+00:00",
+  "production_commit": "dbf23ce74a2a7103ae6fce04fba51969b7807178",
+  "production_tree": "62ff1f4fbd5d70163c074fb7c259f4f2115c4d77",
+  "branch": "feature/v2.6.2-memory-protection-phase-b",
+  "initial_clean": true,
+  "reviewed_design": "${LOCAL_EVIDENCE}\\kmz-v262-stage2b-design-dbf23ce\\STAGE2B_DESIGN.md",
+  "design_sha256": "ae77ff66804a2ed98e8d2f0cab8b1ed15722749872c3ece782c7f72869a5c9fe",
+  "important_input_sha256": {
+    "${LOCAL_EVIDENCE}\\kmz-v262-stage2b-design-dbf23ce\\STAGE2B_DESIGN.md": "ae77ff66804a2ed98e8d2f0cab8b1ed15722749872c3ece782c7f72869a5c9fe",
+    "${LOCAL_EVIDENCE}\\kmz-v262-stage2b-design-dbf23ce\\design-status.json": "e349f44cd9c88e69fc94631d19385b909f6089c1a1206b5012fc52415feed2e5",
+    "${LOCAL_EVIDENCE}\\kmz-v262-stage2b-design-dbf23ce\\provenance.json": "d9e9bd20354e4b57a06565010a72d57a4fcd19d9c72a6e72976b5be896f0ac1e",
+    "${LOCAL_EVIDENCE}\\kmz-v262-stage2a-acceptance-dbf23ce\\ACCEPTANCE_REVIEW.md": "62fe8b0ed489c2d5f41d236a92fe4697d5309ca4f56a02dfea7973e53df5f714",
+    "${LOCAL_EVIDENCE}\\kmz-v262-stage2a-acceptance-dbf23ce\\acceptance-verdict.json": "9594a2b2ef3f038b16055dc95e41014973253845e24147112afcd28944d324a4",
+    "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce\\STAGE1_REPORT.md": "6570d64f36ec0382fc6993f541efe497bdf5e008c146bd609ef10bb783b185e6",
+    "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage2a-dbf23ce\\case1\\result.json": "70600df8e31af2bfc35235bc03310c913160fd58c5ef59cc39ef68abcca19a1a"
+  },
+  "protected_historical_roots": [
+    "${LOCAL_EVIDENCE}\\kmz-v262-phase-a-review",
+    "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-review-dbf23ce",
+    "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+    "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage2a-dbf23ce",
+    "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage2a-revalidate-dbf23ce",
+    "${LOCAL_EVIDENCE}\\kmz-v262-stage2a-acceptance-dbf23ce",
+    "${LOCAL_EVIDENCE}\\kmz-v262-stage2b-design-dbf23ce"
+  ],
+  "coverage_limit": "Content hashes of tracked files and named evidence trees plus recovery/kernel ELF; all refs. Not a global filesystem/process-history audit.",
+  "execution": {
+    "kernel_builds": 0,
+    "boot_image_builds": 0,
+    "qemu_launches": 0,
+    "tests_run": 0,
+    "cpu_faults_injected": 0,
+    "fixtures_created_or_activated": 0
+  },
+  "production_or_existing_host_source_modified": false,
+  "available_elf_sha256": {
+    "production": "7cc1262fb1caee2b104d17d601a19e172eb02eac6d93b56ad2b2612a228db7bc",
+    "stage1": "cb282795cff5639a0cec8608a38cb0c01e18a72801264698aba836b0692bd5ee",
+    "stage2a_original": "ae7d6975f5156581fc1af0f346f7f4e1b69062ba49971af371dd80d5861e9e66",
+    "stage2a_revalidated": "55697ce3bd4336a201da7ae93f3cabbe714e142abb84e4c3bd697e0d367a4133",
+    "stage2a_accepted": "79415990686f9ab0579c6f86f216e1fd7d372965eb7e7bf2f0e7e952ffecdd50"
+  },
+  "finished_utc": "2026-10-23T17:50:00.896726+00:00",
+  "preservation_result": {
+    "original_files_checked": 6507,
+    "changed_original_files": [],
+    "historical_trees_unchanged": true,
+    "refs_unchanged": true,
+    "clean": true,
+    "head": "dbf23ce74a2a7103ae6fce04fba51969b7807178",
+    "design_sha256": "ae77ff66804a2ed98e8d2f0cab8b1ed15722749872c3ece782c7f72869a5c9fe",
+    "recovery_sha256": "4daf871c5c2982a2c6401a8a3336959f31bdd0143ae00f238f4cbdc7f453f19e",
+    "audit_sha256": {
+      "release-8e75093.zip": "f5982850ab1d46a4ca4f0d9bdb09fab31311abc9e66f64387848ae8a10235365",
+      "release-0cd86d8.zip": "bae909075761af2c3edafe33e993002487d79cc61c9c0dae483ffccb2b75be75"
+    }
+  },
+  "design_review_verdict": "REVISE BEFORE AUTHORIZATION",
+  "case_classifications": {
+    "H0": "READY FOR AUTHORIZATION REVIEW (host-data core only)",
+    "A1": "REVISE DESIGN",
+    "P1": "REVISE DESIGN",
+    "R1": "REVISE DESIGN",
+    "R2": "REVISE DESIGN",
+    "R3": "REVISE DESIGN",
+    "P2": "REVISE DESIGN",
+    "A2": "DEFER",
+    "U1": "DEFER",
+    "U2": "DEFER",
+    "U3": "DEFER",
+    "R4": "DEFER",
+    "R5": "DEFER",
+    "U4": "DEFER",
+    "P3": "DEFER"
+  },
+  "evidence_distinctions": {
+    "existing_stage2a": "Preserved accepted captures/results statically corroborated; no fresh hardware execution",
+    "current_review": "Read-only source/Git/ELF/hash/disassembly and data inspection only",
+    "stage2b_outcomes": "UNVERIFIED_NOT_RUN",
+    "historical_unlogged_nonexecution": "Cannot prove absence of all unlogged actions from supplied artifacts"
+  },
+  "reviewed_source_sha256": {
+    "kernel/linker.ld": "a3a0a7331d44cafdfc22b83dcac9bb4bf27892e11137f6a8951947c41a86f744",
+    "kernel/src/emergency.c": "d12b560fca789b209e6d7f74b7abb20e88158ad7b0cb795be18cd9e6f0189b1c",
+    "kernel/src/emergency_entry.S": "dd629c4884137f4a9541e923feed38d58de9a6f6974a41edfff87c59e1324792",
+    "kernel/src/emergency_frame.c": "d73cdd80aa64bed5fb2b25561d7742ca96fb701b19ae36daacdcd329b43360b4",
+    "kernel/src/emergency_record.c": "cb031abf3a8970e7642c3967f5ad3bef34c727df5207428e090d6ccfe1ef79cd",
+    "kernel/src/interrupt_stubs.S": "d4f576459618aa210fd461dbfc83f7873e3ddef2a5a3a76881ec0653352a63ab",
+    "kernel/src/idt.c": "a9d19366077b0f7b5a3078f892aa0dbebf35ee097efb8efe85d9361869c97847",
+    "kernel/src/gdt.c": "976bea73f748c1ee5fa2ce3318593155951d7391e3d064260466f006d2e90edc",
+    "kernel/src/tss.c": "140c48cf51d8b99873960b54b1a4689e5ab157748c114a49a2959c03c1b909c9",
+    "kernel/src/x86_task.c": "5d0ea2e50c60c9af54a4de21c2a1b0c4667ecbcb4aa798a95dffee9c53c0c3f3",
+    "kernel/src/double_fault.c": "dac2973d42c3a93be633aa7b6c7b288b87de287f7a67a9e7197165a3bd271182",
+    "kernel/src/serial.c": "e6cd310c6dc9fb0c50c31010da322027a77b3e86022026acebffff1ad3d4e1fd",
+    "kernel/src/ata.c": "6a64a5186577d6fc2c20575a5021b5f8c78a0f96c2251b67f4c8f0da09b952e4",
+    "kernel/src/panic.c": "ac5a12a9fccb33374fe07a9782cb1ee7483e5cc60de60675db43a1e8d679818f",
+    "kernel/src/recovery_memory.c": "487f42cbcfbd2e09f9cbad0bcd318b9d6284b963cef570830120510e8859667f",
+    "kernel/src/recovery_store.c": "4ddb11a25e52c3331b5494a7f530192c69c5168165ba18bea3a9f4ebc525d4df",
+    "kernel/src/ring3.c": "2d5efe17901df794a20c299d37aa02b8187ac1b5ecf2b036050ccaeead39db7a",
+    "kernel/src/paging.c": "edfe0033a96ee8b7a62f7c53a6e54e6c2a8c9d0bf731a014084c430d2d21012d",
+    "kernel/src/kernel.c": "f6ea30a3ec2ccf521e773f51b6c7a8e3a68c62f596c50a52f74e1e8d004ad4b6"
+  },
+  "deliverable_sha256": {
+    "STAGE2B_INDEPENDENT_REVIEW.md": "182786b4d29e6f19c0e6c0aa270f84973460e0aeb16517fc1051ee72961c32a2",
+    "STAGE2B_CASE_MATRIX.md": "f3c51dfcc4e6b4b4f6a4a93167e6e4832453e6d78964266a8fc7e7cf745c50ac",
+    "STAGE2B_FIRST_TRANCHE_DECISION.md": "3d74e89a5eb5c2dd25e65d571090a9821086b18e63e1f2d863a1774d262f6cf5",
+    "STAGE2B_FUTURE_ARCHITECTURE.md": "92e143a113d10c9d82e765f8c5a80502b346b9fb55577195d9d14272e4c8460f",
+    "STAGE2B_PRESERVATION_REPORT.md": "058d26fdbfcd5e21936a4e4f6e59389ee3076c008851d23c535737594163f16f"
+  },
+  "reports_sealed_utc": "2026-10-23T17:56:16.326674+00:00"
+}

@@ -1,0 +1,32 @@
+{
+  "head": "8e75093f1d880d8b546d4f0c8f0d6e7ef9506086",
+  "tree": "2cbb1f13152ed2dba4ad453495e8c5f39cecf7e3",
+  "recovery_before": "4daf871c5c2982a2c6401a8a3336959f31bdd0143ae00f238f4cbdc7f453f19e",
+  "evidence_zip_sha256": "bae909075761af2c3edafe33e993002487d79cc61c9c0dae483ffccb2b75be75",
+  "evidence_zip": {
+    "files": 1166,
+    "bytes": 134947572
+  },
+  "target": {
+    "commit": "8e75093f1d880d8b546d4f0c8f0d6e7ef9506086",
+    "verified_blobs": 262,
+    "units": 45,
+    "elf_sha256": "7e295a57c7bea3a2d9130f1bce79ea1a16ad19a77dd3beaefe6fb048fe320a6a",
+    "source_zip_sha256": "933a17ba9576922b54dcb34ef8bd29957e13301949788ca784c858e73e45ae8d"
+  },
+  "baseline": {
+    "commit": "f6c18148e6b003dfe48d3fdded3f83e603d95d2e",
+    "verified_blobs": 225,
+    "units": 44,
+    "elf_sha256": "5c1314ec2cbadf9b3751e5e92510b1dfe851cecf095dc14a39a47090f606a726",
+    "source_zip_sha256": "98fbef2f3ed18b29bf10ec539c766518345fa527298d93d553b12a0154a6bf6d"
+  },
+  "previous": {
+    "commit": "0cd86d88a1cc2a57b6a13f8f0e8d003dadf85f59",
+    "verified_blobs": 250,
+    "units": 45,
+    "elf_sha256": "8b961369c26c5fa8999eff56bfa9a3c438cf6cffff1c0240cdf1ed527351591b",
+    "source_zip_sha256": "84cfb8c112771d9f119b09954be3e81aab8bd27ddbda25236b8338ab8abbe5a6"
+  },
+  "recovery_after_builds": "4daf871c5c2982a2c6401a8a3336959f31bdd0143ae00f238f4cbdc7f453f19e"
+}

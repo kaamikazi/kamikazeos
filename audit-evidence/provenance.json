@@ -1,0 +1,26 @@
+{
+  "head": "0cd86d88a1cc2a57b6a13f8f0e8d003dadf85f59",
+  "store_before": "4daf871c5c2982a2c6401a8a3336959f31bdd0143ae00f238f4cbdc7f453f19e",
+  "target": {
+    "commit": "0cd86d88a1cc2a57b6a13f8f0e8d003dadf85f59",
+    "verified_blobs": 250,
+    "elf_sha256": "b9d9252544a5f908b0d0ce6cc05e939e95f71d4587270b7ddde7fc4bbfd3644a",
+    "archive_sha256": "84cfb8c112771d9f119b09954be3e81aab8bd27ddbda25236b8338ab8abbe5a6",
+    "translation_units": 45
+  },
+  "baseline": {
+    "commit": "f6c18148e6b003dfe48d3fdded3f83e603d95d2e",
+    "verified_blobs": 225,
+    "elf_sha256": "c9dd155dcaadeb8762dce76565c9a409a13f0f85a902a69db869227deee17da7",
+    "archive_sha256": "98fbef2f3ed18b29bf10ec539c766518345fa527298d93d553b12a0154a6bf6d",
+    "translation_units": 44
+  },
+  "pre-additional": {
+    "commit": "7ccb4d9b32941d6f850a274c07e6ad0148bd51cb",
+    "verified_blobs": 245,
+    "elf_sha256": "377f3c71c5a462c76c093ba6581f3a2ed5f6f26e192124324f0e5ca7c499980c",
+    "archive_sha256": "bf91df8f8ec4d584b7a35292593661f15df93bd65215e3e685a57cedaa0eeb5e",
+    "translation_units": 45
+  },
+  "store_after_builds": "4daf871c5c2982a2c6401a8a3336959f31bdd0143ae00f238f4cbdc7f453f19e"
+}

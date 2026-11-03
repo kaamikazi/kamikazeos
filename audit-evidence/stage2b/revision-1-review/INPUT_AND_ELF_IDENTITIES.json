@@ -1,0 +1,59 @@
+{
+  "authoritative_inputs": {
+    "${LOCAL_EVIDENCE}\\kmz-v262-stage2b-adversarial-review-dbf23ce\\STAGE2B_INDEPENDENT_REVIEW.md": {
+      "expected": "182786b4d29e6f19c0e6c0aa270f84973460e0aeb16517fc1051ee72961c32a2",
+      "observed": "182786b4d29e6f19c0e6c0aa270f84973460e0aeb16517fc1051ee72961c32a2"
+    },
+    "${LOCAL_EVIDENCE}\\kmz-v262-stage2b-adversarial-review-dbf23ce\\STAGE2B_CASE_MATRIX.md": {
+      "expected": "f3c51dfcc4e6b4b4f6a4a93167e6e4832453e6d78964266a8fc7e7cf745c50ac",
+      "observed": "f3c51dfcc4e6b4b4f6a4a93167e6e4832453e6d78964266a8fc7e7cf745c50ac"
+    },
+    "${LOCAL_EVIDENCE}\\kmz-v262-stage2b-adversarial-review-dbf23ce\\STAGE2B_FIRST_TRANCHE_DECISION.md": {
+      "expected": "3d74e89a5eb5c2dd25e65d571090a9821086b18e63e1f2d863a1774d262f6cf5",
+      "observed": "3d74e89a5eb5c2dd25e65d571090a9821086b18e63e1f2d863a1774d262f6cf5"
+    },
+    "${LOCAL_EVIDENCE}\\kmz-v262-stage2b-adversarial-review-dbf23ce\\STAGE2B_FUTURE_ARCHITECTURE.md": {
+      "expected": "92e143a113d10c9d82e765f8c5a80502b346b9fb55577195d9d14272e4c8460f",
+      "observed": "92e143a113d10c9d82e765f8c5a80502b346b9fb55577195d9d14272e4c8460f"
+    },
+    "${LOCAL_EVIDENCE}\\kmz-v262-stage2b-adversarial-review-dbf23ce\\STAGE2B_REVIEW_PROVENANCE.json": {
+      "expected": "7fe5ce94c6e4c070535b5c280304ae3eda7ac62d1786d46390d01474174b4406",
+      "observed": "7fe5ce94c6e4c070535b5c280304ae3eda7ac62d1786d46390d01474174b4406"
+    },
+    "${LOCAL_EVIDENCE}\\kmz-v262-stage2b-adversarial-review-dbf23ce\\STAGE2B_PRESERVATION_REPORT.md": {
+      "expected": "058d26fdbfcd5e21936a4e4f6e59389ee3076c008851d23c535737594163f16f",
+      "observed": "058d26fdbfcd5e21936a4e4f6e59389ee3076c008851d23c535737594163f16f"
+    },
+    "${LOCAL_EVIDENCE}\\kmz-v262-stage2b-design-dbf23ce\\STAGE2B_DESIGN.md": {
+      "expected": "ae77ff66804a2ed98e8d2f0cab8b1ed15722749872c3ece782c7f72869a5c9fe",
+      "observed": "ae77ff66804a2ed98e8d2f0cab8b1ed15722749872c3ece782c7f72869a5c9fe"
+    }
+  },
+  "elfs": {
+    "production": {
+      "path": "${REPOSITORY}\\build\\kamikaze.elf",
+      "expected": "7cc1262fb1caee2b104d17d601a19e172eb02eac6d93b56ad2b2612a228db7bc",
+      "observed": "7cc1262fb1caee2b104d17d601a19e172eb02eac6d93b56ad2b2612a228db7bc"
+    },
+    "stage1": {
+      "path": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce\\source\\build\\kamikaze.elf",
+      "expected": "cb282795cff5639a0cec8608a38cb0c01e18a72801264698aba836b0692bd5ee",
+      "observed": "cb282795cff5639a0cec8608a38cb0c01e18a72801264698aba836b0692bd5ee"
+    },
+    "stage2a_original": {
+      "path": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage2a-dbf23ce\\source\\build\\kamikaze.elf",
+      "expected": "ae7d6975f5156581fc1af0f346f7f4e1b69062ba49971af371dd80d5861e9e66",
+      "observed": "ae7d6975f5156581fc1af0f346f7f4e1b69062ba49971af371dd80d5861e9e66"
+    },
+    "stage2a_revalidated": {
+      "path": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage2a-revalidate-dbf23ce\\source\\build\\kamikaze.elf",
+      "expected": "55697ce3bd4336a201da7ae93f3cabbe714e142abb84e4c3bd697e0d367a4133",
+      "observed": "55697ce3bd4336a201da7ae93f3cabbe714e142abb84e4c3bd697e0d367a4133"
+    },
+    "stage2a_accepted": {
+      "path": "${LOCAL_EVIDENCE}\\kmz-v262-stage2a-acceptance-dbf23ce\\source\\build\\kamikaze.elf",
+      "expected": "79415990686f9ab0579c6f86f216e1fd7d372965eb7e7bf2f0e7e952ffecdd50",
+      "observed": "79415990686f9ab0579c6f86f216e1fd7d372965eb7e7bf2f0e7e952ffecdd50"
+    }
+  }
+}

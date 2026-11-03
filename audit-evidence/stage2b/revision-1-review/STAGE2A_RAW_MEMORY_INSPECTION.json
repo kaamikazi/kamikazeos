@@ -1,0 +1,107 @@
+{
+  "mode": "DECODE_EXISTING_SNAPSHOTS_NO_HOST_CONTROL_EXECUTION",
+  "cases": {
+    "case1": {
+      "ram_base": "0x100000",
+      "ram_bytes": 442368,
+      "df_record": {
+        "magic": 1162691410,
+        "version": 1,
+        "kind": 3,
+        "unsafe_flags": 607,
+        "vector": 8,
+        "error_code": 0,
+        "cr2": 33558524,
+        "eip": 1052207,
+        "cs": 8,
+        "eflags": 70,
+        "cr0": 2147483673,
+        "cr3": 1343488,
+        "cpu_esp": 33558528,
+        "origin_esp": 33558528,
+        "diagnostic_esp": 1458048,
+        "user_esp": 0,
+        "user_ss": 0,
+        "stack_kind": 4,
+        "stack_start": 1441792,
+        "stack_end": 1458176,
+        "frame_valid": 0,
+        "origin_valid": 0,
+        "persistence_eligible": 0,
+        "eflags_known": 1,
+        "cr2_applicable": 0,
+        "context_source": 3
+      },
+      "primary_zero_at_entry": true,
+      "primary_preserved": true,
+      "aux_zero": true,
+      "reentry_count": 0,
+      "normal_tss_saved_eip_cs_flags_esp": [
+        1052207,
+        8,
+        70,
+        33558528
+      ],
+      "record_eip_cs_flags_origin": [
+        1052207,
+        8,
+        70,
+        33558528
+      ],
+      "df_backlink": 40,
+      "df_descriptor_access": "0x8b",
+      "entry_hardware_error": 0
+    },
+    "case2": {
+      "ram_base": "0x100000",
+      "ram_bytes": 442368,
+      "df_record": {
+        "magic": 1162691410,
+        "version": 1,
+        "kind": 3,
+        "unsafe_flags": 607,
+        "vector": 8,
+        "error_code": 0,
+        "cr2": 33558524,
+        "eip": 1052207,
+        "cs": 8,
+        "eflags": 70,
+        "cr0": 2147483673,
+        "cr3": 1343488,
+        "cpu_esp": 33558528,
+        "origin_esp": 33558528,
+        "diagnostic_esp": 1458048,
+        "user_esp": 0,
+        "user_ss": 0,
+        "stack_kind": 4,
+        "stack_start": 1441792,
+        "stack_end": 1458176,
+        "frame_valid": 0,
+        "origin_valid": 0,
+        "persistence_eligible": 0,
+        "eflags_known": 1,
+        "cr2_applicable": 0,
+        "context_source": 3
+      },
+      "primary_zero_at_entry": true,
+      "primary_preserved": true,
+      "aux_zero": true,
+      "reentry_count": 0,
+      "normal_tss_saved_eip_cs_flags_esp": [
+        1052207,
+        8,
+        70,
+        33558528
+      ],
+      "record_eip_cs_flags_origin": [
+        1052207,
+        8,
+        70,
+        33558528
+      ],
+      "df_backlink": 40,
+      "df_descriptor_access": "0x8b",
+      "entry_hardware_error": 0
+    }
+  }
+}

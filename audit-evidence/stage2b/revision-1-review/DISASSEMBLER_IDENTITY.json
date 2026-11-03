@@ -1,0 +1,7 @@
+{
+  "path": "${SYSTEM_DRIVE}/Program Files\\LLVM\\bin\\llvm-objdump.exe",
+  "sha256": "cedc64d816ef7092a49e4f06671dde9f5b643d4d0172e8f8bff7f5021e6a7615",
+  "returncode": 0,
+  "stderr": "",
+  "mode": "STATIC_EXISTING_ELF_DECODE_NO_BUILD_NO_GUEST_EXECUTION"
+}

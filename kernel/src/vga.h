@@ -6,7 +6,7 @@
  * byte 0 = the ASCII character, byte 1 = colors (low 4 bits foreground,
  * high 4 bits background). Writing to that memory instantly changes the
  * screen — no driver needed. This is the simplest possible display "driver"
- * and exactly why every toy OS starts here.
+ * and exactly why many small experimental kernels start here.
  */
 #ifndef KMZ_VGA_H
 #define KMZ_VGA_H

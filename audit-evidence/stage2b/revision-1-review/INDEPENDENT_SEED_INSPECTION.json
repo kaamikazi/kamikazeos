@@ -1,0 +1,54 @@
+{
+  "path": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce\\divide-recheck\\test_divide_fault\\observation-boot-1\\image-before-trigger.img",
+  "sha256": "2d1a74227f1ec230a60eb447d534ed5bd67866ee859ca377f64c549c3b3413d6",
+  "bytes": 1048576,
+  "states": {
+    "primary": {
+      "magic_version": "4b4d5a5201",
+      "base_checksum_sum": 0,
+      "extension": "4b53583101",
+      "stored_crc": 1859892602,
+      "computed_crc": 1859892602,
+      "boot": 1,
+      "jcount": 3,
+      "generation": 5
+    },
+    "mirror": {
+      "magic_version": "4b4d5a5201",
+      "base_checksum_sum": 0,
+      "extension": "4b53583101",
+      "stored_crc": 1859892602,
+      "computed_crc": 1859892602,
+      "boot": 1,
+      "jcount": 3,
+      "generation": 5
+    }
+  },
+  "occupied_entries": [
+    {
+      "slot": 0,
+      "hex": "a70101010101000152454330303100e8",
+      "checksum_sum": 0,
+      "version": 1,
+      "boot": 1,
+      "event": 1
+    },
+    {
+      "slot": 1,
+      "hex": "a70101010401010152454330303100e4",
+      "checksum_sum": 0,
+      "version": 1,
+      "boot": 1,
+      "event": 1
+    },
+    {
+      "slot": 2,
+      "hex": "a701010800010001434c45414e4200a8",
+      "checksum_sum": 0,
+      "version": 1,
+      "boot": 1,
+      "event": 8
+    }
+  ],
+  "new_seed_or_conflict_created": false
+}

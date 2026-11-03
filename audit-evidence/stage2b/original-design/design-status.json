@@ -1,0 +1,16 @@
+{
+  "status": "STAGE2B_DESIGN_READY_FOR_REVIEW",
+  "scope": "DESIGN_AND_REVIEW_ONLY",
+  "production_commit": "dbf23ce74a2a7103ae6fce04fba51969b7807178",
+  "tree": "62ff1f4fbd5d70163c074fb7c259f4f2115c4d77",
+  "design_sha256": "ae77ff66804a2ed98e8d2f0cab8b1ed15722749872c3ece782c7f72869a5c9fe",
+  "original_files_preserved": 6507,
+  "historical_evidence_preserved": true,
+  "repository_clean": true,
+  "builds_executed": 0,
+  "qemu_instances_launched": 0,
+  "tests_executed": 0,
+  "fault_fixtures_implemented": 0,
+  "all_new_experiments": "UNVERIFIED_NOT_RUN",
+  "separate_implementation_and_execution_authorization_required": true
+}

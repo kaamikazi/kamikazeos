@@ -1,0 +1,167 @@
+{
+  "sha256": {
+    "production": "7cc1262fb1caee2b104d17d601a19e172eb02eac6d93b56ad2b2612a228db7bc",
+    "stage1": "cb282795cff5639a0cec8608a38cb0c01e18a72801264698aba836b0692bd5ee",
+    "stage2a_original": "ae7d6975f5156581fc1af0f346f7f4e1b69062ba49971af371dd80d5861e9e66",
+    "stage2a_revalidated": "55697ce3bd4336a201da7ae93f3cabbe714e142abb84e4c3bd697e0d367a4133",
+    "stage2a_accepted": "79415990686f9ab0579c6f86f216e1fd7d372965eb7e7bf2f0e7e952ffecdd50"
+  },
+  "production_symbols": {
+    "_bootstrap_stack_start": [
+      {
+        "address": 1368064,
+        "bytes": 0,
+        "info": 16,
+        "section": 7
+      }
+    ],
+    "_bootstrap_stack_end": [
+      {
+        "address": 1384448,
+        "bytes": 0,
+        "info": 16,
+        "section": 7
+      }
+    ],
+    "_bootstrap_guard_low_start": [
+      {
+        "address": 1363968,
+        "bytes": 0,
+        "info": 16,
+        "section": 7
+      }
+    ],
+    "_bootstrap_guard_low_end": [
+      {
+        "address": 1368064,
+        "bytes": 0,
+        "info": 16,
+        "section": 7
+      }
+    ],
+    "_page_tables_start": [
+      {
+        "address": 1347584,
+        "bytes": 0,
+        "info": 16,
+        "section": 6
+      }
+    ],
+    "_page_tables_end": [
+      {
+        "address": 1363968,
+        "bytes": 0,
+        "info": 16,
+        "section": 6
+      }
+    ],
+    "_fatal_stack_start": [
+      {
+        "address": 1417216,
+        "bytes": 0,
+        "info": 16,
+        "section": 9
+      }
+    ],
+    "_fatal_stack_end": [
+      {
+        "address": 1433600,
+        "bytes": 0,
+        "info": 16,
+        "section": 9
+      }
+    ],
+    "_df_stack_start": [
+      {
+        "address": 1441792,
+        "bytes": 0,
+        "info": 16,
+        "section": 10
+      }
+    ],
+    "_df_stack_end": [
+      {
+        "address": 1458176,
+        "bytes": 0,
+        "info": 16,
+        "section": 10
+      }
+    ],
+    "emergency_first_record": [
+      {
+        "address": 1301440,
+        "bytes": 128,
+        "info": 17,
+        "section": 4
+      }
+    ],
+    "emergency_reentry_record": [
+      {
+        "address": 1301696,
+        "bytes": 128,
+        "info": 17,
+        "section": 4
+      }
+    ],
+    "emergency_df_record": [
+      {
+        "address": 1301568,
+        "bytes": 128,
+        "info": 17,
+        "section": 4
+      }
+    ],
+    "em_record_capture": [
+      {
+        "address": 1062560,
+        "bytes": 308,
+        "info": 18,
+        "section": 1
+      }
+    ],
+    "emergency_handle_entry": [
+      {
+        "address": 1060080,
+        "bytes": 548,
+        "info": 18,
+        "section": 1
+      }
+    ],
+    "emergency_double_fault_c": [
+      {
+        "address": 1060832,
+        "bytes": 244,
+        "info": 18,
+        "section": 1
+      }
+    ],
+    "emergency_reentry_halt": [
+      {
+        "address": 1048974,
+        "bytes": 59,
+        "info": 18,
+        "section": 1
+      }
+    ],
+    "present": [
+      {
+        "address": 1301176,
+        "bytes": 1,
+        "info": 1,
+        "section": 4
+      },
+      {
+        "address": 1316476,
+        "bytes": 1,
+        "info": 1,
+        "section": 4
+      },
+      {
+        "address": 1330140,
+        "bytes": 4,
+        "info": 1,
+        "section": 4
+      }
+    ]
+  }
+}

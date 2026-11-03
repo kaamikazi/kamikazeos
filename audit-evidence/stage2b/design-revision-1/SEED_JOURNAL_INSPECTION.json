@@ -1,0 +1,80 @@
+{
+  "evidence": "STATIC_EXISTING_SEED_BYTES_ONLY_NOT_A_NEW_FIXTURE",
+  "path": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce\\divide-recheck\\test_divide_fault\\observation-boot-1\\image-before-trigger.img",
+  "sha256": "2d1a74227f1ec230a60eb447d534ed5bd67866ee859ca377f64c549c3b3413d6",
+  "bytes": 1048576,
+  "state": {
+    "primary": {
+      "lba": 1,
+      "v1_magic_and_version": true,
+      "v1_checksum_sum": 0,
+      "extension_magic_and_version": true,
+      "stored_crc32": 1859892602,
+      "computed_crc32": 1859892602,
+      "boot_count": 1,
+      "generation": 5,
+      "journal_count": 3,
+      "extension_journal_count": 3
+    },
+    "mirror": {
+      "lba": 50,
+      "v1_magic_and_version": true,
+      "v1_checksum_sum": 0,
+      "extension_magic_and_version": true,
+      "stored_crc32": 1859892602,
+      "computed_crc32": 1859892602,
+      "boot_count": 1,
+      "generation": 5,
+      "journal_count": 3,
+      "extension_journal_count": 3
+    }
+  },
+  "occupied_journal_slots": [
+    {
+      "slot": 0,
+      "hex": "a70101010101000152454330303100e8",
+      "checksum_sum": 0,
+      "magic": 167,
+      "version": 1,
+      "boot": 1,
+      "event": 1,
+      "action": 1,
+      "result": 1,
+      "risk": 0,
+      "reversible": 1,
+      "reserved": 0
+    },
+    {
+      "slot": 1,
+      "hex": "a70101010401010152454330303100e4",
+      "checksum_sum": 0,
+      "magic": 167,
+      "version": 1,
+      "boot": 1,
+      "event": 1,
+      "action": 4,
+      "result": 1,
+      "risk": 1,
+      "reversible": 1,
+      "reserved": 0
+    },
+    {
+      "slot": 2,
+      "hex": "a701010800010001434c45414e4200a8",
+      "checksum_sum": 0,
+      "magic": 167,
+      "version": 1,
+      "boot": 1,
+      "event": 8,
+      "action": 0,
+      "result": 1,
+      "risk": 0,
+      "reversible": 1,
+      "reserved": 0
+    }
+  ],
+  "highest_occupied_plus_one": 3,
+  "maximum_occupied_slot_boot": 1,
+  "proposed_locked_image_created": false,
+  "proposed_locked_image_sha256": "UNRESOLVED_NOT_CREATED"
+}

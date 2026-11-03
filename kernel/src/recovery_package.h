@@ -39,6 +39,7 @@ enum pkg_status {
 /* Init order matters: manifests -> slots -> states -> hydrate statuses.
    Logs PKG-PENDING-VERIFY if a previous boot applied without verifying. */
 void recovery_package_init(void);
+int recovery_package_reset(void); /* explicit confirmed reset; joint trust required */
 
 /* Lifecycle verbs (ids case-insensitive).
    Return: 1 ok, 0 unknown id, negative = refused (shell explains). */

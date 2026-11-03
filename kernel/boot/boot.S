@@ -36,11 +36,13 @@
 
 /* ------------------------------------------------------------------ */
 /* Stack — C code cannot run without one. 16 KiB is plenty for now.    */
-/* .bss takes no space in the binary; the loader zeroes it for us.     */
+/* NOLOAD storage has no file bytes; the loader zeroes the memory.     */
 /* ------------------------------------------------------------------ */
 
-.section .bss
-.align 16
+.section .bootstrap_stack, "aw", @nobits
+.balign 4096
+.global stack_bottom
+.global stack_top
 stack_bottom:
 .skip 16384                          /* 16 KiB */
 stack_top:                           /* stacks grow DOWN, so we start here */
@@ -53,6 +55,9 @@ stack_top:                           /* stacks grow DOWN, so we start here */
 .global _start
 .type _start, @function
 _start:
+    /* No device interrupt may arrive before the kernel installs its IDT. */
+    cli
+
     /* Give C code a stack. */
     lea esp, stack_top
 

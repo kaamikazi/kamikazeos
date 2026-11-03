@@ -14,6 +14,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from trust_anchor import (
+    TRUST_ANCHOR_FINGERPRINT,
+    TRUST_ANCHOR_ID,
+    TRUST_ANCHOR_NAME,
+    TRUSTED_PUBLIC_KEY_RAW_HEX,
+    TRUSTED_PUBLIC_KEY_SHA256,
+)
+
 SECTOR_SIZE = 512
 LBA_MANIFESTS = 32
 MANIFEST_MAX = 8
@@ -53,10 +61,6 @@ O_SIG_PAYLOAD_HASH = O_SIG_KEY_HASH + 17
 SIG_ALGORITHMS = {"none": 0, "ed25519": 1}
 SIG_ALGORITHM_NAMES = {v: k for k, v in SIG_ALGORITHMS.items()}
 
-TRUST_ANCHOR_ID = 1
-TRUST_ANCHOR_NAME = "KMZ-ROOT-1"
-TRUST_ANCHOR_FINGERPRINT = "SIM:4B5A:1000:C0DE:FACE:2026"
-
 RISKS = {"low": 0, "medium": 1, "high": 2}
 RISK_NAMES = {v: k for k, v in RISKS.items()}
 SIGNATURES = {
@@ -83,6 +87,18 @@ MODULES = {
     "Recovery Center Schema": 6,
 }
 MODULE_NAMES = {v: k for k, v in MODULES.items()}
+UPDATABLE_MODULES = {
+    "GhostAttach", "RecoveryEngine", "AI Recovery Core Rules",
+    "Recovery Center Schema",
+}
+
+MANIFEST_REQUIRED_FIELDS = {
+    "package_id", "name", "description", "target_component",
+    "target_module", "from_version", "to_version", "risk", "reversible",
+    "requires_approval", "signature_status", "trust_anchor_id",
+    "manifest_version", "payload_type",
+}
+MANIFEST_OPTIONAL_FIELDS = {"checksum", "signature"}
 
 
 @dataclass
@@ -106,6 +122,17 @@ class Manifest:
 
     @classmethod
     def from_json(cls, data: dict[str, Any]) -> "Manifest":
+        if not isinstance(data, dict):
+            raise ValueError("manifest root must be a JSON object")
+        missing = MANIFEST_REQUIRED_FIELDS - set(data)
+        extra = set(data) - MANIFEST_REQUIRED_FIELDS - MANIFEST_OPTIONAL_FIELDS
+        if missing:
+            raise ValueError(f"missing manifest fields: {', '.join(sorted(missing))}")
+        if extra:
+            raise ValueError(f"unknown manifest fields: {', '.join(sorted(extra))}")
+        if not isinstance(data["reversible"], bool) or \
+                not isinstance(data["requires_approval"], bool):
+            raise ValueError("reversible and requires_approval must be JSON booleans")
         return cls(
             package_id=str(data["package_id"]),
             name=str(data["name"]),
@@ -115,11 +142,11 @@ class Manifest:
             from_version=str(data["from_version"]),
             to_version=str(data["to_version"]),
             risk=str(data["risk"]),
-            reversible=bool(data["reversible"]),
-            requires_approval=bool(data.get("requires_approval", True)),
+            reversible=data["reversible"],
+            requires_approval=data["requires_approval"],
             signature_status=str(data["signature_status"]),
             trust_anchor_id=int(data["trust_anchor_id"]),
-            manifest_version=int(data.get("manifest_version", 1)),
+            manifest_version=int(data["manifest_version"]),
             payload_type=str(data["payload_type"]),
             checksum=(None if data.get("checksum") is None else int(data["checksum"])),
             signature=data.get("signature"),
@@ -217,6 +244,11 @@ def validate_manifest(m: Manifest) -> tuple[bool, list[str], list[str]]:
             return
         if len(raw) >= cap:
             errors.append(f"{label} too long: max {cap - 1} bytes")
+        if not raw:
+            errors.append(f"{label} must not be empty")
+        if any(byte < 0x20 or byte > 0x7E or byte in (ord(";"), ord("="))
+               for byte in raw):
+            errors.append(f"{label} contains a control character or report delimiter")
 
     check_ascii_len("package_id", m.package_id, PM_ID_MAX)
     check_ascii_len("name", m.name, PM_NAME_MAX)
@@ -237,11 +269,19 @@ def validate_manifest(m: Manifest) -> tuple[bool, list[str], list[str]]:
         errors.append(f"payload_type must be one of: {', '.join(PAYLOADS)}")
     if m.target_module not in MODULES:
         errors.append(f"target_module must be one of: {', '.join(MODULES)}")
+    elif m.target_module not in UPDATABLE_MODULES:
+        errors.append("target_module must have a managed A/B slot")
     if not 0 <= m.trust_anchor_id <= 255:
         errors.append("trust_anchor_id must fit in one byte")
-    if not 0 <= m.manifest_version <= 255:
-        errors.append("manifest_version must fit in one byte")
-    if m.checksum is not None and m.checksum != m.expected_checksum():
+    if m.manifest_version != 1:
+        errors.append("manifest_version must be 1")
+    if not m.requires_approval:
+        errors.append("unsafe: packages must require explicit human approval")
+    if m.from_version == m.to_version:
+        errors.append("from_version and to_version must differ")
+    enums_valid = m.risk in RISKS and m.signature_status in SIGNATURES and \
+        m.payload_type in PAYLOADS and m.target_module in MODULES
+    if m.checksum is not None and enums_valid and m.checksum != m.expected_checksum():
         errors.append(
             f"checksum mismatch: manifest has {m.checksum}, expected {m.expected_checksum()}"
         )
@@ -271,6 +311,12 @@ def verify_manifest_signature(m: Manifest, public_key_pem: bytes | None = None) 
         return False, "missing ed25519 signature"
     try:
         signature = bytes.fromhex(str(sig["signature"]))
+        embedded_key = bytes.fromhex(str(sig["public_key"]))
+        pinned_key = bytes.fromhex(TRUSTED_PUBLIC_KEY_RAW_HEX)
+        if embedded_key != pinned_key:
+            return False, "signer key does not match pinned KMZ-ROOT-1"
+        if sig.get("key_id") != TRUST_ANCHOR_NAME:
+            return False, "signature key_id does not match KMZ-ROOT-1"
         expected_payload_hash = m.payload_sha256()
         if sig.get("payload_sha256") != expected_payload_hash:
             return False, "payload hash mismatch"
@@ -278,8 +324,14 @@ def verify_manifest_signature(m: Manifest, public_key_pem: bytes | None = None) 
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
         if public_key_pem:
             pub = serialization.load_pem_public_key(public_key_pem)
+            supplied_raw = pub.public_bytes(
+                encoding=serialization.Encoding.Raw,
+                format=serialization.PublicFormat.Raw,
+            )
+            if supplied_raw != pinned_key:
+                return False, "supplied public key is not the pinned trust anchor"
         else:
-            pub = Ed25519PublicKey.from_public_bytes(bytes.fromhex(str(sig["public_key"])))
+            pub = Ed25519PublicKey.from_public_bytes(pinned_key)
         pub.verify(signature, m.signed_payload())
         actual_key_hash = hashlib.sha256(
             pub.public_bytes(
@@ -287,7 +339,8 @@ def verify_manifest_signature(m: Manifest, public_key_pem: bytes | None = None) 
                 format=serialization.PublicFormat.Raw,
             )
         ).hexdigest()
-        if sig.get("public_key_sha256") != actual_key_hash:
+        if actual_key_hash != TRUSTED_PUBLIC_KEY_SHA256 or \
+                sig.get("public_key_sha256") != TRUSTED_PUBLIC_KEY_SHA256:
             return False, "public key fingerprint mismatch"
         return True, "ok"
     except Exception as exc:

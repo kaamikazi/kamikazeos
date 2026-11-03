@@ -1,0 +1,15 @@
+{
+  "commit": "dbf23ce74a2a7103ae6fce04fba51969b7807178",
+  "tree": "62ff1f4fbd5d70163c074fb7c259f4f2115c4d77",
+  "clean": true,
+  "scope": "Stage 2B design/review only",
+  "source_archive_sha256": "e1fc4f33c6e695049c7315763e60302eded5e6aa50fad96ed7de560ef11cfafe",
+  "elf_sha256": {
+    "production": "7cc1262fb1caee2b104d17d601a19e172eb02eac6d93b56ad2b2612a228db7bc",
+    "stage1": "cb282795cff5639a0cec8608a38cb0c01e18a72801264698aba836b0692bd5ee",
+    "stage2a_original": "ae7d6975f5156581fc1af0f346f7f4e1b69062ba49971af371dd80d5861e9e66",
+    "stage2a_revalidated": "55697ce3bd4336a201da7ae93f3cabbe714e142abb84e4c3bd697e0d367a4133",
+    "stage2a_accepted": "79415990686f9ab0579c6f86f216e1fd7d372965eb7e7bf2f0e7e952ffecdd50"
+  },
+  "original_failed_result_sha256": "70600df8e31af2bfc35235bc03310c913160fd58c5ef59cc39ef68abcca19a1a"
+}

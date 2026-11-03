@@ -1,0 +1,153 @@
+.intel_syntax noprefix
+#include "emergency_abi.h"
+
+.extern interrupt_dispatch
+
+.set GDT_KERNEL_DATA_SELECTOR, 0x10
+
+.macro ISR_FATAL number, error
+.global isr\number
+.type isr\number,@function
+isr\number:
+    cli
+    lock bts dword ptr [emergency_entry_busy],0
+    jc .Lreenter\number
+    mov dword ptr [emergency_entry_state+EE_VECTOR],\number
+    mov dword ptr [emergency_entry_state+EE_HAS_ERROR],\error
+    mov dword ptr [emergency_entry_state+EE_KIND],EM_EXCEPTION
+    jmp emergency_exception_common
+.Lreenter\number:
+    lock inc dword ptr [emergency_reentry_count]
+    cmp dword ptr [emergency_reentry_record],0
+    jne emergency_reentry_halt
+    mov dword ptr [emergency_reentry_record+ER_VECTOR],\number
+    jmp emergency_reentry_capture
+.size isr\number,.-isr\number
+.endm
+
+.macro ISR_NOERR number
+.if \number < 32
+    ISR_FATAL \number,0
+.else
+.global isr\number
+.type isr\number, @function
+isr\number:
+    push 0
+    push \number
+    jmp interrupt_common
+.endif
+.endm
+
+.macro ISR_ERR number
+    ISR_FATAL \number,1
+.endm
+
+ISR_NOERR 0
+ISR_NOERR 1
+ISR_NOERR 2
+ISR_NOERR 3
+ISR_NOERR 4
+ISR_NOERR 5
+ISR_NOERR 6
+ISR_NOERR 7
+ISR_ERR   8
+ISR_NOERR 9
+ISR_ERR   10
+ISR_ERR   11
+ISR_ERR   12
+ISR_ERR   13
+ISR_ERR   14
+ISR_NOERR 15
+ISR_NOERR 16
+ISR_ERR   17
+ISR_NOERR 18
+ISR_NOERR 19
+ISR_NOERR 20
+ISR_ERR   21
+ISR_NOERR 22
+ISR_NOERR 23
+ISR_NOERR 24
+ISR_NOERR 25
+ISR_NOERR 26
+ISR_NOERR 27
+ISR_NOERR 28
+ISR_ERR   29
+ISR_ERR   30
+ISR_NOERR 31
+ISR_NOERR 32
+ISR_NOERR 33
+ISR_NOERR 34
+ISR_NOERR 35
+ISR_NOERR 36
+ISR_NOERR 37
+ISR_NOERR 38
+ISR_NOERR 39
+ISR_NOERR 40
+ISR_NOERR 41
+ISR_NOERR 42
+ISR_NOERR 43
+ISR_NOERR 44
+ISR_NOERR 45
+ISR_NOERR 46
+ISR_NOERR 47
+
+.global isr_unknown
+.type isr_unknown, @function
+isr_unknown:
+    push 0
+    push 255
+    jmp interrupt_common
+
+.type interrupt_common, @function
+interrupt_common:
+    cld
+    pusha
+
+    /*
+     * Build the exact interrupt_frame prefix consumed by C. Segment-register
+     * PUSH encodings are 16-bit and therefore unsuitable for a stable C ABI;
+     * copy each selector into a full 32-bit slot instead. Final stack order:
+     * gs fs es ds, pusha, vector, error, eip, cs, eflags, [user_esp user_ss].
+     */
+    xor eax, eax
+    mov ax, ds
+    push eax
+    mov ax, es
+    push eax
+    mov ax, fs
+    push eax
+    mov ax, gs
+    push eax
+    mov ax, GDT_KERNEL_DATA_SELECTOR
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    mov eax, esp
+    push eax
+    call interrupt_dispatch
+    add esp, 4
+    pop eax
+    mov gs, ax
+    pop eax
+    mov fs, ax
+    pop eax
+    mov es, ax
+    pop eax
+    mov ds, ax
+    popa
+    add esp, 8
+    iretd
+
+.section .rodata
+.align 4
+.global interrupt_stub_table
+interrupt_stub_table:
+    .long isr0, isr1, isr2, isr3, isr4, isr5, isr6, isr7
+    .long isr8, isr9, isr10, isr11, isr12, isr13, isr14, isr15
+    .long isr16, isr17, isr18, isr19, isr20, isr21, isr22, isr23
+    .long isr24, isr25, isr26, isr27, isr28, isr29, isr30, isr31
+    .long isr32, isr33, isr34, isr35, isr36, isr37, isr38, isr39
+    .long isr40, isr41, isr42, isr43, isr44, isr45, isr46, isr47
+
+.section .note.GNU-stack,"",@progbits
