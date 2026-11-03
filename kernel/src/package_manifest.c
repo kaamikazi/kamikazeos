@@ -62,23 +62,23 @@ static const struct pkg_manifest seeds[SEED_COUNT] = {
       "Update GhostAttach attach-policy 0.3 to 0.4",
       "GhostAttach", MOD_GHOSTATTACH, "0.3", "0.4",
       RISK_LOW, 1, 1, 0, SIG_PLACEHOLDER, TRUST_ANCHOR_ID, 1,
-      PAYLOAD_SLOT_SWITCH_SIM, 0, 0, 0, "", "" },
+      PAYLOAD_SLOT_SWITCH_SIM, 0, 0, 0, "", "", MANIFEST_ORIGIN_BUILTIN },
     { "PKG-002", "recovery_analyzer_rules_update",
       "Update analyzer rule revision 0.4 to 0.5",
       "AI Recovery Core", MOD_AI_RULES, "0.4", "0.5",
       RISK_LOW, 1, 1, 0, SIG_PLACEHOLDER, TRUST_ANCHOR_ID, 1,
-      PAYLOAD_SLOT_SWITCH_SIM, 0, 0, 0, "", "" },
+      PAYLOAD_SLOT_SWITCH_SIM, 0, 0, 0, "", "", MANIFEST_ORIGIN_BUILTIN },
     { /* the canary: wrong on every axis, must always be blocked */
       "PKG-003", "install_unknown_network_driver",
       "Install unverified net driver (FORBIDDEN)",
       "GhostAttach/network", MOD_GHOSTATTACH, "0.3", "?",
       RISK_HIGH, 0, 1, 0, SIG_UNSIGNED, 0 /* unknown anchor too! */, 1,
-      PAYLOAD_BLOCKED_DRIVER_INSTALL, 0, 0, 0, "", "" },
+      PAYLOAD_BLOCKED_DRIVER_INSTALL, 0, 0, 0, "", "", MANIFEST_ORIGIN_BUILTIN },
     { "PKG-004", "safe_mode_policy_update",
       "Update safe-mode policy 0.5 to 0.6",
       "RecoveryEngine", MOD_RECOVERY_ENGINE, "0.5", "0.6",
       RISK_MEDIUM, 1, 1, 0, SIG_PLACEHOLDER, TRUST_ANCHOR_ID, 1,
-      PAYLOAD_SLOT_SWITCH_SIM, 0, 0, 0, "", "" },
+      PAYLOAD_SLOT_SWITCH_SIM, 0, 0, 0, "", "", MANIFEST_ORIGIN_BUILTIN },
 };
 
 /* Checksum over every field that defines the manifest's meaning. */
@@ -96,6 +96,81 @@ static uint8_t manifest_checksum(const struct pkg_manifest *m)
                     m->trust_anchor_id + m->manifest_version +
                     (uint8_t)m->payload_type + (uint8_t)m->target_module);
     return sum;
+}
+
+uint32_t manifest_identity(const struct pkg_manifest *m)
+{
+    uint32_t hash = 2166136261u;
+    const char *strs[6] = { m->package_id, m->name, m->description,
+                            m->target_component, m->from_version,
+                            m->to_version };
+    for (int s = 0; s < 6; s++) {
+        for (const char *c = strs[s]; *c; c++) {
+            hash ^= (uint8_t)*c;
+            hash *= 16777619u;
+        }
+        hash ^= 0xFFu;
+        hash *= 16777619u;
+    }
+    const uint8_t fields[] = {
+        (uint8_t)m->risk_level, m->reversible, m->requires_approval,
+        (uint8_t)m->signature_status, m->trust_anchor_id,
+        m->manifest_version, (uint8_t)m->payload_type,
+        (uint8_t)m->target_module, m->checksum
+    };
+    for (uint32_t i = 0; i < sizeof(fields); i++) {
+        hash ^= fields[i];
+        hash *= 16777619u;
+    }
+    return hash;
+}
+
+/*
+ * Is this (disk) manifest exactly one of the compiled-in seeds? Every
+ * meaning-bearing field must match, the checksum must be intact, and the
+ * sector must carry NO signature metadata: a seed copy is trusted only
+ * because the kernel image already contains the identical manifest.
+ */
+static int seed_index_of(const struct pkg_manifest *m)
+{
+    if (!m->checksum_ok || m->signature_present != 0 ||
+        m->signature_algorithm != 0 || m->signer_key_hash[0] ||
+        m->signed_payload_hash[0])
+        return -1;
+    for (int i = 0; i < SEED_COUNT; i++) {
+        const struct pkg_manifest *seed = &seeds[i];
+        if (kstrcmp(m->package_id, seed->package_id) == 0 &&
+            kstrcmp(m->name, seed->name) == 0 &&
+            kstrcmp(m->description, seed->description) == 0 &&
+            kstrcmp(m->target_component, seed->target_component) == 0 &&
+            kstrcmp(m->from_version, seed->from_version) == 0 &&
+            kstrcmp(m->to_version, seed->to_version) == 0 &&
+            m->target_module == seed->target_module &&
+            m->risk_level == seed->risk_level &&
+            m->reversible == seed->reversible &&
+            m->requires_approval == seed->requires_approval &&
+            m->signature_status == seed->signature_status &&
+            m->trust_anchor_id == seed->trust_anchor_id &&
+            m->manifest_version == seed->manifest_version &&
+            m->payload_type == seed->payload_type)
+            return i;
+    }
+    return -1;
+}
+
+/* Does the recorded signer key hash equal the pinned anchor's prefix (the
+   first 16 hex chars, exactly as the host tools write it)? */
+static int signer_is_trust_anchor(const struct pkg_manifest *m)
+{
+    const char *fp = TRUST_ANCHOR_FINGERPRINT;
+    while (*fp && *fp != ':')
+        fp++;
+    if (*fp == ':')
+        fp++;
+    for (int i = 0; i < 16; i++)
+        if (m->signer_key_hash[i] != fp[i])
+            return 0;
+    return m->signer_key_hash[16] == 0;
 }
 
 /* ------------------------------------------------------------------ */
@@ -180,6 +255,8 @@ static int read_manifest_sector(uint32_t slot, struct pkg_manifest *m)
     /* The stored checksum must match a recomputation over the fields.
        checksum_ok feeds the verification chain (a mismatch = blocked). */
     m->checksum_ok = (m->checksum == manifest_checksum(m));
+    m->origin = seed_index_of(m) >= 0 ? MANIFEST_ORIGIN_DISK_SEED
+                                      : MANIFEST_ORIGIN_DISK_IMPORT;
     return 1;
 }
 
@@ -194,6 +271,7 @@ static void load_builtin(void)
         manifests[i] = seeds[i];
         manifests[i].checksum    = manifest_checksum(&manifests[i]);
         manifests[i].checksum_ok = 1;
+        manifests[i].origin      = MANIFEST_ORIGIN_BUILTIN;
     }
     from_disk = 0;
 }
@@ -224,23 +302,68 @@ void package_manifest_init(void)
     }
 }
 
-int manifest_seed_to_disk(void)
+int manifest_seed_to_disk(uint32_t *written, uint32_t *present,
+                          uint32_t *unplaced)
 {
+    *written = *present = *unplaced = 0;
     if (!ata_available())
         return 0;
-    int written = 0;
-    for (uint32_t i = 0; i < SEED_COUNT; i++) {
+
+    /* Survey the slots first. Only an all-zero sector is free: anything
+       else (a manifest, or bytes we cannot parse) may be data to keep. */
+    uint8_t occupied[MANIFEST_MAX];
+    int seed_on_disk[SEED_COUNT];
+    for (int i = 0; i < SEED_COUNT; i++)
+        seed_on_disk[i] = 0;
+    for (uint32_t slot = 0; slot < MANIFEST_MAX; slot++) {
+        uint8_t sec[ATA_SECTOR_SIZE];
+        if (!ata_read_sector(LBA_MANIFESTS + slot, sec)) {
+            occupied[slot] = 1;            /* unreadable: never write it */
+            continue;
+        }
+        occupied[slot] = 0;
+        for (int b = 0; b < ATA_SECTOR_SIZE; b++)
+            if (sec[b]) { occupied[slot] = 1; break; }
+        struct pkg_manifest m;
+        if (occupied[slot] && read_manifest_sector(slot, &m)) {
+            int idx = seed_index_of(&m);
+            if (idx >= 0)
+                seed_on_disk[idx] = 1;
+        }
+    }
+
+    uint32_t next = 0;
+    for (int i = 0; i < SEED_COUNT; i++) {
+        if (seed_on_disk[i]) {
+            (*present)++;
+            continue;
+        }
+        while (next < MANIFEST_MAX && occupied[next])
+            next++;
+        if (next >= MANIFEST_MAX) {
+            (*unplaced)++;
+            continue;
+        }
         struct pkg_manifest m = seeds[i];
         m.checksum = manifest_checksum(&m);
-        if (write_manifest_sector(i, &m))
-            written++;
+        if (write_manifest_sector(next, &m)) {
+            occupied[next] = 1;
+            (*written)++;
+        } else {
+            (*unplaced)++;
+        }
     }
-    /* Reload so RAM state == disk state, marked as disk-sourced. */
-    package_manifest_init();
+
+    if (*unplaced) {
+        error_log(SEV_WARNING, "MAN-003", "PackageManifest",
+                  "Some built-in manifests were not seeded - no free slot",
+                  "occupied manifest slots are never overwritten");
+        return 0;
+    }
     error_log(SEV_INFO, "MAN-002", "PackageManifest",
-              "Built-in manifests seeded to disk sectors",
+              "Built-in manifests seeded to empty disk sectors",
               "manifests now persist across emulator restarts");
-    return written;
+    return 1;
 }
 
 uint32_t manifest_count(void) { return count; }
@@ -267,12 +390,109 @@ const char *manifest_source_name(void)
     return from_disk ? "disk_imported" : "built_in_seed";
 }
 
+const char *manifest_origin_name(const struct pkg_manifest *m)
+{
+    switch (m->origin) {
+    case MANIFEST_ORIGIN_BUILTIN:     return "built_in_seed";
+    case MANIFEST_ORIGIN_DISK_SEED:   return "disk_seed_copy";
+    case MANIFEST_ORIGIN_DISK_IMPORT: return "disk_imported";
+    }
+    return "unknown";
+}
+
 /* ------------------------------------------------------------------ */
 /* The verification chain — every rule, in order, first failure wins.   */
 /* ------------------------------------------------------------------ */
 
+static int safe_text(const char *value, uint32_t capacity, int allow_empty)
+{
+    uint32_t length = 0;
+    while (length < capacity && value[length] != '\0') {
+        uint8_t c = (uint8_t)value[length];
+        if (c < 0x20u || c > 0x7Eu || c == ';' || c == '=')
+            return 0;
+        length++;
+    }
+    if (length == capacity)
+        return 0;
+    return allow_empty || length > 0;
+}
+
+static int valid_package_id(const char *id)
+{
+    if (!safe_text(id, PM_ID_MAX, 0) || id[0] != 'P' || id[1] != 'K' ||
+        id[2] != 'G' || id[3] != '-')
+        return 0;
+    uint32_t i = 4;
+    if (id[i] == '\0')
+        return 0;
+    for (; id[i] != '\0'; i++)
+        if (id[i] < '0' || id[i] > '9')
+            return 0;
+    return 1;
+}
+
+static int valid_target_module(enum module_id module)
+{
+    return module == MOD_GHOSTATTACH || module == MOD_RECOVERY_ENGINE ||
+           module == MOD_AI_RULES || module == MOD_RC_SCHEMA;
+}
+
 int manifest_verify(const struct pkg_manifest *m, const char **reason)
 {
+    if (!m) {
+        *reason = "manifest missing";
+        return 0;
+    }
+    if (!valid_package_id(m->package_id) ||
+        !safe_text(m->name, PM_NAME_MAX, 0) ||
+        !safe_text(m->description, PM_DESC_MAX, 0) ||
+        !safe_text(m->target_component, PM_TARGET_MAX, 0) ||
+        !safe_text(m->from_version, PM_VER_MAX, 0) ||
+        !safe_text(m->to_version, PM_VER_MAX, 0)) {
+        *reason = "invalid text field or report delimiter";
+        return 0;
+    }
+    if (m->manifest_version != 1) {
+        *reason = "unsupported manifest schema version";
+        return 0;
+    }
+    if (m->risk_level != RISK_LOW && m->risk_level != RISK_MEDIUM &&
+        m->risk_level != RISK_HIGH) {
+        *reason = "unknown risk value";
+        return 0;
+    }
+    if (m->signature_status != SIG_UNSIGNED &&
+        m->signature_status != SIG_PLACEHOLDER &&
+        m->signature_status != SIG_INVALID &&
+        m->signature_status != SIG_TRUSTED) {
+        *reason = "unknown signature status";
+        return 0;
+    }
+    if (m->payload_type != PAYLOAD_METADATA_ONLY &&
+        m->payload_type != PAYLOAD_SLOT_SWITCH_SIM &&
+        m->payload_type != PAYLOAD_BLOCKED_DRIVER_INSTALL &&
+        m->payload_type != PAYLOAD_UNKNOWN) {
+        *reason = "unrecognized payload type value";
+        return 0;
+    }
+    if (!valid_target_module(m->target_module)) {
+        *reason = "target component has no managed A/B slot";
+        return 0;
+    }
+    if ((m->reversible != 0 && m->reversible != 1) ||
+        (m->requires_approval != 0 && m->requires_approval != 1)) {
+        *reason = "boolean field is not canonical zero or one";
+        return 0;
+    }
+    if (!m->requires_approval) {
+        *reason = "packages must require explicit human approval";
+        return 0;
+    }
+    if (kstrcmp(m->from_version, m->to_version) == 0) {
+        *reason = "from and to versions must differ";
+        return 0;
+    }
     if (!m->checksum_ok) {
         *reason = "checksum mismatch - manifest corrupt or tampered";
         return 0;
@@ -285,11 +505,12 @@ int manifest_verify(const struct pkg_manifest *m, const char **reason)
         *reason = "signature invalid";
         return 0;
     }
-    if (from_disk && m->signature_status != SIG_TRUSTED) {
+    if (m->origin == MANIFEST_ORIGIN_DISK_IMPORT &&
+        m->signature_status != SIG_TRUSTED) {
         *reason = "imported manifests require trusted Ed25519 signature metadata";
         return 0;
     }
-    if (from_disk && !manifest_signature_valid(m)) {
+    if (m->origin == MANIFEST_ORIGIN_DISK_IMPORT && !manifest_signature_valid(m)) {
         *reason = "signature metadata missing or not host-verified";
         return 0;
     }
@@ -303,10 +524,6 @@ int manifest_verify(const struct pkg_manifest *m, const char **reason)
     }
     if (m->payload_type == PAYLOAD_UNKNOWN) {
         *reason = "unknown payload type";
-        return 0;
-    }
-    if (m->target_module >= MODULE_COUNT) {
-        *reason = "unknown target component";
         return 0;
     }
     if (m->risk_level == RISK_HIGH) {
@@ -335,18 +552,27 @@ int manifest_trust_valid(const struct pkg_manifest *m)
 
 int manifest_signature_valid(const struct pkg_manifest *m)
 {
-    if (!from_disk)
+    /* Built-in seeds (in RAM, or an identical copy on disk) are vouched
+       for by the kernel image itself; no signature is involved. */
+    if (m->origin != MANIFEST_ORIGIN_DISK_IMPORT)
         return m->signature_status == SIG_PLACEHOLDER ||
                m->signature_status == SIG_TRUSTED;
+    /* Imported: the host-verified marker AND the pinned anchor's key
+       hash. Still a SIMULATED kernel check - no Ed25519 math runs here. */
     return m->signature_status == SIG_TRUSTED &&
            m->signature_present == 2 &&
-           m->signature_algorithm == SIG_ALG_ED25519;
+           m->signature_algorithm == SIG_ALG_ED25519 &&
+           signer_is_trust_anchor(m);
 }
 
 const char *manifest_signature_mode(const struct pkg_manifest *m)
 {
-    if (!from_disk && m->signature_status == SIG_PLACEHOLDER)
+    if (m->origin == MANIFEST_ORIGIN_BUILTIN &&
+        m->signature_status == SIG_PLACEHOLDER)
         return "built_in_placeholder";
+    if (m->origin == MANIFEST_ORIGIN_DISK_SEED &&
+        m->signature_status == SIG_PLACEHOLDER)
+        return "built_in_seed_identity_match_no_signature";
     if (manifest_signature_valid(m))
         return "simulated_kernel_check_host_ed25519";
     if (m->signature_present)

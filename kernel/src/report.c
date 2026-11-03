@@ -7,21 +7,38 @@
  *     the live log stream, and the same rule: values never contain ';'/'='.
  */
 #include "report.h"
+#include "app.h"
+#include "ata.h"
 #include "boot_snapshot.h"
 #include "errors.h"
 #include "ghostattach.h"
+#include "gdt.h"
+#include "idt.h"
+#include "interrupts.h"
+#include "kheap.h"
+#include "keyboard.h"
+#include "memory.h"
 #include "module_slots.h"
 #include "module_versions.h"
 #include "package_manifest.h"
 #include "package_state.h"
+#include "paging.h"
 #include "recovery_package.h"
 #include "recovery_actions.h"
 #include "recovery_memory.h"
 #include "recovery_store.h"
+#include "ring3.h"
 #include "serial.h"
 #include "string.h"
+#include "syscall.h"
+#include "pic.h"
+#include "privilege.h"
+#include "timer.h"
+#include "task.h"
+#include "tinyfs.h"
+#include "tss.h"
 
-#define KMZ_VERSION "1.5.0"
+#define KMZ_VERSION "2.6.1"
 
 /* serial_print for numbers: render via kitoa, then send. */
 static void serial_print_dec(uint32_t value)
@@ -48,13 +65,41 @@ static void emit_kv(const char *key, const char *value)
     serial_print(value);
 }
 
+static int report_last_critical(struct kerror *out)
+{
+    struct kerror e;
+    int found = 0;
+    for (uint32_t i = 0; error_get(i, &e); i++) {
+        if (e.severity >= SEV_ERROR && e.health == HEALTH_PRODUCTION) {
+            if (out)
+                *out = e;
+            found = 1;
+        }
+    }
+    return found;
+}
+
+static const char *report_next_command(void)
+{
+    if (module_slots_pending_verify())
+        return "verify-pkg <id>";
+    for (uint32_t i = 0; i < recovery_action_count(); i++) {
+        const struct recovery_action *a = recovery_action(i);
+        if (a->status != ACTST_SUGGESTED)
+            continue;
+        if (a->action_id[0])
+            return a->action_id;
+    }
+    return "none";
+}
+
 void report_send(void)
 {
     serial_print("[KAMIKAZEOS_BOOT_REPORT_START]\n");
     emit_kv("version", KMZ_VERSION);
     serial_print("\n");
 
-    /* --- GhostAttach scan summary ---------------------------------- */
+    /* Keep summary fields in report metadata before the first section. */
     struct ghostattach_stats st;
     ghostattach_get_stats(&st);
     serial_print("scan_total=");    serial_print_dec(st.total);
@@ -62,7 +107,483 @@ void report_send(void)
     serial_print(";scan_fallback=");serial_print_dec(st.fallback);
     serial_print(";scan_missing="); serial_print_dec(st.missing);
     serial_print(";scan_isolated=");serial_print_dec(st.isolated);
+    serial_print(";scan_expected_self_tests=");
+    serial_print_dec(st.expected_test_failures);
     serial_print("\n");
+
+    struct health_breakdown system_health;
+    boot_snapshot_health_now(&system_health);
+    const struct tinyfs_status_info *fs_status = tinyfs_status();
+    const struct memory_status *mem_status = memory_status();
+    struct page_status page_status;
+    memory_pages(&page_status);
+    struct kheap_stats heap_status;
+    kheap_stats(&heap_status);
+    const struct paging_status *pg_status = paging_status();
+    struct syscall_stats syscall_status;
+    syscall_stats(&syscall_status);
+    struct privilege_status privilege_state;
+    privilege_status(&privilege_state);
+    struct ring3_status ring3_state;
+    struct interrupt_exception_evidence exception_state;
+    ring3_status(&ring3_state);
+    interrupt_exception_evidence(&exception_state);
+    struct user_memory_status user_memory;
+    paging_user_memory_status(&user_memory);
+    struct gdt_status gdt_state;
+    gdt_status(&gdt_state);
+    struct tss_status tss_state;
+    tss_status(&tss_state);
+    struct kerror last_critical;
+
+    serial_print("[SYSTEM_STATUS]\n");
+    serial_print("kernel_version="); serial_print(module_version_of(MOD_KERNEL));
+    serial_print("\ngdt_loaded="); serial_print(gdt_is_loaded() ? "yes" : "no");
+    serial_print("\nidt_loaded="); serial_print(idt_is_loaded() ? "yes" : "no");
+    serial_print("\nirq_gates_installed="); serial_print(idt_irq_gates_installed() ? "yes" : "no");
+    serial_print("\npic_remapped="); serial_print(pic_is_remapped() ? "yes" : "no");
+    serial_print("\ntimer_ticks="); serial_print_dec(timer_ticks());
+    serial_print("\nkeyboard_mode="); serial_print(keyboard_mode_name());
+    serial_print("\nmemory_map="); serial_print(mem_status->map_available ? "multiboot" : "fallback");
+    serial_print("\nfree_pages="); serial_print_dec(page_status.free_pages);
+    serial_print("\nheap_available="); serial_print(heap_status.available ? "yes" : "no");
+    serial_print("\nheap_remaining="); serial_print_dec(heap_status.remaining_bytes);
+    serial_print("\npaging_prepared="); serial_print(pg_status->prepared ? "yes" : "no");
+    serial_print("\npaging_enabled="); serial_print(pg_status->enabled ? "yes" : "no");
+    serial_print("\npaging_mode="); serial_print(pg_status->mode);
+    serial_print("\nsyscall_initialized="); serial_print(syscall_status.initialized ? "yes" : "no");
+    serial_print("\nsyscall_vector="); serial_print_dec(syscall_status.vector);
+    serial_print("\nsyscall_total_calls="); serial_print_dec(syscall_status.total_calls);
+    serial_print("\nsyscall_failed_calls="); serial_print_dec(syscall_status.failed_calls);
+    serial_print("\nsyscall_gate_dpl="); serial_print_dec(syscall_status.gate_dpl);
+    serial_print("\nprivilege_foundation="); serial_print(privilege_state.foundation_ready ? "ready" : "not_ready");
+    serial_print("\nring3_execution_enabled="); serial_print(ring3_state.execution_enabled ? "yes" : "no");
+    serial_print("\ntask_count="); serial_print_dec(task_count());
+    serial_print("\ntinyfs_status=");
+    serial_print(fs_status->available ? (fs_status->formatted ? "formatted" : "not_formatted") : "unavailable");
+    serial_print("\ntinyfs_files="); serial_print_dec(fs_status->file_count);
+    serial_print("\napp_registry="); serial_print_dec(app_count());
+    serial_print("\nrecovery_backend="); serial_print(recovery_memory_backend());
+    serial_print("\nhealth_score="); serial_print_dec((uint32_t)system_health.score);
+    serial_print("\nexpected_self_test_failures=");
+    serial_print_dec(st.expected_test_failures);
+    serial_print("\npackage_trust_mode=host_ed25519_real_kernel_simulated");
+    serial_print("\nlast_critical=");
+    if (report_last_critical(&last_critical)) {
+        serial_print_field(last_critical.code);
+        serial_print(":");
+        serial_print_field(last_critical.component);
+    } else {
+        serial_print("none");
+    }
+    serial_print("\n");
+
+    serial_print("[DIAGNOSTICS_SUMMARY]\n");
+    serial_print("devices=total:"); serial_print_dec(st.total);
+    serial_print(",attached:"); serial_print_dec(st.attached);
+    serial_print(",fallback:"); serial_print_dec(st.fallback);
+    serial_print(",missing:"); serial_print_dec(st.missing);
+    serial_print(",isolated:"); serial_print_dec(st.isolated);
+    serial_print(",expected_test:"); serial_print_dec(st.expected_test_failures);
+    serial_print("\ndrivers=verified_policy_active");
+    serial_print("\nmemory=map:");
+    serial_print(mem_status->map_available ? "multiboot" : "fallback");
+    serial_print(",usable_kib:"); serial_print_dec(mem_status->usable_kib);
+    serial_print(",free_pages:"); serial_print_dec(page_status.free_pages);
+    serial_print("\nheap=available:");
+    serial_print(heap_status.available ? "yes" : "no");
+    serial_print(",used:"); serial_print_dec(heap_status.used_bytes);
+    serial_print(",remaining:"); serial_print_dec(heap_status.remaining_bytes);
+    serial_print(",free_supported:no");
+    serial_print("\npaging=prepared:");
+    serial_print(pg_status->prepared ? "yes" : "no");
+    serial_print(",enabled:"); serial_print(pg_status->enabled ? "yes" : "no");
+    serial_print(",identity:"); serial_print(pg_status->identity_map_valid ? "yes" : "no");
+    serial_print(",mode:"); serial_print(pg_status->mode);
+    serial_print("\nsyscalls=initialized:");
+    serial_print(syscall_status.initialized ? "yes" : "no");
+    serial_print(",registered:"); serial_print_dec(syscall_status.registered_count);
+    serial_print(",failed:"); serial_print_dec(syscall_status.failed_calls);
+    serial_print("\ntasks=total:"); serial_print_dec(task_count());
+    serial_print(",ready:"); serial_print_dec(task_count_state(TASK_READY));
+    serial_print(",crashed:"); serial_print_dec(task_count_state(TASK_CRASHED));
+    serial_print("\ntinyfs=status:");
+    serial_print(fs_status->formatted ? "formatted" : "not_ready");
+    serial_print(",files:"); serial_print_dec(fs_status->file_count);
+    serial_print(",last_error:"); serial_print(fs_status->last_error);
+    serial_print("\napps=total:"); serial_print_dec(app_count());
+    serial_print(",blocked_attempts:"); serial_print_dec(app_blocked_attempts());
+    serial_print("\nrecovery=backend:"); serial_print(recovery_memory_backend());
+    serial_print(",journal:"); serial_print_dec(recovery_journal_count());
+    serial_print("\npackages=manifests:"); serial_print_dec(manifest_count());
+    serial_print(",pending_verify:"); serial_print(module_slots_pending_verify() ? "yes" : "no");
+    serial_print("\nhealth=score:"); serial_print_dec((uint32_t)system_health.score);
+    serial_print("\nrecommended_command=");
+    const char *next = report_next_command();
+    if (next[0] == 'A')
+        serial_print("approve ");
+    serial_print(next);
+    serial_print("\nauto_repair=no\n");
+
+    serial_print("[MEMORY]\n");
+    serial_print("map_available="); serial_print(mem_status->map_available ? "yes" : "no");
+    serial_print("\nfallback_used="); serial_print(mem_status->fallback_used ? "yes" : "no");
+    serial_print("\nmap_validated="); serial_print(mem_status->map_validated ? "yes" : "no");
+    serial_print("\nnormalized="); serial_print(mem_status->normalized ? "yes" : "no");
+    serial_print("\nbitmap_consistent="); serial_print(mem_status->bitmap_consistent ? "yes" : "no");
+    serial_print("\ncritical_ranges_reserved="); serial_print(mem_status->critical_ranges_reserved ? "yes" : "no");
+    serial_print("\nhardening_self_test="); serial_print(mem_status->hardening_self_test ? "pass" : "fail");
+    serial_print("\nregion_count="); serial_print_dec(mem_status->region_count);
+    serial_print("\nraw_region_count="); serial_print_dec(mem_status->raw_region_count);
+    serial_print("\nmalformed_entries="); serial_print_dec(mem_status->malformed_entries);
+    serial_print("\nignored_high_regions="); serial_print_dec(mem_status->ignored_high_regions);
+    serial_print("\ntotal_kib="); serial_print_dec(mem_status->total_kib);
+    serial_print("\nusable_kib="); serial_print_dec(mem_status->usable_kib);
+    serial_print("\nreserved_kib="); serial_print_dec(mem_status->reserved_kib);
+    serial_print("\nkernel_start="); serial_print_dec(mem_status->kernel_start);
+    serial_print("\nkernel_end="); serial_print_dec(mem_status->kernel_end);
+    serial_print("\nheap_start="); serial_print_dec(mem_status->heap_start);
+    serial_print("\nheap_end="); serial_print_dec(mem_status->heap_end);
+    serial_print("\nhighest_address_low="); serial_print_dec(mem_status->highest_address_low);
+    serial_print("\nhighest_address_high="); serial_print_dec(mem_status->highest_address_high);
+    serial_print("\ntracked_end="); serial_print_dec(mem_status->tracked_end);
+    serial_print("\nvalidation_error="); serial_print(mem_status->validation_error);
+    serial_print("\nallocation_mode="); serial_print(mem_status->allocation_mode);
+    serial_print("\nvirtual_memory=no\nheap_allocator=");
+    serial_print(heap_status.available ? "bounded_bump" : "no");
+    serial_print("\n");
+
+    serial_print("[MEMORY_MAP]\n");
+    for (uint32_t i = 0; i < memory_region_count(); i++) {
+        struct memory_region r;
+        if (!memory_region_get(i, &r))
+            continue;
+        serial_print("index="); serial_print_dec(i);
+        serial_print(";base="); serial_print_dec(r.base);
+        serial_print(";length="); serial_print_dec(r.length);
+        serial_print(";kib="); serial_print_dec(r.length / 1024u);
+        serial_print(";type="); serial_print(memory_region_type_name(r.type));
+        serial_print("\n");
+    }
+
+    serial_print("[PAGES]\n");
+    serial_print("page_size="); serial_print_dec(page_status.page_size);
+    serial_print("\ntotal_pages="); serial_print_dec(page_status.total_pages);
+    serial_print("\nfree_pages="); serial_print_dec(page_status.free_pages);
+    serial_print("\nused_pages="); serial_print_dec(page_status.used_pages);
+    serial_print("\nreserved_low_pages="); serial_print_dec(page_status.reserved_low_pages);
+    serial_print("\nreserved_kernel_pages="); serial_print_dec(page_status.reserved_kernel_pages);
+    serial_print("\nreserved_heap_pages="); serial_print_dec(page_status.reserved_heap_pages);
+    serial_print("\ntracked_limit_kib="); serial_print_dec(page_status.tracked_limit_kib);
+    serial_print("\nbitmap_consistent="); serial_print(page_status.bitmap_consistent ? "yes" : "no");
+    serial_print("\ncritical_ranges_reserved="); serial_print(page_status.critical_ranges_reserved ? "yes" : "no");
+    serial_print("\nvirtual_memory=no\n");
+
+    serial_print("[KERNEL_HEAP]\n");
+    serial_print("available="); serial_print(heap_status.available ? "yes" : "no");
+    serial_print("\nheap_start="); serial_print_dec(heap_status.heap_start);
+    serial_print("\nheap_end="); serial_print_dec(heap_status.heap_end);
+    serial_print("\ntotal_bytes="); serial_print_dec(heap_status.total_bytes);
+    serial_print("\nused_bytes="); serial_print_dec(heap_status.used_bytes);
+    serial_print("\nremaining_bytes="); serial_print_dec(heap_status.remaining_bytes);
+    serial_print("\nallocation_count="); serial_print_dec(heap_status.allocation_count);
+    serial_print("\nfailed_count="); serial_print_dec(heap_status.failed_count);
+    serial_print("\nhigh_water_mark="); serial_print_dec(heap_status.high_water_mark);
+    serial_print("\nfree_supported=no\n");
+
+    serial_print("[PAGING]\n");
+    serial_print("prepared="); serial_print(pg_status->prepared ? "yes" : "no");
+    serial_print("\nenabled="); serial_print(pg_status->enabled ? "yes" : "no");
+    serial_print("\nmode="); serial_print(pg_status->mode);
+    serial_print("\nidentity_map_valid="); serial_print(pg_status->identity_map_valid ? "yes" : "no");
+    serial_print("\nrequired_ranges_valid="); serial_print(pg_status->required_ranges_valid ? "yes" : "no");
+    serial_print("\nprerequisites_valid="); serial_print(pg_status->prerequisites_valid ? "yes" : "no");
+    serial_print("\npage_directory="); serial_print_dec(pg_status->page_directory);
+    serial_print("\nactive_cr3="); serial_print_dec(pg_status->active_cr3);
+    serial_print("\nmapped_start="); serial_print_dec(pg_status->mapped_start);
+    serial_print("\nmapped_end="); serial_print_dec(pg_status->mapped_end);
+    serial_print("\npage_fault_handler="); serial_print(pg_status->page_fault_handler);
+    serial_print("\nvalidation_error="); serial_print(pg_status->validation_error);
+    serial_print("\nlast_fault_address=");
+    if (pg_status->last_fault_present) serial_print_dec(pg_status->last_fault_address);
+    else serial_print("none");
+    serial_print("\nlast_fault_error="); serial_print_dec(pg_status->last_fault_error);
+    serial_print("\nlast_fault_eip="); serial_print_dec(pg_status->last_fault_eip);
+    serial_print("\n");
+
+    serial_print("[PAGE_MAP]\n");
+    serial_print("type=identity");
+    serial_print(";virtual_start="); serial_print_dec(pg_status->mapped_start);
+    serial_print(";virtual_end="); serial_print_dec(pg_status->mapped_end);
+    serial_print(";physical_start="); serial_print_dec(pg_status->mapped_start);
+    serial_print(";physical_end="); serial_print_dec(pg_status->mapped_end);
+    serial_print(";flags=present,writable,supervisor_default,minimal_user_exceptions");
+    serial_print(";validated="); serial_print(pg_status->identity_map_valid ? "yes" : "no");
+    serial_print("\n");
+    for (uint32_t i = 0; i < paging_range_count(); i++) {
+        struct paging_range range;
+        if (!paging_range_get(i, &range))
+            continue;
+        serial_print("type=required_identity;name="); serial_print_field(range.name);
+        serial_print(";virtual_start="); serial_print_dec(range.start);
+        serial_print(";virtual_end="); serial_print_dec(range.end);
+        serial_print(";physical_start="); serial_print_dec(range.start);
+        serial_print(";physical_end="); serial_print_dec(range.end);
+        serial_print(";flags=present,");
+        serial_print(range.writable ? "writable," : "read_only,");
+        serial_print(range.user_accessible ? "user" : "supervisor");
+        serial_print(";validated="); serial_print(range.validated ? "yes" : "no");
+        serial_print("\n");
+    }
+
+    serial_print("[PAGE_FAULT]\n");
+    serial_print("present="); serial_print(pg_status->last_fault_present ? "yes" : "no");
+    serial_print("\nfault_address=");
+    if (pg_status->last_fault_present) serial_print_dec(pg_status->last_fault_address);
+    else serial_print("none");
+    serial_print("\nerror_code="); serial_print_dec(pg_status->last_fault_error);
+    serial_print("\neip="); serial_print_dec(pg_status->last_fault_eip);
+    serial_print("\nrecovery_attempted=no\n");
+
+    serial_print("[SYSCALLS]\n");
+    serial_print("initialized="); serial_print(syscall_status.initialized ? "yes" : "no");
+    serial_print("\nvector="); serial_print_dec(syscall_status.vector);
+    serial_print("\ntotal_calls="); serial_print_dec(syscall_status.total_calls);
+    serial_print("\nfailed_calls="); serial_print_dec(syscall_status.failed_calls);
+    serial_print("\nregistered_count="); serial_print_dec(syscall_status.registered_count);
+    serial_print("\nlast_id=");
+    if (syscall_status.last_id == 0xFFFFFFFFu) serial_print("none");
+    else serial_print_dec(syscall_status.last_id);
+    serial_print("\nlast_name="); serial_print(syscall_name(syscall_status.last_id));
+    serial_print("\nlast_result=");
+    if (syscall_status.last_id == 0xFFFFFFFFu) serial_print("none");
+    else serial_print(syscall_result_name(syscall_status.last_result));
+    serial_print("\nlast_value="); serial_print_dec(syscall_status.last_value);
+    serial_print("\nlast_caller_cpl="); serial_print_dec(syscall_status.last_caller_cpl);
+    serial_print("\nlast_origin="); serial_print(syscall_origin_name(syscall_status.last_origin));
+    serial_print("\nlast_origin_valid="); serial_print(syscall_status.last_origin_valid ? "yes" : "no");
+    serial_print("\nlast_cs="); serial_print_dec(syscall_status.last_cs);
+    serial_print("\nlast_ds="); serial_print_dec(syscall_status.last_ds);
+    serial_print("\nlast_es="); serial_print_dec(syscall_status.last_es);
+    serial_print("\nlast_fs="); serial_print_dec(syscall_status.last_fs);
+    serial_print("\nlast_gs="); serial_print_dec(syscall_status.last_gs);
+    serial_print("\ncpl0_calls="); serial_print_dec(syscall_status.cpl0_calls);
+    serial_print("\ncpl3_calls="); serial_print_dec(syscall_status.cpl3_calls);
+    serial_print("\norigin_denied_calls="); serial_print_dec(syscall_status.origin_denied_calls);
+    serial_print("\nlast_kernel_esp="); serial_print_dec(syscall_status.last_kernel_esp);
+    serial_print("\nesp0_switch_observed="); serial_print(syscall_status.esp0_switch_observed ? "yes" : "no");
+    serial_print("\norigin_policy_self_test="); serial_print(syscall_status.origin_policy_self_test ? "pass" : "fail");
+    serial_print("\nregister_preservation_test="); serial_print(syscall_status.register_preservation_test ? "pass" : "fail");
+    serial_print("\nsyscall_gate_dpl="); serial_print_dec(syscall_status.gate_dpl);
+    serial_print("\nsyscall_user_gate="); serial_print(syscall_status.syscall_user_gate ? "enabled" : "disabled");
+    serial_print("\nuser_mode_available=fixed_builtin_test_only");
+    serial_print("\nargument_model=bounded_scalars_and_kernel_owned_buffers");
+    serial_print("\npointer_arguments=no\n");
+
+    serial_print("[PRIVILEGE]\n");
+    serial_print("gdt_loaded="); serial_print(privilege_state.gdt_loaded ? "yes" : "no");
+    serial_print("\nuser_segments_valid="); serial_print(privilege_state.user_segments_valid ? "yes" : "no");
+    serial_print("\ntss_loaded="); serial_print(privilege_state.tss_loaded ? "yes" : "no");
+    serial_print("\nkernel_stack_valid="); serial_print(privilege_state.kernel_stack_valid ? "yes" : "no");
+    serial_print("\npaging_enabled="); serial_print(privilege_state.paging_enabled ? "yes" : "no");
+    serial_print("\nsyscall_gate_installed="); serial_print(privilege_state.syscall_gate_installed ? "yes" : "no");
+    serial_print("\nsyscall_gate_dpl="); serial_print_dec(privilege_state.syscall_gate_dpl);
+    serial_print("\ncurrent_cpl="); serial_print_dec(privilege_state.current_cpl);
+    serial_print("\nbootstrap_stack_bottom="); serial_print_dec(privilege_state.bootstrap_stack_bottom);
+    serial_print("\nbootstrap_stack_top="); serial_print_dec(privilege_state.bootstrap_stack_top);
+    serial_print("\ntransition_stack_bottom="); serial_print_dec(privilege_state.transition_stack_bottom);
+    serial_print("\ntransition_stack_top="); serial_print_dec(privilege_state.transition_stack_top);
+    serial_print("\nesp0="); serial_print_dec(privilege_state.esp0);
+    serial_print("\nguard_policy="); serial_print(privilege_state.guard_policy);
+    serial_print("\nreadiness="); serial_print(privilege_state.foundation_ready ? "foundation_ready" : "not_ready");
+    serial_print("\nexecution_enabled="); serial_print(ring3_state.execution_enabled ? "yes" : "no"); serial_print("\n");
+
+    serial_print("[GDT]\n");
+    serial_print("loaded="); serial_print(gdt_state.loaded ? "yes" : "no");
+    serial_print("\nkernel_code_selector="); serial_print_dec(gdt_state.kernel_code_selector);
+    serial_print("\nkernel_code_dpl="); serial_print_dec(gdt_state.kernel_code_dpl);
+    serial_print("\nkernel_data_selector="); serial_print_dec(gdt_state.kernel_data_selector);
+    serial_print("\nkernel_data_dpl="); serial_print_dec(gdt_state.kernel_data_dpl);
+    serial_print("\nuser_code_selector="); serial_print_dec(gdt_state.user_code_selector);
+    serial_print("\nuser_code_dpl="); serial_print_dec(gdt_state.user_code_dpl);
+    serial_print("\nuser_data_selector="); serial_print_dec(gdt_state.user_data_selector);
+    serial_print("\nuser_data_dpl="); serial_print_dec(gdt_state.user_data_dpl);
+    serial_print("\ntss_selector="); serial_print_dec(gdt_state.tss_selector);
+    serial_print("\nuser_segments_valid="); serial_print(gdt_state.user_segments_valid ? "yes" : "no");
+    serial_print("\naccessed_bit_validation="); serial_print(gdt_state.accessed_bit_validation ? "pass" : "fail");
+    serial_print("\ntss_descriptor_valid="); serial_print(gdt_state.tss_descriptor_valid ? "yes" : "no");
+    serial_print("\n");
+
+    serial_print("[TSS]\n");
+    serial_print("initialized="); serial_print(tss_state.initialized ? "yes" : "no");
+    serial_print("\nselector="); serial_print_dec(tss_state.selector);
+    serial_print("\ndescriptor_valid="); serial_print(tss_state.descriptor_valid ? "yes" : "no");
+    serial_print("\ntss_loaded="); serial_print(tss_state.loaded ? "yes" : "no");
+    serial_print("\nss0="); serial_print_dec(tss_state.ss0);
+    serial_print("\nesp0="); serial_print_dec(tss_state.esp0);
+    serial_print("\nstack_bottom="); serial_print_dec(tss_state.stack_bottom);
+    serial_print("\nstack_top="); serial_print_dec(tss_state.stack_top);
+    serial_print("\nstack_size="); serial_print_dec(tss_state.stack_size);
+    serial_print("\nkernel_stack_valid="); serial_print(tss_state.kernel_stack_valid ? "yes" : "no");
+    serial_print("\nguard_policy="); serial_print(tss_state.guard_policy);
+    serial_print("\nhardware_task_switching=no\n");
+
+    serial_print("[RING3_READINESS]\n");
+    serial_print("gdt_ready="); serial_print(privilege_state.gdt_loaded ? "yes" : "no");
+    serial_print("\nuser_segments_ready="); serial_print(privilege_state.user_segments_valid ? "yes" : "no");
+    serial_print("\ntss_ready="); serial_print(privilege_state.tss_loaded ? "yes" : "no");
+    serial_print("\nesp0_ready="); serial_print(privilege_state.kernel_stack_valid ? "yes" : "no");
+    serial_print("\npaging_ready="); serial_print(privilege_state.paging_enabled ? "yes" : "no");
+    serial_print("\nsyscall_gate_dpl="); serial_print_dec(privilege_state.syscall_gate_dpl);
+    serial_print("\nreadiness=");
+    if (ring3_state.test_completed && ring3_state.returned_to_kernel &&
+        ring3_state.context_preservation_verified)
+        serial_print("roundtrip_verified");
+    else if (ring3_state.execution_enabled)
+        serial_print("controlled_test_ready");
+    else if (ring3_state.prerequisites_valid)
+        serial_print("foundation_ready");
+    else
+        serial_print("not_ready");
+    serial_print("\nexecution_enabled="); serial_print(ring3_state.execution_enabled ? "yes" : "no");
+    serial_print("\nuser_stack=fixed_bounded\nuser_page_mappings=minimal_explicit\nelf_loader=no\nprocess_isolation=no\n");
+
+    serial_print("[RING3]\ninitialized="); serial_print(ring3_state.initialized ? "yes" : "no");
+    serial_print("\nprerequisites_valid="); serial_print(ring3_state.prerequisites_valid ? "yes" : "no");
+    serial_print("\nexecution_approved="); serial_print(ring3_state.execution_approved ? "yes" : "no");
+    serial_print("\nexecution_enabled="); serial_print(ring3_state.execution_enabled ? "yes" : "no");
+    serial_print("\napproval_consumed="); serial_print(ring3_state.approval_consumed ? "yes" : "no");
+    serial_print("\nfault_test_approved="); serial_print(ring3_state.fault_test_approved ? "yes" : "no");
+    serial_print("\ntest_status="); serial_print(ring3_state.test_status);
+    serial_print("\nlast_cpl="); serial_print_dec(ring3_state.last_cpl);
+    serial_print("\nlast_syscall=");
+    if (ring3_state.last_syscall == 0xFFFFFFFFu) serial_print("none"); else serial_print_dec(ring3_state.last_syscall);
+    serial_print("\nexit_result="); serial_print_dec((uint32_t)ring3_state.last_result);
+    serial_print("\nkernel_return_supported="); serial_print(ring3_state.kernel_return_supported ? "yes" : "no");
+    serial_print("\nreturned_to_kernel="); serial_print(ring3_state.returned_to_kernel ? "yes" : "no");
+    serial_print("\nesp0_switch_observed="); serial_print(ring3_state.esp0_switch_observed ? "yes" : "no");
+    serial_print("\ncontext_preservation_verified="); serial_print(ring3_state.context_preservation_verified ? "yes" : "no");
+    serial_print("\nuser_faults_observed="); serial_print_dec(ring3_state.user_faults_observed);
+    serial_print("\ntrusted_routine=builtin_linked_only\n");
+
+    serial_print("[USER_MEMORY]\nuser_code_start="); serial_print_dec(user_memory.code_start);
+    serial_print("\nuser_code_end="); serial_print_dec(user_memory.code_end);
+    serial_print("\nuser_stack_start="); serial_print_dec(user_memory.stack_start);
+    serial_print("\nuser_stack_end="); serial_print_dec(user_memory.stack_end);
+    serial_print("\ncode_user_accessible="); serial_print(user_memory.code_user_accessible ? "yes" : "no");
+    serial_print("\ncode_read_only="); serial_print(user_memory.code_read_only ? "yes" : "no");
+    serial_print("\nstack_user_accessible="); serial_print(user_memory.stack_user_accessible ? "yes" : "no");
+    serial_print("\nstack_writable="); serial_print(user_memory.stack_writable ? "yes" : "no");
+    serial_print("\nkernel_supervisor_only="); serial_print(user_memory.kernel_supervisor_only ? "yes" : "no");
+    serial_print("\npage_structures_supervisor_only="); serial_print(user_memory.page_structures_supervisor_only ? "yes" : "no");
+    serial_print("\nno_broad_user_exposure="); serial_print(user_memory.no_broad_user_exposure ? "yes" : "no");
+    serial_print("\nvalidated="); serial_print(user_memory.validated ? "yes" : "no");
+    serial_print("\nvalidation_error="); serial_print(user_memory.validation_error);
+    serial_print("\n");
+
+    serial_print("[USER_EXECUTION]\ntest_status="); serial_print(ring3_state.test_status);
+    serial_print("\nlast_cpl="); serial_print_dec(ring3_state.last_cpl);
+    serial_print("\nlast_syscall=");
+    if (ring3_state.last_syscall == 0xFFFFFFFFu) serial_print("none"); else serial_print_dec(ring3_state.last_syscall);
+    serial_print("\nexit_result="); serial_print_dec((uint32_t)ring3_state.last_result);
+    serial_print("\nreturned_to_kernel="); serial_print(ring3_state.returned_to_kernel ? "yes" : "no");
+    serial_print("\nesp0_switch_observed="); serial_print(ring3_state.esp0_switch_observed ? "yes" : "no");
+    serial_print("\ncontext_preservation_verified="); serial_print(ring3_state.context_preservation_verified ? "yes" : "no");
+    serial_print("\n");
+
+    serial_print("[USER_FAULT]\npresent="); serial_print(ring3_state.user_faults_observed ? "yes" : "no");
+    serial_print("\nfault_origin="); serial_print(ring3_state.user_faults_observed ? "cpl3" : "none");
+    serial_print("\nvector="); serial_print_dec(ring3_state.last_fault_vector);
+    serial_print("\nfault_address="); serial_print_dec(ring3_state.last_fault_address);
+    serial_print("\neip="); serial_print_dec(ring3_state.last_fault_eip);
+    serial_print("\nuser_esp="); serial_print_dec(ring3_state.last_fault_user_esp);
+    serial_print("\nintentional_test="); serial_print(ring3_state.last_fault_intentional ? "yes" : "no");
+    serial_print("\n");
+
+    serial_print("[SYSCALL_TABLE]\n");
+    for (uint32_t i = 0; i < syscall_table_count(); i++) {
+        const struct syscall_descriptor *entry = syscall_table_get(i);
+        serial_print("id="); serial_print_dec(entry->id);
+        serial_print(";name="); serial_print_field(entry->name);
+        serial_print(";argument_mode="); serial_print_field(entry->argument_mode);
+        serial_print(";caller_mode=");
+        if (entry->id == SYS_USER_EXIT) serial_print("cpl3_only");
+        else if (entry->id == SYS_GET_TICKS || entry->id == SYS_GET_HEALTH ||
+                 entry->id == SYS_SYSTEM_INFO) serial_print("cpl0_or_cpl3");
+        else serial_print("cpl0_only");
+        serial_print(";gate_access=");
+        serial_print(syscall_status.gate_dpl == 3u ? "dpl3" : "dpl0");
+        serial_print(";pointer_arguments=no\n");
+    }
+
+    serial_print("[KERNEL_INTERRUPTS]\n");
+    serial_print("gdt_loaded="); serial_print(gdt_is_loaded() ? "yes" : "no");
+    serial_print("\nidt_loaded="); serial_print(idt_is_loaded() ? "yes" : "no");
+    serial_print("\nirq_gates_installed="); serial_print(idt_irq_gates_installed() ? "yes" : "no");
+    serial_print("\npic_remapped="); serial_print(pic_is_remapped() ? "yes" : "no");
+    serial_print("\ntimer_enabled="); serial_print(timer_is_enabled() ? "yes" : "no");
+    serial_print("\nkeyboard_mode="); serial_print(keyboard_mode_name());
+    serial_print("\ninterrupts_enabled="); serial_print(interrupts_are_enabled() ? "yes" : "no");
+    serial_print("\ninterrupts_handled="); serial_print_dec(interrupts_handled());
+    serial_print("\nlast_vector=");
+    if (interrupts_last_vector() == 0xFFFFFFFFu) serial_print("none");
+    else serial_print_dec(interrupts_last_vector());
+    serial_print("\n");
+
+    serial_print("[KERNEL_TIMING]\n");
+    serial_print("tick_count="); serial_print_dec(timer_ticks());
+    serial_print("\ntimer_irq="); serial_print(timer_is_enabled() ? "enabled" : "disabled");
+    serial_print("\nfrequency_hz=100\n");
+
+    serial_print("[KERNEL_EXCEPTIONS]\n");
+    serial_print("frame_layout_valid="); serial_print(interrupt_frame_layout_self_test() ? "yes" : "no");
+    serial_print("\nlast_exception=");
+    if (interrupts_last_exception() == 0xFFFFFFFFu) serial_print("none");
+    else serial_print(interrupt_exception_name(interrupts_last_exception()));
+    serial_print("\nlast_vector=");
+    if (interrupts_last_exception() == 0xFFFFFFFFu) serial_print("none");
+    else serial_print_dec(interrupts_last_exception());
+    serial_print("\nlast_error_code="); serial_print_dec(interrupts_last_error_code());
+    serial_print("\nevidence_present="); serial_print(exception_state.present ? "yes" : "no");
+    serial_print("\nlast_eip="); serial_print_dec(exception_state.eip);
+    serial_print("\nlast_cs="); serial_print_dec(exception_state.cs);
+    serial_print("\nlast_eflags="); serial_print_dec(exception_state.eflags);
+    serial_print("\ncaller_cpl="); serial_print_dec(exception_state.caller_cpl);
+    serial_print("\norigin_valid="); serial_print(exception_state.origin_valid ? "yes" : "no");
+    serial_print("\nuser_stack_present="); serial_print(exception_state.user_stack_present ? "yes" : "no");
+    if (exception_state.user_stack_present) {
+        serial_print("\nuser_esp="); serial_print_dec(exception_state.user_esp);
+        serial_print("\nuser_ss="); serial_print_dec(exception_state.user_ss);
+    }
+    serial_print("\nrecovery_attempted=no\n");
+
+    serial_print("[KERNEL_TASKS]\n");
+    serial_print("total_tasks="); serial_print_dec(task_count());
+    serial_print("\nrunning_task=");
+    const struct task *current = task_current();
+    serial_print(current ? current->name : "none");
+    serial_print("\nready_count="); serial_print_dec(task_count_state(TASK_READY));
+    serial_print("\nsleeping_count="); serial_print_dec(task_count_state(TASK_SLEEPING));
+    serial_print("\nblocked_count="); serial_print_dec(task_count_state(TASK_BLOCKED));
+    serial_print("\ncrashed_count="); serial_print_dec(task_count_state(TASK_CRASHED));
+    serial_print("\nscheduler_mode=cooperative\npreemptive_switching=no\n");
+    const struct task *task_rows[TASK_MAX];
+    uint32_t task_rows_count = task_list(task_rows, TASK_MAX);
+    for (uint32_t i = 0; i < task_rows_count; i++) {
+        const struct task *t = task_rows[i];
+        serial_print("task_id="); serial_print_dec(t->task_id);
+        serial_print(";name="); serial_print(t->name);
+        serial_print(";state="); serial_print(task_state_name(t->state));
+        serial_print(";priority="); serial_print_dec(t->priority);
+        serial_print(";ticks_run="); serial_print_dec(t->ticks_run);
+        serial_print(";created_at_tick="); serial_print_dec(t->created_at_tick);
+        serial_print(";last_run_tick="); serial_print_dec(t->last_run_tick);
+        serial_print(";flags="); serial_print_dec(t->flags);
+        serial_print("\n");
+    }
+
+    tinyfs_export_report();
+    app_export_report();
 
     /* --- Every device, one line each ------------------------------- */
     serial_print("[DEVICES]\n");
@@ -141,6 +662,8 @@ void report_send(void)
     serial_print("\nnetwork_quarantined=");serial_print(m->network_quarantined ? "1" : "0");
     serial_print("\naudio_quarantined=");  serial_print(m->audio_quarantined ? "1" : "0");
     serial_print("\nlast_boot_panic=");    serial_print(m->prev_panic_detected ? "1" : "0");
+    serial_print("\nlast_boot_panic_intentional=");
+    serial_print(m->prev_panic_detected && m->prev_panic_intentional ? "1" : "0");
     serial_print("\nrollback_available="); serial_print(m->rollback_available ? "1" : "0");
     serial_print("\nlast_action_id=");
     switch (m->last_action_id) {
@@ -156,11 +679,29 @@ void report_send(void)
     serial_print("[RECOVERY_STORE]\n");
     serial_print("backend=");            serial_print(recovery_memory_backend());
     serial_print("\ndisk_available=");   serial_print(recovery_store_available() ? "1" : "0");
+    serial_print("\ndisk_capacity_sectors="); serial_print_dec(ata_capacity_sectors());
     serial_print("\nstate_valid=");      serial_print(recovery_store_valid() ? "1" : "0");
     serial_print("\njournal_count=");    serial_print_dec(recovery_journal_count());
     serial_print("\ndurable_boot_count=");serial_print_dec(m->boot_count);
     serial_print("\ncmos_fallback_used=");
     serial_print(recovery_memory_used_cmos_fallback() ? "1" : "0");
+    {
+        struct recovery_store_integrity integ;
+        recovery_store_integrity(&integ);
+        serial_print("\nstate_source=");    serial_print(integ.state_source);
+        serial_print("\nstate_generation=");serial_print_dec(integ.generation);
+        serial_print("\nstate_redundancy=");serial_print(integ.state_redundancy);
+        serial_print("\nstate_locked=");    serial_print(integ.state_locked ? "1" : "0");
+        serial_print("\njournal_locked=");  serial_print(integ.journal_locked ? "1" : "0");
+        serial_print("\njournal_scan_valid=");serial_print(integ.journal_scan_valid ? "1" : "0");
+        serial_print("\nboot_order_trusted=");serial_print(m->boot_order_trusted ? "1" : "0");
+        serial_print("\njournal_capacity=");serial_print_dec(integ.journal_capacity);
+        serial_print("\njournal_full=");    serial_print(integ.journal_full ? "1" : "0");
+        serial_print("\njournal_dropped="); serial_print_dec(integ.dropped_appends);
+        serial_print("\njournal_corrupt_entries=");
+        serial_print_dec(integ.corrupt_entries);
+        serial_print("\njournal_order_valid="); serial_print_dec(integ.journal_order_valid);
+    }
     serial_print("\n");
 
     /* --- Durable journal (latest 12 entries) ------------------------ */
@@ -193,7 +734,7 @@ void report_send(void)
             serial_print(e.risk_level == 0 ? "low" :
                          e.risk_level == 1 ? "medium" : "high");
             serial_print(";reversible="); serial_print(e.reversible ? "yes" : "no");
-            serial_print(";code=");       serial_print(e.short_code);
+            serial_print(";code=");       serial_print_field(e.short_code);
             serial_print("\n");
         }
     }
@@ -229,6 +770,25 @@ void report_send(void)
         serial_print("\nisolated_penalty=");serial_print_dec((uint32_t)(-hb.isolated_penalty));
         serial_print("\nwarning_penalty=");serial_print_dec((uint32_t)(-hb.warning_penalty));
         serial_print("\ncritical_penalty=");serial_print_dec((uint32_t)(-hb.critical_penalty));
+        serial_print("\nhealth_model=production_events_per_boot");
+        serial_print("\nproduction_warnings=");
+        serial_print_dec(error_health_count(HEALTH_PRODUCTION, SEV_WARNING));
+        serial_print("\nproduction_criticals=");
+        serial_print_dec(error_health_count(HEALTH_PRODUCTION, SEV_ERROR) +
+                         error_health_count(HEALTH_PRODUCTION, SEV_PANIC));
+        static const enum health_class excluded[] = {
+            HEALTH_OPERATOR_INPUT, HEALTH_EXPECTED_CANARY,
+            HEALTH_INTENTIONAL_TEST, HEALTH_DEVICE_STATE };
+        for (uint32_t c = 0; c < sizeof(excluded) / sizeof(excluded[0]); c++) {
+            serial_print("\n");
+            serial_print(health_class_name(excluded[c]));
+            serial_print("=");
+            serial_print_dec(error_health_count(excluded[c], SEV_WARNING) +
+                             error_health_count(excluded[c], SEV_ERROR) +
+                             error_health_count(excluded[c], SEV_PANIC));
+        }
+        serial_print("\nprevious_panic_intentional=");
+        serial_print(m->prev_panic_detected && m->prev_panic_intentional ? "1" : "0");
         /* previous boot's score + delta, when a prior snapshot exists */
         int prev = -1;
         for (int i = nsnaps - 1; i >= 0; i--)
@@ -288,9 +848,9 @@ void report_send(void)
     serial_print("[MODULE_VERSIONS]\n");
     for (uint32_t i = 0; i < module_count(); i++) {
         const struct module_version *mv = module_get(i);
-        serial_print("module=");  serial_print(mv->name);
-        serial_print(";version=");serial_print(mv->version);
-        serial_print(";base=");   serial_print(mv->base_version);
+        serial_print("module=");  serial_print_field(mv->name);
+        serial_print(";version=");serial_print_field(mv->version);
+        serial_print(";base=");   serial_print_field(mv->base_version);
         serial_print(";updated=");serial_print(mv->updated ? "1" : "0");
         serial_print("\n");
     }
@@ -308,16 +868,16 @@ void report_send(void)
     serial_print("\n");
     for (uint32_t i = 0; i < manifest_count(); i++) {
         const struct pkg_manifest *p = manifest_get(i);
-        serial_print("id=");        serial_print(p->package_id);
-        serial_print(";name=");     serial_print(p->name);
-        serial_print(";target=");   serial_print(p->target_component);
-        serial_print(";from=");     serial_print(p->from_version);
-        serial_print(";to=");       serial_print(p->to_version);
+        serial_print("id=");        serial_print_field(p->package_id);
+        serial_print(";name=");     serial_print_field(p->name);
+        serial_print(";target=");   serial_print_field(p->target_component);
+        serial_print(";from=");     serial_print_field(p->from_version);
+        serial_print(";to=");       serial_print_field(p->to_version);
         serial_print(";risk=");     serial_print(risk_level_name(p->risk_level));
         serial_print(";reversible=");serial_print(p->reversible ? "yes" : "no");
         serial_print(";signature=");serial_print(signature_status_name(p->signature_status));
         serial_print(";checksum=");serial_print(p->checksum_ok ? "ok" : "mismatch");
-        serial_print(";source=");  serial_print(manifest_source_name());
+        serial_print(";source=");  serial_print(manifest_origin_name(p));
         serial_print(";checksum_valid=");
         serial_print(manifest_checksum_valid(p) ? "yes" : "no");
         serial_print(";trust_valid=");
@@ -327,13 +887,13 @@ void report_send(void)
         serial_print(";signature_mode=");
         serial_print(manifest_signature_mode(p));
         serial_print(";signer_key=");
-        serial_print(p->signer_key_hash[0] ? p->signer_key_hash : "none");
+        serial_print_field(p->signer_key_hash[0] ? p->signer_key_hash : "none");
         serial_print(";signed_payload=");
-        serial_print(p->signed_payload_hash[0] ? p->signed_payload_hash : "none");
+        serial_print_field(p->signed_payload_hash[0] ? p->signed_payload_hash : "none");
         serial_print(";policy_result=");
         serial_print(manifest_policy_result(p));
         serial_print(";block_reason=");
-        serial_print(manifest_block_reason(p));
+        serial_print_field(manifest_block_reason(p));
         serial_print(";status=");
         serial_print(pkg_status_name(recovery_package_status(p)));
         serial_print("\n");
@@ -344,12 +904,12 @@ void report_send(void)
         const struct pkg_manifest *p = manifest_get(i);
         const char *reason;
         int ok = manifest_verify(p, &reason);
-        serial_print("id=");          serial_print(p->package_id);
+        serial_print("id=");          serial_print_field(p->package_id);
         serial_print(";payload=");    serial_print(payload_type_name(p->payload_type));
         serial_print(";trust_anchor=");
         serial_print(p->trust_anchor_id == TRUST_ANCHOR_ID ? TRUST_ANCHOR_NAME
                                                            : "unknown");
-        serial_print(";source=");      serial_print(manifest_source_name());
+        serial_print(";source=");      serial_print(manifest_origin_name(p));
         serial_print(";checksum_valid=");
         serial_print(manifest_checksum_valid(p) ? "yes" : "no");
         serial_print(";trust_valid=");
@@ -359,40 +919,54 @@ void report_send(void)
         serial_print(";signature_mode=");
         serial_print(manifest_signature_mode(p));
         serial_print(";signer_key=");
-        serial_print(p->signer_key_hash[0] ? p->signer_key_hash : "none");
+        serial_print_field(p->signer_key_hash[0] ? p->signer_key_hash : "none");
         serial_print(";signed_payload=");
-        serial_print(p->signed_payload_hash[0] ? p->signed_payload_hash : "none");
+        serial_print_field(p->signed_payload_hash[0] ? p->signed_payload_hash : "none");
         serial_print(";verifies=");   serial_print(ok ? "yes" : "no");
         serial_print(";policy_result=");
         serial_print(manifest_policy_result(p));
-        serial_print(";reason=");     serial_print(reason);
+        serial_print(";reason=");     serial_print_field(reason);
         serial_print(";block_reason=");
-        serial_print(manifest_block_reason(p));
+        serial_print_field(manifest_block_reason(p));
         serial_print("\n");
     }
+
+    serial_print("[PACKAGE_STATE_INTEGRITY]\n");
+    serial_print("ownership_state="); serial_print_field(package_state_ownership_state());
+    serial_print("\nownership_reason="); serial_print_field(package_state_ownership_reason());
+    serial_print("\nwrites_allowed="); serial_print(package_state_ownership_trusted() ? "yes" : "no");
+    serial_print("\ncopy_evidence="); serial_print_field(package_state_copy_state());
+    serial_print("\n");
+
+    serial_print("[MODULE_SLOT_INTEGRITY]\nstate="); serial_print_dec(module_slots_evidence());
+    serial_print("\nreason="); serial_print_field(module_slots_evidence_reason()); serial_print("\n");
 
     serial_print("[PACKAGE_STATES]\n");
     for (uint32_t i = 0; i < package_state_count(); i++) {
         const struct pkg_pstate *s = package_state_get(i);
-        serial_print("id=");        serial_print(s->package_id);
+        serial_print("id=");        serial_print_field(s->package_id);
         serial_print(";approved="); serial_print(s->approved ? "1" : "0");
         serial_print(";applied=");  serial_print(s->applied ? "1" : "0");
         serial_print(";verified="); serial_print(s->verified ? "1" : "0");
         serial_print(";failed=");   serial_print(s->failed ? "1" : "0");
         serial_print(";rolled_back=");serial_print(s->rolled_back ? "1" : "0");
-        serial_print(";from=");     serial_print(s->from_version);
-        serial_print(";to=");       serial_print(s->to_version);
+        serial_print(";from=");     serial_print_field(s->from_version);
+        serial_print(";to=");       serial_print_field(s->to_version);
+        serial_print(";manifest_identity="); serial_print_dec(s->manifest_identity);
+        serial_print(";transaction_phase=");
+        serial_print(package_transaction_phase_name(s->transaction_phase));
+        serial_print(";binding_valid="); serial_print(s->extension_valid ? "1" : "0");
         serial_print("\n");
     }
 
     serial_print("[MODULE_SLOTS]\n");
     for (uint32_t i = 0; i < module_slot_count(); i++) {
         const struct module_slot *s = module_slot_get(i);
-        serial_print("module=");    serial_print(module_get((uint32_t)s->module)->name);
+        serial_print("module=");    serial_print_field(module_get((uint32_t)s->module)->name);
         serial_print(";active=");   serial_print(s->active_slot == SLOT_A ? "A" : "B");
-        serial_print(";slot_a=");   serial_print(s->slot_a_version);
+        serial_print(";slot_a=");   serial_print_field(s->slot_a_version);
         serial_print(";slot_a_verified="); serial_print(s->slot_a_verified ? "1" : "0");
-        serial_print(";slot_b=");   serial_print(s->slot_b_version);
+        serial_print(";slot_b=");   serial_print_field(s->slot_b_version);
         serial_print(";slot_b_verified="); serial_print(s->slot_b_verified ? "1" : "0");
         serial_print(";rollback=");
         serial_print(s->rollback_slot == SLOT_NONE ? "none" :
@@ -445,11 +1019,15 @@ void report_send(void)
     serial_print("[ERROR_LOG]\n");
     struct kerror e;
     for (uint32_t i = 0; error_get(i, &e); i++) {
-        serial_print("code=");       serial_print(e.code);
+        serial_print("code=");       serial_print_field(e.code);
         serial_print(";severity=");  serial_print(severity_name(e.severity));
-        serial_print(";component="); serial_print(e.component);
-        serial_print(";message=");   serial_print(e.message);
-        serial_print(";hint=");      serial_print(e.hint);
+        serial_print(";component="); serial_print_field(e.component);
+        serial_print(";message=");   serial_print_field(e.message);
+        serial_print(";hint=");      serial_print_field(e.hint);
+        if (e.health != HEALTH_PRODUCTION) {
+            serial_print(";health=");
+            serial_print(health_class_name(e.health));
+        }
         serial_print("\n");
     }
 

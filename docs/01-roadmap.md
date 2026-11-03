@@ -7,7 +7,7 @@ the previous one's exit criteria pass.
 
 ## Phase 0 — Research & Architecture ✅ (done)
 **Deliverable:** [00-architecture.md](00-architecture.md)
-- Goals, path decision (hybrid: real toy kernel + host-side AI core), toolchain,
+- Goals, path decision (hybrid: focused research kernel + host-side AI core), toolchain,
   safety invariants, honest capability ledger.
 
 ---

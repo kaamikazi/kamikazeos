@@ -30,6 +30,9 @@ void ata_init(void);
 /* 1 if a disk answered IDENTIFY at init. */
 int ata_available(void);
 
+/* LBA28 capacity reported by IDENTIFY, in 512-byte sectors. */
+uint32_t ata_capacity_sectors(void);
+
 /* Read/write one 512-byte sector. Return 1 on success, 0 on failure
    (no disk, timeout, or error bit). Never blocks forever. */
 int ata_read_sector(uint32_t lba, uint8_t *buffer);

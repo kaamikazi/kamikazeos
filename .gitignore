@@ -9,3 +9,4 @@ __pycache__/
 *-private.*
 *.key
 id_ed25519*
+/ponytail/

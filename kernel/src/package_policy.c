@@ -17,6 +17,11 @@ enum pkg_verdict package_policy_check(enum signature_status sig,
                                       enum risk_level risk,
                                       int reversible, int checksum_ok)
 {
+    if ((sig != SIG_UNSIGNED && sig != SIG_PLACEHOLDER &&
+         sig != SIG_INVALID && sig != SIG_TRUSTED) ||
+        (risk != RISK_LOW && risk != RISK_MEDIUM && risk != RISK_HIGH) ||
+        (reversible != 0 && reversible != 1))
+        return PKG_POLICY_BLOCKED;
     if (sig == SIG_UNSIGNED || sig == SIG_INVALID)
         return PKG_POLICY_BLOCKED;        /* rules 1 + 2 */
     if (risk == RISK_HIGH)
@@ -32,6 +37,11 @@ const char *package_policy_reason(enum signature_status sig,
                                   enum risk_level risk,
                                   int reversible, int checksum_ok)
 {
+    if ((sig != SIG_UNSIGNED && sig != SIG_PLACEHOLDER &&
+         sig != SIG_INVALID && sig != SIG_TRUSTED) ||
+        (risk != RISK_LOW && risk != RISK_MEDIUM && risk != RISK_HIGH) ||
+        (reversible != 0 && reversible != 1))
+        return "unknown policy value - blocked";
     if (sig == SIG_UNSIGNED)  return "unsigned packages are blocked";
     if (sig == SIG_INVALID)   return "invalid signature - blocked";
     if (risk == RISK_HIGH)    return "high-risk packages are blocked";

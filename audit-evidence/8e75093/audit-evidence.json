@@ -1,0 +1,232 @@
+{
+  "head": "8e75093f1d880d8b546d4f0c8f0d6e7ef9506086",
+  "source_tree": "2cbb1f13152ed2dba4ad453495e8c5f39cecf7e3",
+  "target_elf_sha256": "7e295a57c7bea3a2d9130f1bce79ea1a16ad19a77dd3beaefe6fb048fe320a6a",
+  "worktree": "clean",
+  "source_exports_reverified": true,
+  "recovery_image_before": "4daf871c5c2982a2c6401a8a3336959f31bdd0143ae00f238f4cbdc7f453f19e",
+  "recovery_image_after": "4daf871c5c2982a2c6401a8a3336959f31bdd0143ae00f238f4cbdc7f453f19e",
+  "preserved_zip_unchanged": "bae909075761af2c3edafe33e993002487d79cc61c9c0dae483ffccb2b75be75",
+  "ring3_source_approval_zero": true,
+  "supplied": {
+    "repository": {
+      "tests": 93,
+      "passed": 93,
+      "failed": 0,
+      "seconds": 812.135
+    },
+    "preserved_qemu": {
+      "tests": 17,
+      "passed": 17,
+      "failed": 0,
+      "seconds": 147.531
+    },
+    "preserved_host": {
+      "tests": 5,
+      "passed": 5,
+      "failed": 0
+    }
+  },
+  "new_independent": {
+    "qemu": {
+      "tests": 17,
+      "passed": 6,
+      "failed_cases": 11,
+      "failed_assertions": 25,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 145.831,
+      "run_seconds": [
+        133.812,
+        12.019
+      ]
+    },
+    "host": {
+      "tests": 6,
+      "passed": 3,
+      "failed": 3
+    }
+  },
+  "recommendation": "REVISE",
+  "observations": {
+    "test_missing_slot_metadata_cannot_be_verified_ownership": {
+      "ownership_before": {
+        "ownership_state": "verified",
+        "ownership_reason": "readable_valid_ordered_copies",
+        "writes_allowed": "yes"
+      },
+      "apply": "code=PKG-ACT-002;severity=info;component=RecoveryPackage;message=Applied package - slot switched PKG-201 new_audit_0;hint=pending verification - run verify-pkg\r",
+      "slots_before": {
+        "module": "GhostAttach",
+        "active": "A",
+        "slot_a": "0.3",
+        "slot_a_verified": "1",
+        "slot_b": "-",
+        "slot_b_verified": "0",
+        "rollback": "none",
+        "pending_verify": "0"
+      },
+      "slots_after": {
+        "module": "GhostAttach",
+        "active": "B",
+        "slot_a": "0.3",
+        "slot_a_verified": "1",
+        "slot_b": "0.4",
+        "slot_b_verified": "0",
+        "rollback": "A",
+        "pending_verify": "1"
+      }
+    },
+    "test_slot_checksum_error_cannot_be_verified_ownership": {
+      "ownership_before": {
+        "ownership_state": "verified",
+        "ownership_reason": "readable_valid_ordered_copies",
+        "writes_allowed": "yes"
+      },
+      "apply": "code=PKG-ACT-002;severity=info;component=RecoveryPackage;message=Applied package - slot switched PKG-201 new_audit_0;hint=pending verification - run verify-pkg\r",
+      "slots_before": {
+        "module": "GhostAttach",
+        "active": "A",
+        "slot_a": "0.3",
+        "slot_a_verified": "1",
+        "slot_b": "-",
+        "slot_b_verified": "0",
+        "rollback": "none",
+        "pending_verify": "0"
+      },
+      "slots_after": {
+        "module": "GhostAttach",
+        "active": "B",
+        "slot_a": "0.3",
+        "slot_a_verified": "1",
+        "slot_b": "0.4",
+        "slot_b_verified": "0",
+        "rollback": "A",
+        "pending_verify": "1"
+      }
+    },
+    "test_slot_read_error_cannot_be_verified_ownership": {
+      "ownership_before": {
+        "ownership_state": "verified",
+        "ownership_reason": "readable_valid_ordered_copies",
+        "writes_allowed": "yes"
+      },
+      "apply": "code=PKG-ACT-002;severity=info;component=RecoveryPackage;message=Applied package - slot switched PKG-201 new_audit_0;hint=pending verification - run verify-pkg\r",
+      "slots_before": {
+        "module": "GhostAttach",
+        "active": "A",
+        "slot_a": "0.3",
+        "slot_a_verified": "1",
+        "slot_b": "-",
+        "slot_b_verified": "0",
+        "rollback": "none",
+        "pending_verify": "0"
+      },
+      "slots_after": {
+        "module": "GhostAttach",
+        "active": "B",
+        "slot_a": "0.3",
+        "slot_a_verified": "1",
+        "slot_b": "0.4",
+        "slot_b_verified": "0",
+        "rollback": "A",
+        "pending_verify": "1"
+      }
+    },
+    "test_stale_slot_conflicting_with_current_owner_is_uncertain": {
+      "ownership_before": {
+        "ownership_state": "verified",
+        "ownership_reason": "readable_valid_ordered_copies",
+        "writes_allowed": "yes"
+      },
+      "apply": "code=PKG-ACT-002;severity=info;component=RecoveryPackage;message=Applied package - slot switched PKG-201 new_audit_0;hint=pending verification - run verify-pkg\r",
+      "slots_before": {
+        "module": "GhostAttach",
+        "active": "A",
+        "slot_a": "0.3",
+        "slot_a_verified": "1",
+        "slot_b": "0.4",
+        "slot_b_verified": "1",
+        "rollback": "B",
+        "pending_verify": "0"
+      },
+      "slots_after": {
+        "module": "GhostAttach",
+        "active": "B",
+        "slot_a": "0.3",
+        "slot_a_verified": "1",
+        "slot_b": "0.4",
+        "slot_b_verified": "0",
+        "rollback": "A",
+        "pending_verify": "1"
+      }
+    },
+    "test_misplaced_latest_snapshot_is_not_oldest_ring_slot": {
+      "replaced_lba": 17,
+      "before_boot": 16,
+      "after_boot": 17,
+      "before_sha256": "0e8cda9ffcadf38e91410f5b31a8568e95e07d94a386e2dae68366596e327ecf",
+      "after_sha256": "d82759d5580e68df0591cebe31c205319d41e6bb47f75295fc39979dec75f4f7"
+    },
+    "test_reverse_clean_boot_sequence_is_not_a_chain": {
+      "replaced_lba": 17,
+      "before_boot": 1,
+      "after_boot": 33,
+      "before_sha256": "75938feef69217d1ad447761df322af2c2e4841652eba00cef7d23e61651b79c",
+      "after_sha256": "e81e75450d7a5464aef9fe7fb4af87ee6813936536653cfc48b6be4a71732a8b"
+    },
+    "test_impossible_clean_boot_tuple_cannot_complete_chain": {
+      "replaced_lba": 18,
+      "before_boot": 2,
+      "after_boot": 18,
+      "before_sha256": "75938feef69217d1ad447761df322af2c2e4841652eba00cef7d23e61651b79c",
+      "after_sha256": "81077227be86938ca9987badfa028540d89178dbc74cb4ee073aca1e33828e9a"
+    },
+    "test_unreadable_slot_cannot_abort_durable_staged_apply": {
+      "recovery_events": [
+        {
+          "code": "PST-RECOVER-ABO",
+          "severity": "warning",
+          "component": "PackageState",
+          "message": "Discarded staged apply before slot commit",
+          "hint": "slot metadata was inspected but not automatically changed"
+        }
+      ],
+      "after_fault_package": {
+        "id": "PKG-203",
+        "approved": "1",
+        "applied": "0",
+        "verified": "0",
+        "failed": "0",
+        "rolled_back": "0",
+        "from": "0.3",
+        "to": "0.4",
+        "manifest_identity": "3798530909",
+        "transaction_phase": "committed",
+        "binding_valid": "1"
+      },
+      "healthy_reboot_package": {
+        "id": "PKG-203",
+        "name": "new_audit_2",
+        "target": "GhostAttach",
+        "from": "0.3",
+        "to": "0.4",
+        "risk": "low",
+        "reversible": "yes",
+        "signature": "trusted",
+        "checksum": "ok",
+        "source": "disk_imported",
+        "checksum_valid": "yes",
+        "trust_valid": "yes",
+        "signature_valid": "yes",
+        "signature_mode": "simulated_kernel_check_host_ed25519",
+        "signer_key": "90aff55a4edb8ed5",
+        "signed_payload": "0000000000000000",
+        "policy_result": "allowed",
+        "block_reason": "none",
+        "status": "approved"
+      }
+    }
+  },
+  "package_sector_encoder_unchanged": true
+}

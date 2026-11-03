@@ -57,3 +57,18 @@ void serial_print(const char *s)
         serial_putc(*s++);
     }
 }
+
+void serial_print_field(const char *s)
+{
+    if (!s) {
+        serial_print("?");
+        return;
+    }
+    while (*s) {
+        unsigned char c = (unsigned char)*s++;
+        if (c < 0x20 || c == 0x7f || c == ';' || c == '=')
+            serial_putc('?');
+        else
+            serial_putc((char)c);
+    }
+}

@@ -13,11 +13,15 @@
 #define KMZ_KEYBOARD_H
 
 void keyboard_init(void);
+void keyboard_enable_irq(void);
+void keyboard_handle_irq(void);
 
 /* Block until a printable char / Enter ('\n') / Backspace ('\b') arrives. */
 char keyboard_getchar(void);
 
 /* 1 if a PS/2 controller responded to our probe at boot (for `devices`). */
 int keyboard_present(void);
+int keyboard_irq_enabled(void);
+const char *keyboard_mode_name(void);
 
 #endif /* KMZ_KEYBOARD_H */

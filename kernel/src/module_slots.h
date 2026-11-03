@@ -42,16 +42,29 @@ struct module_slot {
     uint8_t pending_verify;     /* applied but not verified  */
 };
 
-/* Load from disk or initialize defaults (slot A = base version,
-   verified, active). Also syncs module_versions to active slots. */
+/* Validate actual disk evidence. Empty/unavailable/corrupt data may leave
+   diagnostic defaults, but only VALID slots sync authoritative versions;
+   every mutation additionally requires shared joint package authority. */
 void module_slots_init(void);
+
+enum module_slot_evidence {
+    MS_UNAVAILABLE = 0, MS_EMPTY, MS_VALID, MS_UNCERTAIN
+};
+enum module_slot_evidence module_slots_evidence(void);
+const char *module_slots_evidence_reason(void);
+const struct module_slot *module_slot_durable_get(uint32_t index);
+int module_slot_record_valid(const struct module_slot *s);
+int module_slot_is_pristine(const struct module_slot *s);
+/* Canonical factory record for table position `index` (fixed identity order,
+   all unused version-array bytes zero). Returns 0 for an invalid index. */
+int module_slot_factory_record(uint32_t index, struct module_slot *out);
 
 uint32_t                  module_slot_count(void);
 const struct module_slot *module_slot_get(uint32_t index);
 struct module_slot       *module_slot_for(enum module_id id); /* 0 if not updatable */
 
-void module_slots_save(void);
-void module_slots_clear(void);   /* back to defaults + save */
+int module_slots_save(void);
+int module_slots_clear(void);   /* back to defaults + save */
 
 /* Convenience: the active slot's version string for a module. */
 const char *module_slot_active_version(const struct module_slot *s);
