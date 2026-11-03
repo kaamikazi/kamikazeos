@@ -43,6 +43,7 @@ def main() -> int:
     print(f"wrote {pub_path}")
     print(f"public_key_sha256={hashlib.sha256(public_raw).hexdigest()}")
     print("warning: keep the private key offline; do not import it into KamikazeOS")
+    print("warning: this is a candidate key and is not trusted until explicitly pinned")
     return 0
 
 

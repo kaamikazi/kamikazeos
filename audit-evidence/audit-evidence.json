@@ -1,0 +1,151 @@
+{
+  "head": "0cd86d88a1cc2a57b6a13f8f0e8d003dadf85f59",
+  "original_worktree_status": "clean",
+  "source_blobs_reverified": {
+    "target": 250,
+    "baseline": 225,
+    "pre-additional": 245
+  },
+  "recovery_sha256_before": "4daf871c5c2982a2c6401a8a3336959f31bdd0143ae00f238f4cbdc7f453f19e",
+  "recovery_sha256_after": "4daf871c5c2982a2c6401a8a3336959f31bdd0143ae00f238f4cbdc7f453f19e",
+  "supplied": {
+    "tests": 70,
+    "passed": 70,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 474.294
+  },
+  "new_qemu": {
+    "tests": 17,
+    "passed": 10,
+    "failed_cases": 7,
+    "failed_subtests": 20,
+    "errors": 0,
+    "skipped": 0
+  },
+  "new_host": {
+    "tests": 5,
+    "passed": 4,
+    "failed": 1
+  },
+  "distinct_target_cases": {
+    "tests": 92,
+    "passed": 84,
+    "failed": 8,
+    "errors": 0,
+    "skipped": 0
+  },
+  "negative_controls": {
+    "commit": "7ccb4d9b32941d6f850a274c07e6ad0148bd51cb",
+    "tests": 2,
+    "expected_failures": 2
+  },
+  "verdict": "REVISE",
+  "observations": {
+    "test_damaged_extension_original_failure": {
+      "boot_count": "2"
+    },
+    "test_invalid_result_cannot_become_policy_evidence": {
+      "boot_count": "241"
+    },
+    "test_invalid_reversible_cannot_become_policy_evidence": {
+      "boot_count": "241"
+    },
+    "test_invalid_risk_cannot_become_policy_evidence": {
+      "boot_count": "241"
+    },
+    "test_unreadable_newer_mirror_cannot_resurrect_stale_primary_owner": {
+      "outcome": "code=PKG-RB-001;severity=info;component=RecoveryPackage;message=Rolled back package PKG-201 audit_cycle_0;hint=known-good slot active again\r",
+      "before": {
+        "module": "GhostAttach",
+        "active": "B",
+        "slot_a": "0.3",
+        "slot_a_verified": "1",
+        "slot_b": "0.4",
+        "slot_b_verified": "1",
+        "rollback": "A",
+        "pending_verify": "0"
+      },
+      "after": {
+        "module": "GhostAttach",
+        "active": "A",
+        "slot_a": "0.3",
+        "slot_a_verified": "1",
+        "slot_b": "0.4",
+        "slot_b_verified": "1",
+        "rollback": "none",
+        "pending_verify": "0"
+      }
+    },
+    "test_unreadable_newer_primary_cannot_resurrect_stale_mirror_owner": {
+      "outcome": "code=PKG-RB-001;severity=info;component=RecoveryPackage;message=Rolled back package PKG-201 audit_cycle_0;hint=known-good slot active again\r",
+      "before": {
+        "module": "GhostAttach",
+        "active": "B",
+        "slot_a": "0.3",
+        "slot_a_verified": "1",
+        "slot_b": "0.4",
+        "slot_b_verified": "1",
+        "rollback": "A",
+        "pending_verify": "0"
+      },
+      "after": {
+        "module": "GhostAttach",
+        "active": "A",
+        "slot_a": "0.3",
+        "slot_a_verified": "1",
+        "slot_b": "0.4",
+        "slot_b_verified": "1",
+        "rollback": "none",
+        "pending_verify": "0"
+      }
+    },
+    "test_corrupt_newer_mirror_cannot_resurrect_stale_primary_owner": {
+      "outcome": "code=PKG-RB-001;severity=info;component=RecoveryPackage;message=Rolled back package PKG-201 audit_cycle_0;hint=known-good slot active again\r",
+      "before": {
+        "module": "GhostAttach",
+        "active": "B",
+        "slot_a": "0.3",
+        "slot_a_verified": "1",
+        "slot_b": "0.4",
+        "slot_b_verified": "1",
+        "rollback": "A",
+        "pending_verify": "0"
+      },
+      "after": {
+        "module": "GhostAttach",
+        "active": "A",
+        "slot_a": "0.3",
+        "slot_a_verified": "1",
+        "slot_b": "0.4",
+        "slot_b_verified": "1",
+        "rollback": "none",
+        "pending_verify": "0"
+      }
+    },
+    "test_corrupt_newer_primary_cannot_resurrect_stale_mirror_owner": {
+      "outcome": "code=PKG-RB-001;severity=info;component=RecoveryPackage;message=Rolled back package PKG-201 audit_cycle_0;hint=known-good slot active again\r",
+      "before": {
+        "module": "GhostAttach",
+        "active": "B",
+        "slot_a": "0.3",
+        "slot_a_verified": "1",
+        "slot_b": "0.4",
+        "slot_b_verified": "1",
+        "rollback": "A",
+        "pending_verify": "0"
+      },
+      "after": {
+        "module": "GhostAttach",
+        "active": "A",
+        "slot_a": "0.3",
+        "slot_a_verified": "1",
+        "slot_b": "0.4",
+        "slot_b_verified": "1",
+        "rollback": "none",
+        "pending_verify": "0"
+      }
+    }
+  }
+}

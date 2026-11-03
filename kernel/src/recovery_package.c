@@ -6,6 +6,7 @@
 #include "module_slots.h"
 #include "recovery_store.h"
 #include "string.h"
+#include "package_authority.h"
 
 /* Runtime status per manifest slot (hydrated from persistence at init). */
 static enum pkg_status statuses[MANIFEST_MAX];
@@ -63,9 +64,9 @@ static uint8_t pkg_byte(const struct pkg_manifest *m)
     return (n > 255u) ? 255u : (uint8_t)n;
 }
 
-static void log_pkg(enum err_severity sev, const char *code,
-                    const char *verb, const struct pkg_manifest *m,
-                    const char *hint)
+static void log_pkg_class(enum err_severity sev, enum health_class cls,
+                          const char *code, const char *verb,
+                          const struct pkg_manifest *m, const char *hint)
 {
     char msg[ERR_MSG_MAX];
     kstrcpy(msg, verb, ERR_MSG_MAX);
@@ -75,7 +76,14 @@ static void log_pkg(enum err_severity sev, const char *code,
     len = kstrlen(msg);
     if (len < ERR_MSG_MAX - 1) { msg[len++] = ' '; msg[len] = '\0';
         kstrcpy(msg + len, m->name, ERR_MSG_MAX - len); }
-    error_log(sev, code, "RecoveryPackage", msg, hint);
+    error_log_class(sev, cls, code, "RecoveryPackage", msg, hint);
+}
+
+static void log_pkg(enum err_severity sev, const char *code,
+                    const char *verb, const struct pkg_manifest *m,
+                    const char *hint)
+{
+    log_pkg_class(sev, HEALTH_PRODUCTION, code, verb, m, hint);
 }
 
 static void journal_pkg(enum journal_event ev, const struct pkg_manifest *m,
@@ -85,26 +93,165 @@ static void journal_pkg(enum journal_event ev, const struct pkg_manifest *m,
                             (uint8_t)m->risk_level, m->reversible, code6);
 }
 
-/* Persist one lifecycle transition. */
-static void persist(const struct pkg_manifest *m, enum pkg_status st,
-                    int result_code)
+static void state_set_status(struct pkg_pstate *s, enum pkg_status st)
+{
+    s->status = (uint8_t)st;
+    s->approved = s->applied = s->verified = 0;
+    s->failed = s->rolled_back = 0;
+    if (st == PKGST_APPROVED) s->approved = 1;
+    if (st == PKGST_APPLIED) s->applied = 1;
+    if (st == PKGST_VERIFIED) s->verified = 1;
+    if (st == PKGST_FAILED) s->failed = 1;
+    if (st == PKGST_ROLLED_BACK) s->rolled_back = 1;
+}
+
+static void bind_state(struct pkg_pstate *s, const struct pkg_manifest *m)
+{
+    kstrcpy(s->from_version, m->from_version, PM_VER_MAX);
+    kstrcpy(s->to_version, m->to_version, PM_VER_MAX);
+    s->manifest_identity = manifest_identity(m);
+    s->target_module = (uint8_t)m->target_module;
+    s->extension_valid = 1;
+}
+
+static int binding_matches(const struct pkg_pstate *s,
+                           const struct pkg_manifest *m)
+{
+    return s->extension_valid && s->manifest_identity == manifest_identity(m) &&
+           s->target_module == (uint8_t)m->target_module &&
+           kstrcmp(s->from_version, m->from_version) == 0 &&
+           kstrcmp(s->to_version, m->to_version) == 0;
+}
+
+static int state_targets_module(const struct pkg_pstate *s, enum module_id module)
+{
+    if (s->extension_valid)
+        return s->target_module == (uint8_t)module;
+    /* A legacy record can be rebound on a later boot. Retire its rights too
+       when its current manifest identifies the same module/transition. */
+    const struct pkg_manifest *m = manifest_find(s->package_id);
+    return m && m->target_module == module &&
+           kstrcmp(s->from_version, m->from_version) == 0 &&
+           kstrcmp(s->to_version, m->to_version) == 0;
+}
+
+static int package_transition_held(const struct pkg_manifest *m)
+{
+    if (!package_state_ownership_trusted()) {
+        const char *reason=package_state_ownership_reason();
+        log_pkg_class(SEV_WARNING, HEALTH_OPERATOR_INPUT,
+                      kstrcmp(reason,"multiple_claimants") == 0 ? "PKG-REJECT-001" : "PKG-REJECT-003",
+                      "Package operation refused - ownership uncertain for", m,
+                      reason);
+        return 1;
+    }
+    for (uint32_t i = 0; i < package_state_count(); i++) {
+        const struct pkg_pstate *s = package_state_get(i);
+        if (s->extension_valid && s->target_module == (uint8_t)m->target_module &&
+            s->transaction_phase > PST_TX_COMMITTED)
+            return 1;
+    }
+    return 0;
+}
+
+/* Publish the new owner and retire older rollback rights in ONE mirrored
+   package-state save. SLOT_NONE already exists in the v1 record format. */
+static int finish_transaction(struct pkg_pstate *s, const struct pkg_manifest *m,
+                              enum pkg_status st, int result_code)
+{
+    struct pkg_pstate previous[PSTATE_MAX];
+    uint32_t n = package_state_count();
+    for (uint32_t i = 0; i < n; i++)
+        previous[i] = *package_state_get(i);
+    if (m)
+        bind_state(s, m);
+    state_set_status(s, st);
+    s->last_result_code = (uint8_t)(result_code & 0xFF);
+    s->transaction_phase = PST_TX_COMMITTED;
+    s->status_before_transaction = (uint8_t)st;
+    if (m && st == PKGST_APPLIED) {
+        for (uint32_t i = 0; i < n; i++) {
+            struct pkg_pstate *other = package_state_find(previous[i].package_id);
+            if (other != s && state_targets_module(other, m->target_module))
+                other->slot_before_apply = SLOT_NONE;
+        }
+    }
+    if (!package_state_save()) {
+        for (uint32_t i = 0; i < n; i++)
+            *package_state_find(previous[i].package_id) = previous[i];
+        return 0;
+    }
+    return 1;
+}
+
+static int commit_state(const struct pkg_manifest *m, enum pkg_status st,
+                         int result_code)
+{
+    struct pkg_pstate *s = package_state_ensure(m->package_id);
+    return s && finish_transaction(s, m, st, result_code);
+}
+
+static int stage_transaction(const struct pkg_manifest *m, uint8_t phase,
+                             uint8_t slot_before, uint8_t slot_after,
+                             uint8_t criticals, uint8_t health)
 {
     struct pkg_pstate *s = package_state_ensure(m->package_id);
     if (!s)
-        return;
-    s->status           = (uint8_t)st;
-    s->last_result_code = (uint8_t)(result_code & 0xFF);
-    kstrcpy(s->from_version, m->from_version, PM_VER_MAX);
-    kstrcpy(s->to_version, m->to_version, PM_VER_MAX);
-    switch (st) {
-    case PKGST_APPROVED:    s->approved = 1;                  break;
-    case PKGST_APPLIED:     s->applied = 1;                   break;
-    case PKGST_VERIFIED:    s->verified = 1;                  break;
-    case PKGST_FAILED:      s->failed = 1;                    break;
-    case PKGST_ROLLED_BACK: s->rolled_back = 1;               break;
-    default:                                                  break;
+        return 0;
+    struct pkg_pstate previous = *s;
+    bind_state(s, m);
+    s->status_before_transaction = s->status;
+    s->transaction_phase = phase;
+    s->slot_before_apply = slot_before;
+    s->slot_after_apply = slot_after;
+    if (phase == PST_TX_APPLY_STAGED) {
+        s->criticals_at_apply = criticals;
+        s->health_at_apply = health;
     }
-    package_state_save();
+    if (!package_state_save()) {
+        *s = previous;
+        return 0;
+    }
+    return 1;
+}
+
+static void recover_interrupted_transactions(void)
+{
+    if (!package_authority_trusted()) return;
+    for (uint32_t i = 0; i < package_state_count(); i++) {
+        const struct pkg_pstate *view = package_state_get(i);
+        if (!view || !view->extension_valid ||
+            view->transaction_phase <= PST_TX_COMMITTED)
+            continue;
+
+        struct pkg_pstate *s = package_state_find(view->package_id);
+        struct pkg_manifest *m = manifest_find(view->package_id);
+        int decision=package_authority_recovery_status(s);
+        if (!m || decision < 0) {
+            package_authority_note_uncertain("staged_reconciliation_unproven");
+            return; /* never publish FAILED/ABORT from absent or assumed evidence */
+        }
+        enum pkg_status recovered=(enum pkg_status)decision;
+        const char *code="PST-RECOVER-STATE";
+        const char *message="Recovered transaction from jointly validated slots";
+        if (s->transaction_phase == PST_TX_APPLY_STAGED) {
+            code=recovered == PKGST_APPLIED ? "PST-RECOVER-APPLY" : "PST-RECOVER-ABORT";
+            message=recovered == PKGST_APPLIED ? "Recovered committed slot switch from staged state" :
+                                                "Discarded staged apply before validated slot commit";
+        }
+
+        /* An aborted apply preserves the previous owner. A durable slot
+           switch publishes the new owner with all supersession changes. */
+        if (!finish_transaction(s, m, recovered, s->last_result_code)) {
+            error_log(SEV_ERROR, "PST-RECOVER-SAVE", "PackageState",
+                      "Recovered transaction state could not be persisted",
+                      "reboot will retry transaction reconciliation");
+            return;
+        }
+        error_log(recovered == PKGST_FAILED ? SEV_ERROR : SEV_WARNING,
+                  code, "PackageState", message,
+                  "slot metadata was inspected but not automatically changed");
+    }
 }
 
 /* ------------------------------------------------------------------ */
@@ -117,6 +264,7 @@ void recovery_package_init(void)
     package_manifest_init();
     module_slots_init();          /* overrides with active-slot truth */
     package_state_init();
+    recover_interrupted_transactions();
 
     for (uint32_t i = 0; i < manifest_count(); i++) {
         struct pkg_manifest *m = manifest_get(i);
@@ -126,16 +274,28 @@ void recovery_package_init(void)
         const char *reason;
         if (!manifest_verify(m, &reason)) {
             statuses[i] = PKGST_BLOCKED;
-            log_pkg(SEV_WARNING, "PKG-BLOCK-001", "Blocked package", m, reason);
+            /* The compiled-in canary (built-in seed, in RAM or as an exact
+               disk copy) being blocked is the policy working. A blocked
+               IMPORTED manifest is a real event and costs health. */
+            log_pkg_class(SEV_WARNING,
+                          m->origin == MANIFEST_ORIGIN_DISK_IMPORT
+                              ? HEALTH_PRODUCTION : HEALTH_EXPECTED_CANARY,
+                          "PKG-BLOCK-001", "Blocked package", m, reason);
             continue;
         }
 
         /* Hydrate persisted lifecycle state (survives reboots). */
-        const struct pkg_pstate *s = package_state_find(m->package_id);
-        if (s && s->status <= PKGST_BLOCKED) {
+        struct pkg_pstate *s = package_state_find(m->package_id);
+        if (package_authority_trusted() && s && binding_matches(s, m) &&
+            s->transaction_phase == PST_TX_COMMITTED &&
+            s->status <= PKGST_BLOCKED) {
             statuses[i] = (enum pkg_status)s->status;
             continue;
         }
+        if (s && s->status == PKGST_APPROVED && !binding_matches(s, m))
+            error_log(SEV_WARNING, "PST-BIND-001", "PackageState",
+                      "Unbound package approval ignored",
+                      "review and approve the current manifest again");
 
         /* Fresh package: suggest it if it upgrades the running version. */
         if (kstrcmp(module_version_of(m->target_module),
@@ -164,18 +324,25 @@ int pkg_approve(const char *id)
     struct pkg_manifest *m = manifest_find(id);
     if (!m)
         return 0;
+    if (package_transition_held(m))
+        return -4;
 
     const char *reason;
     if (recovery_package_status(m) == PKGST_BLOCKED ||
         !manifest_verify(m, &reason)) {
         manifest_verify(m, &reason);
-        log_pkg(SEV_WARNING, "PKG-BLOCK-001", "Blocked package", m, reason);
+        log_pkg_class(SEV_WARNING, HEALTH_OPERATOR_INPUT,
+                      "PKG-BLOCK-001", "Blocked package", m, reason);
         journal_pkg(JE_PKG_BLOCKED, m, 0, "PKGBLK");
         return -1;
     }
 
+    /* Record an actual pristine before-side before any package staging can
+       later be recovered; never infer it from defaults after an I/O failure. */
+    if (module_slots_evidence() == MS_EMPTY && !module_slots_save()) return -4;
+    if (!commit_state(m, PKGST_APPROVED, 1))
+        return -4;
     set_status(m, PKGST_APPROVED);
-    persist(m, PKGST_APPROVED, 1);
     log_pkg(SEV_INFO, "PKG-ACT-001", "Approved package", m,
             "apply-pkg to switch the module slot");
     journal_pkg(JE_PKG_APPROVED, m, 1, "PKGAPR");
@@ -187,6 +354,8 @@ int pkg_apply(const char *id)
     struct pkg_manifest *m = manifest_find(id);
     if (!m)
         return 0;
+    if (package_transition_held(m))
+        return -4;
 
     const char *reason;
     if (recovery_package_status(m) == PKGST_BLOCKED ||
@@ -196,6 +365,7 @@ int pkg_apply(const char *id)
     }
     if (recovery_package_status(m) != PKGST_APPROVED)
         return -2;
+    if (module_slots_evidence() == MS_EMPTY && !module_slots_save()) return -4;
 
     struct module_slot *slot = module_slot_for(m->target_module);
     if (!slot)
@@ -203,11 +373,30 @@ int pkg_apply(const char *id)
     /* The active slot must run the version this package upgrades FROM. */
     if (kstrcmp(module_slot_active_version(slot), m->from_version) != 0)
         return -3;
+    /* An unverified (or failed) update is still pending on this module.
+       Applying over it would overwrite the inactive slot — the ONLY
+       verified known-good version — and leave nothing to roll back to. */
+    if (slot->pending_verify) {
+        log_pkg_class(SEV_WARNING, HEALTH_OPERATOR_INPUT, "PKG-REJECT-002",
+                "Apply refused - pending verification on module of", m,
+                "verify-pkg or rollback-pkg the previous update first");
+        return -6;
+    }
 
     /* THE A/B SWITCH: stage the new version in the INACTIVE slot, flip
        the active pointer, keep the old slot untouched as the way back. */
     uint8_t old_slot = slot->active_slot;
     uint8_t new_slot = (old_slot == SLOT_A) ? SLOT_B : SLOT_A;
+    struct health_breakdown hb;
+    boot_snapshot_health_now(&hb);
+    uint32_t crit_now = error_health_count(HEALTH_PRODUCTION, SEV_ERROR) +
+                        error_health_count(HEALTH_PRODUCTION, SEV_PANIC);
+    uint8_t criticals = (uint8_t)(crit_now > 255u ? 255u : crit_now);
+    if (!stage_transaction(m, PST_TX_APPLY_STAGED, old_slot, new_slot,
+                           criticals, (uint8_t)hb.score))
+        return -4;
+
+    struct module_slot previous_slot = *slot;
     if (new_slot == SLOT_A) {
         kstrcpy(slot->slot_a_version, m->to_version, SLOT_VER_MAX);
         slot->slot_a_verified = 0;
@@ -219,21 +408,18 @@ int pkg_apply(const char *id)
     slot->rollback_slot  = old_slot;
     slot->pending_verify = 1;
     module_set_version(m->target_module, m->to_version);
-    module_slots_save();
-
-    /* Baselines for verify-pkg, persisted with the state. */
-    struct health_breakdown hb;
-    boot_snapshot_health_now(&hb);
+    if (!module_slots_save()) {
+        *slot = previous_slot;
+        module_set_version(m->target_module, module_slot_active_version(slot));
+        /* The staged intent remains durable. Failed I/O is not an abort proof. */
+        return -4;
+    }
     set_status(m, PKGST_APPLIED);
-    persist(m, PKGST_APPLIED, 1);
-    struct pkg_pstate *s = package_state_find(m->package_id);
-    if (s) {
-        s->slot_before_apply  = old_slot;
-        s->slot_after_apply   = new_slot;
-        s->criticals_at_apply = (uint8_t)(error_count_severity(SEV_ERROR) +
-                                          error_count_severity(SEV_PANIC));
-        s->health_at_apply    = (uint8_t)hb.score;
-        package_state_save();
+    if (!commit_state(m, PKGST_APPLIED, 1)) {
+        error_log(SEV_WARNING, "PST-COMMIT-PENDING", "PackageState",
+                  "Slot switched but package commit remains staged",
+                  "reboot will reconcile the staged transaction");
+        return -4;
     }
 
     log_pkg(SEV_INFO, "PKG-ACT-002", "Applied package - slot switched", m,
@@ -247,6 +433,8 @@ int pkg_verify(const char *id)
     struct pkg_manifest *m = manifest_find(id);
     if (!m)
         return 0;
+    if (package_transition_held(m))
+        return -4;
     if (recovery_package_status(m) != PKGST_APPLIED)
         return -1;
 
@@ -259,8 +447,8 @@ int pkg_verify(const char *id)
        and health didn't fall off a cliff (threshold: -20). */
     struct health_breakdown hb;
     boot_snapshot_health_now(&hb);
-    uint32_t criticals_now = error_count_severity(SEV_ERROR) +
-                             error_count_severity(SEV_PANIC);
+    uint32_t criticals_now = error_health_count(HEALTH_PRODUCTION, SEV_ERROR) +
+                             error_health_count(HEALTH_PRODUCTION, SEV_PANIC);
 
     int slot_ok    = (slot->active_slot == s->slot_after_apply);
     int version_ok = (kstrcmp(module_slot_active_version(slot),
@@ -269,15 +457,25 @@ int pkg_verify(const char *id)
     int health_ok  = (hb.score >= (int)s->health_at_apply - 20);
 
     if (slot_ok && version_ok && crit_ok && health_ok) {
+        if (!stage_transaction(m, PST_TX_VERIFY_STAGED,
+                               s->slot_before_apply, s->slot_after_apply,
+                               s->criticals_at_apply, s->health_at_apply))
+            return -4;
+        struct module_slot previous_slot = *slot;
         if (slot->active_slot == SLOT_A)
             slot->slot_a_verified = 1;
         else
             slot->slot_b_verified = 1;
         slot->pending_verify = 0;
-        module_slots_save();
+        if (!module_slots_save()) {
+            *slot = previous_slot;
+            /* Preserve VERIFY_STAGED until a real slot read resolves it. */
+            return -4;
+        }
 
         set_status(m, PKGST_VERIFIED);
-        persist(m, PKGST_VERIFIED, 1);
+        if (!commit_state(m, PKGST_VERIFIED, 1))
+            return -4;
         log_pkg(SEV_INFO, "PKG-ACT-003", "Verified package", m,
                 "new slot verified - rollback-pkg still available");
         journal_pkg(JE_PKG_VERIFIED, m, 1, "PKGVER");
@@ -285,7 +483,8 @@ int pkg_verify(const char *id)
     }
 
     set_status(m, PKGST_FAILED);
-    persist(m, PKGST_FAILED, 0);
+    if (!commit_state(m, PKGST_FAILED, 0))
+        return -4;
     log_pkg(SEV_ERROR, "PKG-ACT-004", "Verification FAILED for package", m,
             "rollback-pkg to return to the known-good slot");
     journal_pkg(JE_PKG_FAILED, m, 0, "PKGFAI");
@@ -297,26 +496,84 @@ int pkg_rollback(const char *id)
     struct pkg_manifest *m = manifest_find(id);
     if (!m)
         return 0;
+    if (package_transition_held(m))
+        return -4;
 
     enum pkg_status st = recovery_package_status(m);
     if (st != PKGST_APPLIED && st != PKGST_VERIFIED && st != PKGST_FAILED)
         return -1;
 
     struct module_slot *slot = module_slot_for(m->target_module);
-    if (!slot || slot->rollback_slot == SLOT_NONE)
+    struct pkg_pstate *s = package_state_find(m->package_id);
+    if (!slot || !s || !binding_matches(s, m))
         return -1;
 
+    /* Ownership: roll back only the update that is ACTUALLY running. A
+       later package for the same module may have switched slots since;
+       its rollback pointer then belongs to it, not to this package. */
+    const char *stale = 0;
+    if (slot->active_slot != s->slot_after_apply ||
+        kstrcmp(module_slot_active_version(slot), m->to_version) != 0)
+        stale = "module no longer runs this package - another update owns it";
+    else if (slot->rollback_slot == SLOT_NONE ||
+             slot->rollback_slot != s->slot_before_apply)
+        stale = "no rollback slot recorded for this package's apply";
+    else if (kstrcmp(slot->rollback_slot == SLOT_A ? slot->slot_a_version
+                                                   : slot->slot_b_version,
+                     m->from_version) != 0)
+        stale = "known-good from_version is no longer in the rollback slot";
+    /* Older images may contain multiple indistinguishable claims. Do not
+       guess an owner from versions/slot parity: refuse every such claimant. */
+    for (uint32_t i = 0; !stale && i < package_state_count(); i++) {
+        const struct pkg_pstate *other = package_state_get(i);
+        if (other != s && state_targets_module(other, m->target_module) &&
+            (other->status == PKGST_APPLIED || other->status == PKGST_VERIFIED ||
+             other->status == PKGST_FAILED) &&
+            other->slot_before_apply == s->slot_before_apply &&
+            other->slot_after_apply == s->slot_after_apply &&
+            kstrcmp(other->from_version, s->from_version) == 0 &&
+            kstrcmp(other->to_version, s->to_version) == 0)
+            stale = "multiple package records claim this transition - owner is uncertain";
+    }
+    if (stale) {
+        log_pkg_class(SEV_WARNING, HEALTH_OPERATOR_INPUT, "PKG-REJECT-001",
+                      "Stale rollback refused", m, stale);
+        journal_pkg(JE_PKG_ROLLED_BACK, m, 0, "PKGRBX");
+        return -5;
+    }
+
+    if (!stage_transaction(m, PST_TX_ROLLBACK_STAGED,
+                           s->slot_before_apply, s->slot_after_apply,
+                           s->criticals_at_apply, s->health_at_apply))
+        return -4;
+
     /* Switch back to the untouched known-good slot. */
+    struct module_slot previous_slot = *slot;
     slot->active_slot    = slot->rollback_slot;
     slot->rollback_slot  = SLOT_NONE;
     slot->pending_verify = 0;
     module_set_version(m->target_module, module_slot_active_version(slot));
-    module_slots_save();
+    if (!module_slots_save()) {
+        *slot = previous_slot;
+        module_set_version(m->target_module, module_slot_active_version(slot));
+        /* Preserve ROLLBACK_STAGED rather than overwrite uncertain evidence. */
+        return -4;
+    }
 
     set_status(m, PKGST_ROLLED_BACK);
-    persist(m, PKGST_ROLLED_BACK, 1);
+    if (!commit_state(m, PKGST_ROLLED_BACK, 1))
+        return -4;
     log_pkg(SEV_INFO, "PKG-RB-001", "Rolled back package", m,
             "known-good slot active again");
     journal_pkg(JE_PKG_ROLLED_BACK, m, 1, "PKGRBK");
     return 1;
+}
+
+int recovery_package_reset(void)
+{
+    if (!package_authority_begin_reset()) return 0;
+    int ok=package_state_clear();
+    if (ok) ok=module_slots_clear();
+    package_authority_end_reset();
+    return ok;
 }

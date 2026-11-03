@@ -58,6 +58,7 @@ struct ghostattach_stats {
     uint32_t fallback;
     uint32_t missing;
     uint32_t isolated;
+    uint32_t expected_test_failures;
 };
 void ghostattach_get_stats(struct ghostattach_stats *out);
 

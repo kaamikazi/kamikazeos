@@ -1,4 +1,4 @@
-# KamikazeOS v1.5 Demo Guide
+# KamikazeOS v2.3 Demo Guide
 
 This guide is for a public, portfolio, or reviewer demo. It avoids claims that
 the project does not implement.
@@ -6,12 +6,12 @@ the project does not implement.
 ## Fast Prep
 
 ```powershell
-.\scripts\demo-v15.ps1
+.\scripts\demo-v20.ps1
 ```
 
-This builds the kernel, validates the safe and unsafe package examples, imports
-PKG-101 if possible, runs analyzer/dashboard export when a serial log exists,
-and prints the exact QEMU and shell steps.
+This builds the kernel, validates the safe and unsafe package examples, and
+prints the exact QEMU, shell, analyzer, and dashboard steps for the integrated
+v2.3 demo.
 
 ## 1. Build
 
@@ -58,12 +58,30 @@ Inside KamikazeOS:
 
 ```text
 about
+system
+diagnose
 health
 store
 journal
 snapshots
 devices
 ghostattach
+interrupts
+ticks
+mem
+memmap
+pages
+heap
+heap-test
+heap-alloc 64
+paging
+page-map
+tasks
+task-current
+fs
+apps
+run tinyfs-demo
+cat appdemo.txt
 trust
 manifests
 packages
@@ -81,6 +99,16 @@ Notes for narration:
 - `apply-pkg` is metadata-only. It does not patch a binary.
 - `verify-pkg` clears pending verification if health and slot metadata are OK.
 - `trust` labels host Ed25519 as real and kernel Ed25519 as simulated.
+- `system` and `diagnose` summarize integrated v2.3 readiness without applying
+  repairs.
+- `mem`, `memmap`, and `pages` show physical memory discovery and accounting,
+  not virtual memory or heap allocation.
+- `heap`, `heap-test`, and `heap-alloc` exercise a bounded kernel bump heap.
+  There is no `free()` or malloc-compatible allocator yet.
+- `paging` and `page-map` show the enabled identity map, active CR3, strict
+  validation state, and required runtime ranges.
+- `run tinyfs-demo` runs a fixed built-in kernel-managed app. It does not load
+  executable code from disk.
 
 ## 6. Analyze
 
@@ -102,7 +130,7 @@ the kernel. It does not apply anything.
 For a smoke-test log:
 
 ```powershell
-.\scripts\generate-dashboard.ps1 -LogPath build\serial-v15-smoke.log -Serve
+.\scripts\generate-dashboard.ps1 -LogPath build\serial-v20.log -Serve
 ```
 
 Open:
@@ -116,8 +144,8 @@ The dashboard is static and read-only. Copy buttons copy shell commands only.
 ## Optional Helper
 
 ```powershell
-.\scripts\demo-v15.ps1
+.\scripts\demo-v20.ps1
 ```
 
-This helper builds, validates packages, imports PKG-101 when possible, and
-prints the exact shell and host commands for the rest of the demo.
+This helper builds, validates packages, and prints the exact shell and host
+commands for the rest of the demo.

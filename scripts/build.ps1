@@ -44,7 +44,16 @@ $objects = @()
 if ($LASTEXITCODE -ne 0) { throw 'assembling boot.S failed' }
 $objects += Join-Path $build 'boot.o'
 
-# 2. Compile every C file in kernel/src.
+# 2. Assemble interrupt and other architecture stubs in kernel/src.
+foreach ($src in Get-ChildItem (Join-Path $kernel 'src') -Filter *.S) {
+    $obj = Join-Path $build ($src.BaseName + '.o')
+    Write-Host "  AS  $($src.Name)"
+    & $clang @cflags $src.FullName -o $obj
+    if ($LASTEXITCODE -ne 0) { throw "assembling $($src.Name) failed" }
+    $objects += $obj
+}
+
+# 3. Compile every C file in kernel/src.
 foreach ($src in Get-ChildItem (Join-Path $kernel 'src') -Filter *.c) {
     $obj = Join-Path $build ($src.BaseName + '.o')
     Write-Host "  CC  $($src.Name)"
@@ -53,7 +62,7 @@ foreach ($src in Get-ChildItem (Join-Path $kernel 'src') -Filter *.c) {
     $objects += $obj
 }
 
-# 3. Link with our memory-layout script into the final Multiboot ELF.
+# 4. Link with our memory-layout script into the final Multiboot ELF.
 $elf = Join-Path $build 'kamikaze.elf'
 Write-Host '  LD  kamikaze.elf'
 & $lld -T (Join-Path $kernel 'linker.ld') -nostdlib -static -o $elf @objects

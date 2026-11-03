@@ -36,11 +36,13 @@ struct recovery_memory {
     uint8_t network_quarantined;    /* ACT-001 is in effect               */
     uint8_t audio_quarantined;      /* ACT-002 is in effect               */
     uint8_t last_boot_panic;        /* previous boot ended in kpanic()    */
-    uint8_t boot_count;             /* wraps at 255 — fine for a counter  */
+    uint8_t boot_count;             /* saturates at 255; ordering held    */
     uint8_t last_action_id;         /* numeric: 1..4, 0 = none            */
     uint8_t rollback_available;     /* any reversible action is applied   */
     uint8_t prior_network_status;   /* enum device_status before ACT-001  */
     uint8_t prior_audio_status;     /* enum device_status before ACT-002  */
+    uint8_t last_panic_intentional; /* v2.6.1: that panic was a deliberate */
+                                    /* test (CMOS flag bit 5 / disk ext)   */
 
     /* runtime-only fields (never persisted) */
     uint8_t safe_mode_active;       /* THIS boot is a safe-mode boot      */
@@ -48,6 +50,8 @@ struct recovery_memory {
                                     /* kept for the whole session even    */
                                     /* after the stored flag is cleared   */
     uint8_t valid_at_boot;          /* magic+checksum matched at load     */
+    uint8_t prev_panic_intentional; /* runtime copy of the above at load  */
+    uint8_t boot_order_trusted; /* runtime only: safe for persistent writes */
 };
 
 void recovery_memory_init(void);    /* load + boot_count++ + save         */
@@ -60,7 +64,7 @@ void recovery_memory_set_safe_mode_next_boot(int enabled);
 void recovery_memory_mark_action_applied(const char *action_id,
                                          enum device_status prior);
 void recovery_memory_mark_action_rolled_back(const char *action_id);
-void recovery_memory_mark_panic(void);       /* called from kpanic()      */
+void recovery_memory_mark_panic(int intentional); /* called from kpanic() */
 void recovery_memory_mark_clean_boot(void);  /* clears panic flag — call  */
                                              /* only AFTER it is reported */
 

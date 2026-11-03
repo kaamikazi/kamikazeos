@@ -6,6 +6,7 @@
 #include "ghostattach.h"
 #include "recovery_actions.h"
 #include "recovery_memory.h"
+#include "recovery_store.h"
 #include "string.h"
 
 /* On-disk layout constants. */
@@ -32,6 +33,16 @@
 #define SN_OFF_HEALTH   16
 #define SN_OFF_CHECKSUM 17
 
+static int snapshot_valid(const uint8_t *sec)
+{
+    uint8_t sum = 0;
+    for (int i = 0; i <= SN_OFF_CHECKSUM; i++)
+        sum = (uint8_t)(sum + sec[i]);
+    return sec[0] == SN_MAGIC0 && sec[1] == SN_MAGIC1 &&
+           sec[2] == SN_MAGIC2 && sec[3] == SN_MAGIC3 &&
+           sec[SN_OFF_VERSION] == SN_VERSION && sum == 0;
+}
+
 /* Count capped into one byte (the log ring can't exceed 64 anyway). */
 static uint8_t cap8(uint32_t v)
 {
@@ -43,14 +54,25 @@ void boot_snapshot_health_now(struct health_breakdown *out)
     struct ghostattach_stats st;
     ghostattach_get_stats(&st);
 
-    uint32_t warnings  = error_count_severity(SEV_WARNING);
-    uint32_t criticals = error_count_severity(SEV_ERROR) +
-                         error_count_severity(SEV_PANIC);
+    /* v2.6.1: only PRODUCTION events, counted cumulatively for this boot.
+       Typos, refused operator requests, compiled-in canaries, intentional
+       tests, and warnings already scored through device status are still
+       logged and exported - they just are not production faults. */
+    uint32_t warnings  = error_health_count(HEALTH_PRODUCTION, SEV_WARNING);
+    uint32_t criticals = error_health_count(HEALTH_PRODUCTION, SEV_ERROR) +
+                         error_health_count(HEALTH_PRODUCTION, SEV_PANIC);
+    uint32_t production_isolated = st.isolated >= st.expected_test_failures
+                                 ? st.isolated - st.expected_test_failures : 0;
 
     out->base             = 100;
-    out->panic_penalty    = recovery_memory_get()->prev_panic_detected ? -15 : 0;
+    /* A panic deliberately triggered by a test command is evidence, not
+       a production fault; an unclassified (or legacy-recorded) panic is
+       always treated as real. */
+    const struct recovery_memory *mem = recovery_memory_get();
+    out->panic_penalty    = (mem->prev_panic_detected &&
+                             !mem->prev_panic_intentional) ? -15 : 0;
     out->missing_penalty  = -10 * (int)st.missing;
-    out->isolated_penalty = -8  * (int)st.isolated;
+    out->isolated_penalty = -8  * (int)production_isolated;
     out->warning_penalty  = -5  * (int)warnings;
     out->critical_penalty = -25 * (int)criticals;
 
@@ -87,15 +109,47 @@ static void capture(struct boot_snapshot *s)
     s->attached_count       = cap8(st.attached);
     s->fallback_count       = cap8(st.fallback);
     s->missing_count        = cap8(st.missing);
-    s->isolated_count       = cap8(st.isolated);
+    s->isolated_count       = cap8(st.isolated >= st.expected_test_failures
+                                 ? st.isolated - st.expected_test_failures : 0);
     s->blocked_driver_count = blocked;
-    s->warning_count        = cap8(error_count_severity(SEV_WARNING));
-    s->critical_count       = cap8(error_count_severity(SEV_ERROR) +
-                                   error_count_severity(SEV_PANIC));
+    s->warning_count        = cap8(error_health_count(HEALTH_PRODUCTION, SEV_WARNING));
+    s->critical_count       = cap8(error_health_count(HEALTH_PRODUCTION, SEV_ERROR) +
+                                   error_health_count(HEALTH_PRODUCTION, SEV_PANIC));
     s->actions_applied      = applied;
     s->rollback_available   = m->rollback_available;
     s->scan_ok              = (st.attached + st.fallback == st.total) ? 1 : 0;
     s->health_score         = (uint8_t)hb.score;
+}
+
+static int snapshot_preflight(uint8_t next)
+{
+    uint8_t sec[ATA_SECTOR_SIZE];
+    uint8_t seen[256];
+    kmemset(seen, 0, sizeof(seen));
+    uint8_t latest = 0;
+    int history_present = 0;
+    for (uint32_t slot = 0; slot < SNAPSHOT_SLOTS; slot++) {
+        if (!ata_read_sector(LBA_SNAPSHOTS + slot, sec))
+            return 0;
+        int occupied = 0;
+        for (uint32_t i = 0; i < sizeof(sec); i++)
+            occupied |= sec[i];
+        if (!occupied)
+            continue;
+        uint8_t boot = sec[SN_OFF_BOOT];
+        if (!snapshot_valid(sec) || boot % SNAPSHOT_SLOTS != slot ||
+            seen[boot] || boot >= next)
+            return 0;
+        /* Check the actual victim, not merely the maximum historical boot.
+           Compare before subtraction so no wrap/underflow can grant age. */
+        if (slot == next % SNAPSHOT_SLOTS && (uint32_t)next - boot < SNAPSHOT_SLOTS)
+            return 0;
+        seen[boot] = 1;
+        history_present = 1;
+        if (boot > latest)
+            latest = boot;
+    }
+    return !history_present || recovery_journal_boot_progression_verified(latest, next);
 }
 
 int boot_snapshot_save(void)
@@ -107,9 +161,26 @@ int boot_snapshot_save(void)
         return 0;
     }
 
+    struct recovery_store_integrity integrity;
+    recovery_store_integrity(&integrity);
+    if (integrity.state_locked || integrity.journal_locked ||
+        !integrity.journal_scan_valid || !recovery_store_valid() ||
+        !recovery_memory_get()->boot_order_trusted) {
+        error_log(SEV_WARNING, "SNAP-WARN-002", "BootSnapshot",
+                  "Snapshot write refused - recovery ordering is uncertain",
+                  "historical snapshot sectors preserved unchanged");
+        return 0;
+    }
+
     struct boot_snapshot s;
     capture(&s);
 
+    if (!snapshot_preflight(s.boot_number)) {
+        error_log(SEV_WARNING, "SNAP-WARN-002", "BootSnapshot",
+                  "Snapshot placement or replacement authority uncertain - writes held",
+                  "historical sectors preserved without repair or relocation");
+        return 0;
+    }
     uint8_t sec[ATA_SECTOR_SIZE];
     kmemset(sec, 0, sizeof(sec));
     sec[SN_OFF_MAGIC]     = SN_MAGIC0;
@@ -150,12 +221,7 @@ static int read_slot(uint32_t slot, struct boot_snapshot *out)
     if (!ata_read_sector(LBA_SNAPSHOTS + slot, sec))
         return 0;
 
-    uint8_t sum = 0;
-    for (int i = 0; i <= SN_OFF_CHECKSUM; i++)
-        sum = (uint8_t)(sum + sec[i]);
-    if (sec[SN_OFF_MAGIC]     != SN_MAGIC0 || sec[SN_OFF_MAGIC + 1] != SN_MAGIC1 ||
-        sec[SN_OFF_MAGIC + 2] != SN_MAGIC2 || sec[SN_OFF_MAGIC + 3] != SN_MAGIC3 ||
-        sec[SN_OFF_VERSION]   != SN_VERSION || sum != 0)
+    if (!snapshot_valid(sec))
         return 0;                          /* empty or corrupt: skip */
 
     out->boot_number          = sec[SN_OFF_BOOT];

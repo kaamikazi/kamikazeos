@@ -108,6 +108,12 @@ static uint8_t act_byte(const struct recovery_action *a)
     return (uint8_t)(a->action_id[6] - '0');   /* "ACT-00N" -> N */
 }
 
+/* Journal a suggestion only when it is NEW information: if the action's
+   latest recorded lifecycle event is already SUGGESTED, the durable
+   history says exactly the same thing and re-appending it every boot
+   would only fill the journal. The suggestion is still logged live. */
+static void journal_suggestion(const struct recovery_action *a);
+
 /* Append one durable journal record for an action event. */
 static void journal_action(enum journal_event ev,
                            const struct recovery_action *a,
@@ -118,10 +124,18 @@ static void journal_action(enum journal_event ev,
                             (uint8_t)a->reversible, code6);
 }
 
+static void journal_suggestion(const struct recovery_action *a)
+{
+    if (recovery_journal_last_action_event(act_byte(a)) == JE_SUGGESTED)
+        return;
+    journal_action(JE_SUGGESTED, a, 1, "REC001");
+}
+
 /* Log "<verb> action ACT-xxx <name>" with a given code/severity/hint. */
-static void log_action(enum err_severity sev, const char *code,
-                       const char *component, const char *verb,
-                       const struct recovery_action *a, const char *hint)
+static void log_action_class(enum err_severity sev, enum health_class cls,
+                             const char *code, const char *component,
+                             const char *verb, const struct recovery_action *a,
+                             const char *hint)
 {
     char msg[ERR_MSG_MAX];
     kstrcpy(msg, verb, ERR_MSG_MAX);
@@ -131,7 +145,14 @@ static void log_action(enum err_severity sev, const char *code,
     len = kstrlen(msg);
     if (len < ERR_MSG_MAX - 1) { msg[len++] = ' '; msg[len] = '\0';
         kstrcpy(msg + len, a->name, ERR_MSG_MAX - len); }
-    error_log(sev, code, component, msg, hint);
+    error_log_class(sev, cls, code, component, msg, hint);
+}
+
+static void log_action(enum err_severity sev, const char *code,
+                       const char *component, const char *verb,
+                       const struct recovery_action *a, const char *hint)
+{
+    log_action_class(sev, HEALTH_PRODUCTION, code, component, verb, a, hint);
 }
 
 /* ------------------------------------------------------------------ */
@@ -201,9 +222,10 @@ void recovery_init(void)
            blocked from boot, not discovered at approval time. */
         if (policy_check(a->risk_level, a->reversible) == POLICY_BLOCKED) {
             a->status = ACTST_BLOCKED;
-            log_action(SEV_WARNING, "REC-BLOCK-999", "RecoveryPolicy",
-                       "Blocked high-risk action", a,
-                       "unknown driver installation is not allowed");
+            log_action_class(SEV_WARNING, HEALTH_EXPECTED_CANARY,
+                             "REC-BLOCK-999", "RecoveryPolicy",
+                             "Blocked high-risk action", a,
+                             "unknown driver installation is not allowed");
         }
     }
 
@@ -262,7 +284,7 @@ void recovery_suggest_scan(void)
             a->status = ACTST_SUGGESTED;
             log_action(SEV_INFO, "REC-ACT-001", "RecoveryEngine",
                        "Suggested action", a, a->suggest_hint);
-            journal_action(JE_SUGGESTED, a, 1, "REC001");
+            journal_suggestion(a);
         }
     }
 
@@ -272,10 +294,13 @@ void recovery_suggest_scan(void)
         struct recovery_action *a = find_action("ACT-004");
         if (a->status == ACTST_AVAILABLE) {
             a->status = ACTST_SUGGESTED;
-            log_action(SEV_WARNING, "BOOT-WARN-001", "RecoveryEngine",
+            log_action_class(SEV_WARNING,
+                             m->prev_panic_intentional ? HEALTH_INTENTIONAL_TEST
+                                                       : HEALTH_PRODUCTION,
+                             "BOOT-WARN-001", "RecoveryEngine",
                        "Previous boot ended in panic - suggested", a,
                        "approve ACT-004 to investigate in safe mode");
-            journal_action(JE_SUGGESTED, a, 1, "REC001");
+            journal_suggestion(a);
         }
     }
 
@@ -291,7 +316,7 @@ void recovery_suggest_scan(void)
             a->status = ACTST_SUGGESTED;
             log_action(SEV_INFO, "REC-ACT-001", "RecoveryEngine",
                        "Suggested action", a, a->suggest_hint);
-            journal_action(JE_SUGGESTED, a, 1, "REC001");
+            journal_suggestion(a);
         }
     }
 }
@@ -306,9 +331,10 @@ int recovery_approve(const char *action_id)
        actions — defense in depth costs one comparison. */
     if (a->status == ACTST_BLOCKED ||
         policy_check(a->risk_level, a->reversible) == POLICY_BLOCKED) {
-        log_action(SEV_WARNING, "REC-BLOCK-999", "RecoveryPolicy",
-                   "Blocked high-risk action", a,
-                   "unknown driver installation is not allowed");
+        log_action_class(SEV_WARNING, HEALTH_OPERATOR_INPUT,
+                         "REC-BLOCK-999", "RecoveryPolicy",
+                         "Blocked high-risk action", a,
+                         "unknown driver installation is not allowed");
         /* Durable evidence: someone TRIED. Repeated attempts are a
            pattern the analyzer watches for across boots. */
         journal_action(JE_BLOCKED, a, 0, "BLK999");

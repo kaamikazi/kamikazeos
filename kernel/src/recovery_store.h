@@ -54,8 +54,8 @@ struct journal_entry {
     uint8_t action_id;        /* numeric: 1..4, 255 = ACT-999, 0=none */
     uint8_t result;           /* 1 = ok / 0 = refused or failed       */
     uint8_t risk_level;       /* enum risk_level                      */
-    uint8_t reversible;
-    char    short_code[7];    /* 6-char tag + terminator, e.g. "REC001" */
+    uint8_t reversible;       /* boolean, 0/1; on-disk reserved byte = 0 */
+    char    short_code[7];    /* printable ASCII, zero-padded to 6 bytes */
 };
 
 /* Probe the disk and load+validate the state block. Call once at boot. */
@@ -83,5 +83,41 @@ uint32_t recovery_journal_count(void);
 int      recovery_journal_get(uint32_t index, struct journal_entry *out);
 
 const char *journal_event_name(enum journal_event ev);
+
+/* v2.6.1 integrity view for the report and shell. */
+struct recovery_store_integrity {
+    const char *state_redundancy; /* mirror_lba50 / single_copy_capacity /
+                                    unavailable                          */
+    const char *state_source;   /* copy loaded at boot: primary / mirror /
+                                   legacy_primary / fresh / damaged /
+                                   ambiguous / unreadable / cleared       */
+    uint32_t generation;        /* generation of the trusted state copy   */
+    int state_locked;           /* state writes refused this boot         */
+    int journal_locked;         /* journal appends refused this boot      */
+    int journal_scan_valid;     /* all sectors read; boot evidence scanned */
+    int journal_order_valid;    /* append order monotone; unique completions */
+    int journal_full;
+    uint32_t journal_capacity;
+    uint32_t dropped_appends;   /* appends refused (full/locked/failed)   */
+    uint32_t corrupt_entries;   /* occupied slots failing validation      */
+};
+void recovery_store_integrity(struct recovery_store_integrity *out);
+
+/* Event type (JE_SUGGESTED..JE_BLOCKED) of the most recent successful valid action
+   lifecycle entry for this action id, or 0 if none / unreadable. Package
+   events are not considered (their id byte is a package number). */
+uint8_t recovery_journal_last_action_event(uint8_t action_id);
+
+/* Highest boot number found in a valid journal entry (0 if none). Used to
+   keep boot numbers moving forward when both state copies are lost. */
+uint8_t recovery_store_max_journal_boot(void);
+
+/* Diagnostic lower bound from readable validated state/journal records.
+   Does not grant write permission when the store is locked. */
+uint8_t recovery_store_boot_lower_bound(void);
+
+/* Snapshot rotation needs consecutive history or a successful CLEAN_BOOT
+   chain through a gap. Valid checksums do not authenticate that history. */
+int recovery_journal_boot_progression_verified(uint8_t prior, uint8_t next);
 
 #endif /* KMZ_RECOVERY_STORE_H */
