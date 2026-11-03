@@ -1,0 +1,22 @@
+{
+  "accepted-production-source.zip": "e1fc4f33c6e695049c7315763e60302eded5e6aa50fad96ed7de560ef11cfafe",
+  "design-status.json": "e349f44cd9c88e69fc94631d19385b909f6089c1a1206b5012fc52415feed2e5",
+  "historical-before.json": "6a220389dab60be88b4d7c8781bb1b8142d4c7767c5e5f27f5ee51a461d629c8",
+  "preservation.json": "d5f214723f5e28ad377890ed7ad93b40b293501dbfe12d65e139fe71131d5c04",
+  "production-full-disassembly.txt": "7b19a5ef7314a16c0491d2c89cf7afdf6b2f5697b4947f54c18b1c82de19720b",
+  "production-paths-disassembly.txt": "255126b77c8a407fc57fb6ffe6b7387edeae2ed9b8c2d1d74874b0145462b67f",
+  "production.elf": "7cc1262fb1caee2b104d17d601a19e172eb02eac6d93b56ad2b2612a228db7bc",
+  "provenance.json": "d9e9bd20354e4b57a06565010a72d57a4fcd19d9c72a6e72976b5be896f0ac1e",
+  "refs-before.txt": "0be1c19dada495b722d7567d19e2720a3e92413e5a889132464997c0e3ac06ff",
+  "repository-after.json": "008ef019ea7a2c5809fd07c9b690c2715ab64d89abfe3743c2cbddcbedc32d87",
+  "repository-before.json": "008ef019ea7a2c5809fd07c9b690c2715ab64d89abfe3743c2cbddcbedc32d87",
+  "seal_design.py": "f2aba80895da5e1f7909c409cd8caa2049619d17b294afe69f2c7f6a661e6f75",
+  "stage1.elf": "cb282795cff5639a0cec8608a38cb0c01e18a72801264698aba836b0692bd5ee",
+  "stage2a_accepted-full-disassembly.txt": "fc25f48da8fb0a5afa92cea3156e995dbe8419d33a4c96fd367f183b6cf13f1e",
+  "stage2a_accepted-paths-disassembly.txt": "1d4996719b2bae17dc6eecb0374a50b94c295baa13bd634567af9126a8f29062",
+  "stage2a_accepted.elf": "79415990686f9ab0579c6f86f216e1fd7d372965eb7e7bf2f0e7e952ffecdd50",
+  "stage2a_original.elf": "ae7d6975f5156581fc1af0f346f7f4e1b69062ba49971af371dd80d5861e9e66",
+  "stage2a_revalidated.elf": "55697ce3bd4336a201da7ae93f3cabbe714e142abb84e4c3bd697e0d367a4133",
+  "STAGE2B_DESIGN.md": "ae77ff66804a2ed98e8d2f0cab8b1ed15722749872c3ece782c7f72869a5c9fe",
+  "stage2b_design_audit.py": "da48c5e283e7c9371677681f1b2f3bcdf9fb1a972d13722667c624c2c92b1838"
+}

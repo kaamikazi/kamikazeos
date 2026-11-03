@@ -1,0 +1,137 @@
+{
+  "production": {
+    "checked": 6507,
+    "missing": [],
+    "changed": []
+  },
+  "production_additions": [],
+  "historical": {
+    "${LOCAL_EVIDENCE}\\kmz-v262-phase-a-review": {
+      "checked": 1285,
+      "missing": [
+        "selected-167/health-policy/compile.txt",
+        "selected-167/journal-chronology/compile.txt",
+        "selected-167/journal-domains/compile.txt",
+        "selected-167/memory-accounting-actual/compile.txt",
+        "selected-167/memory-policy-actual/compile.txt",
+        "selected-167/ownership-joint-actual/compile.txt",
+        "selected-167/panic-scope/compile.txt",
+        "selected-167/reset-boundary-actual/compile.txt",
+        "selected-167/slot-transitions-actual/compile.txt",
+        "selected-167/snapshot-preflight/compile.txt"
+      ],
+      "changed": []
+    },
+    "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-review-dbf23ce": {
+      "checked": 1368,
+      "missing": [
+        "oracle-compile.log",
+        "worker-error.log",
+        "regression/emergency-architecture-actual/compile.txt",
+        "regression/emergency-ata-actual/compile.txt",
+        "regression/emergency-record-actual/compile.txt",
+        "regression/emergency-uart-actual/compile.txt",
+        "regression/health-policy/compile.txt",
+        "regression/journal-chronology/compile.txt",
+        "regression/journal-domains/compile.txt",
+        "regression/memory-accounting-actual/compile.txt",
+        "regression/memory-policy-actual/compile.txt",
+        "regression/ownership-joint-actual/compile.txt",
+        "regression/panic-scope/compile.txt",
+        "regression/reset-boundary-actual/compile.txt",
+        "regression/slot-transitions-actual/compile.txt",
+        "regression/snapshot-preflight/compile.txt"
+      ],
+      "changed": []
+    },
+    "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce": {
+      "checked": 2536,
+      "missing": [
+        "divide/excluded-tests.txt",
+        "divide/test_divide_fault/observation-boot-1/cpu-before.trace",
+        "divide/test_divide_fault/observation-boot-1/cpu.trace",
+        "divide-recheck/excluded-tests.txt",
+        "divide-recheck/test_divide_fault/observation-boot-1/cpu.trace",
+        "divide-recheck/test_divide_fault/observation-boot-2/cpu.trace",
+        "full/excluded-tests.txt",
+        "full/emergency-architecture-actual/compile.txt",
+        "full/emergency-ata-actual/compile.txt",
+        "full/emergency-record-actual/compile.txt",
+        "full/emergency-uart-actual/compile.txt",
+        "full/health-policy/compile.txt",
+        "full/journal-chronology/compile.txt",
+        "full/journal-domains/compile.txt",
+        "full/memory-accounting-actual/compile.txt",
+        "full/memory-policy-actual/compile.txt",
+        "full/ownership-joint-actual/compile.txt",
+        "full/panic-scope/compile.txt",
+        "full/reset-boundary-actual/compile.txt",
+        "full/slot-transitions-actual/compile.txt",
+        "full/snapshot-preflight/compile.txt",
+        "full/test_divide_fault/observation-boot-1/cpu.trace",
+        "full/test_divide_fault/observation-boot-2/cpu.trace",
+        "full/test_intentional_panic_test_not_penalized_next_boot/observation-boot-1/cpu.trace",
+        "full/test_intentional_panic_test_not_penalized_next_boot/observation-boot-2/cpu.trace",
+        "full/test_invalid_opcode_fault/observation-boot-1/cpu.trace",
+        "full/test_invalid_opcode_fault/observation-boot-2/cpu.trace",
+        "full/test_page_fault/observation-boot-1/cpu.trace",
+        "full/test_page_fault/observation-boot-2/cpu.trace",
+        "invalid/excluded-tests.txt",
+        "invalid/test_invalid_opcode_fault/observation-boot-1/cpu.trace",
+        "invalid/test_invalid_opcode_fault/observation-boot-2/cpu.trace",
+        "page/excluded-tests.txt",
+        "page/test_page_fault/observation-boot-1/cpu.trace",
+        "page/test_page_fault/observation-boot-2/cpu.trace",
+        "panic/excluded-tests.txt",
+        "panic/test_intentional_panic_test_not_penalized_next_boot/observation-boot-1/cpu.trace",
+        "panic/test_intentional_panic_test_not_penalized_next_boot/observation-boot-2/cpu.trace"
+      ],
+      "changed": []
+    },
+    "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage2a-dbf23ce": {
+      "checked": 463,
+      "missing": [],
+      "changed": []
+    },
+    "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage2a-revalidate-dbf23ce": {
+      "checked": 822,
+      "missing": [],
+      "changed": []
+    },
+    "${LOCAL_EVIDENCE}\\kmz-v262-stage2a-acceptance-dbf23ce": {
+      "checked": 829,
+      "missing": [],
+      "changed": []
+    },
+    "${LOCAL_EVIDENCE}\\kmz-v262-stage2b-design-dbf23ce": {
+      "checked": 21,
+      "missing": [],
+      "changed": []
+    },
+    "${LOCAL_EVIDENCE}\\kmz-v262-stage2b-adversarial-review-dbf23ce": {
+      "checked": 19,
+      "missing": [],
+      "changed": []
+    }
+  },
+  "historical_additions": {
+    "${LOCAL_EVIDENCE}\\kmz-v262-phase-a-review": [],
+    "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-review-dbf23ce": [],
+    "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce": [],
+    "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage2a-dbf23ce": [],
+    "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage2a-revalidate-dbf23ce": [],
+    "${LOCAL_EVIDENCE}\\kmz-v262-stage2a-acceptance-dbf23ce": [],
+    "${LOCAL_EVIDENCE}\\kmz-v262-stage2b-design-dbf23ce": [],
+    "${LOCAL_EVIDENCE}\\kmz-v262-stage2b-adversarial-review-dbf23ce": []
+  },
+  "historical_count": 8,
+  "historical_files": 7343,
+  "revision_before_after_inventory_equal": true,
+  "revision_refs_before_after_equal": true,
+  "current_refs_match_revision": false,
+  "head": "dbf23ce74a2a7103ae6fce04fba51969b7807178",
+  "tree": "62ff1f4fbd5d70163c074fb7c259f4f2115c4d77",
+  "branch": "feature/v2.6.2-memory-protection-phase-b",
+  "status": "",
+  "recovery_sha256": "4daf871c5c2982a2c6401a8a3336959f31bdd0143ae00f238f4cbdc7f453f19e"
+}

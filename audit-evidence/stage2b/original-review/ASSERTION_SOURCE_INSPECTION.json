@@ -1,0 +1,10 @@
+{
+  "evidence_kind": "STATIC_AST_AND_SOURCE_INSPECTION_NOT_TEST_EXECUTION",
+  "original_assertion_expressions": 62,
+  "corrected_assertion_expressions": 66,
+  "missing_original_expressions": [],
+  "original_early_returns": 0,
+  "corrected_early_returns": 0,
+  "original_sha256": "f8d86cf5fed3555858b8c8fcb31ce8ece185fc588a1c133fc5fae7b28ae53be4",
+  "corrected_sha256": "82e71466c0595d941da7cd5908178e737792bd1216e3a66a346b0785a71a1733"
+}

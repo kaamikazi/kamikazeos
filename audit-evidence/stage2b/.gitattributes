@@ -1,0 +1,2 @@
+# Keep publication checksum targets stable across Windows and Unix clones.
+* text eol=lf

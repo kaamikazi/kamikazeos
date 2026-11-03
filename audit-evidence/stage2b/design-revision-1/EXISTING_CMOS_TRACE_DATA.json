@@ -1,0 +1,34 @@
+{
+  "case1": {
+    "evidence": "STATIC_RECONSTRUCTION_FROM_PRESERVED_TRACE_NOT_NEW_CALIBRATION",
+    "recovery_cells_before": {
+      "0x60": 75,
+      "0x61": 90,
+      "0x62": 1,
+      "0x63": 0,
+      "0x64": 1,
+      "0x65": 0,
+      "0x66": 0,
+      "0x67": 0,
+      "0x68": 89
+    },
+    "recovery_writes_after": 0,
+    "model_source_or_binary_coverage_attestation_available": false
+  },
+  "case2": {
+    "evidence": "STATIC_RECONSTRUCTION_FROM_PRESERVED_TRACE_NOT_NEW_CALIBRATION",
+    "recovery_cells_before": {
+      "0x60": 75,
+      "0x61": 90,
+      "0x62": 1,
+      "0x63": 0,
+      "0x64": 1,
+      "0x65": 0,
+      "0x66": 0,
+      "0x67": 0,
+      "0x68": 89
+    },
+    "recovery_writes_after": 0,
+    "model_source_or_binary_coverage_attestation_available": false
+  }
+}

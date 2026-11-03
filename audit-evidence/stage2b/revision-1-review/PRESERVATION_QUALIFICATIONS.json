@@ -1,0 +1,338 @@
+{
+  "missing_count": 64,
+  "missing_recorded_empty_count": 64,
+  "missing": [
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-a-review",
+      "path": "selected-167/health-policy/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-a-review",
+      "path": "selected-167/journal-chronology/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-a-review",
+      "path": "selected-167/journal-domains/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-a-review",
+      "path": "selected-167/memory-accounting-actual/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-a-review",
+      "path": "selected-167/memory-policy-actual/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-a-review",
+      "path": "selected-167/ownership-joint-actual/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-a-review",
+      "path": "selected-167/panic-scope/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-a-review",
+      "path": "selected-167/reset-boundary-actual/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-a-review",
+      "path": "selected-167/slot-transitions-actual/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-a-review",
+      "path": "selected-167/snapshot-preflight/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-review-dbf23ce",
+      "path": "oracle-compile.log",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-review-dbf23ce",
+      "path": "worker-error.log",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-review-dbf23ce",
+      "path": "regression/emergency-architecture-actual/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-review-dbf23ce",
+      "path": "regression/emergency-ata-actual/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-review-dbf23ce",
+      "path": "regression/emergency-record-actual/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-review-dbf23ce",
+      "path": "regression/emergency-uart-actual/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-review-dbf23ce",
+      "path": "regression/health-policy/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-review-dbf23ce",
+      "path": "regression/journal-chronology/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-review-dbf23ce",
+      "path": "regression/journal-domains/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-review-dbf23ce",
+      "path": "regression/memory-accounting-actual/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-review-dbf23ce",
+      "path": "regression/memory-policy-actual/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-review-dbf23ce",
+      "path": "regression/ownership-joint-actual/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-review-dbf23ce",
+      "path": "regression/panic-scope/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-review-dbf23ce",
+      "path": "regression/reset-boundary-actual/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-review-dbf23ce",
+      "path": "regression/slot-transitions-actual/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-review-dbf23ce",
+      "path": "regression/snapshot-preflight/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "divide/excluded-tests.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "divide/test_divide_fault/observation-boot-1/cpu-before.trace",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "divide/test_divide_fault/observation-boot-1/cpu.trace",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "divide-recheck/excluded-tests.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "divide-recheck/test_divide_fault/observation-boot-1/cpu.trace",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "divide-recheck/test_divide_fault/observation-boot-2/cpu.trace",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "full/excluded-tests.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "full/emergency-architecture-actual/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "full/emergency-ata-actual/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "full/emergency-record-actual/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "full/emergency-uart-actual/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "full/health-policy/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "full/journal-chronology/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "full/journal-domains/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "full/memory-accounting-actual/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "full/memory-policy-actual/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "full/ownership-joint-actual/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "full/panic-scope/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "full/reset-boundary-actual/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "full/slot-transitions-actual/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "full/snapshot-preflight/compile.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "full/test_divide_fault/observation-boot-1/cpu.trace",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "full/test_divide_fault/observation-boot-2/cpu.trace",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "full/test_intentional_panic_test_not_penalized_next_boot/observation-boot-1/cpu.trace",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "full/test_intentional_panic_test_not_penalized_next_boot/observation-boot-2/cpu.trace",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "full/test_invalid_opcode_fault/observation-boot-1/cpu.trace",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "full/test_invalid_opcode_fault/observation-boot-2/cpu.trace",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "full/test_page_fault/observation-boot-1/cpu.trace",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "full/test_page_fault/observation-boot-2/cpu.trace",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "invalid/excluded-tests.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "invalid/test_invalid_opcode_fault/observation-boot-1/cpu.trace",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "invalid/test_invalid_opcode_fault/observation-boot-2/cpu.trace",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "page/excluded-tests.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "page/test_page_fault/observation-boot-1/cpu.trace",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "page/test_page_fault/observation-boot-2/cpu.trace",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "panic/excluded-tests.txt",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "panic/test_intentional_panic_test_not_penalized_next_boot/observation-boot-1/cpu.trace",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "${LOCAL_EVIDENCE}\\kmz-v262-phase-b-stage1-dbf23ce",
+      "path": "panic/test_intentional_panic_test_not_penalized_next_boot/observation-boot-2/cpu.trace",
+      "recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "ref_delta": {
+    "refs/codex/turn-diffs/captures/1793248237470/6b4935b3-8650-457c-8a00-247b1da492ee/base": {
+      "revision": null,
+      "current": "62ff1f4fbd5d70163c074fb7c259f4f2115c4d77"
+    },
+    "refs/codex/turn-diffs/checkpoints/4857c41bac1b2ab76f5dedd4b5d1a35f/d327ba33e11f872c9fd7f268cdb0edd2/1792149965400/a87f2024-332c-4f90-85be-b5b517c13ccd": {
+      "revision": "c7dd73bba1c1868c2b1b8b0707e4adfbc3f3195c",
+      "current": null
+    }
+  },
+  "branch_tag_ref_differences": [],
+  "causal_attribution": "Not established; no restoration or Git writes performed"
+}

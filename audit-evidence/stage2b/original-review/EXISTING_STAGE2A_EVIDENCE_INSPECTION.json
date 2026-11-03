@@ -1,0 +1,163 @@
+{
+  "cases": {
+    "case1": {
+      "evidence_kind": "STATIC_REINSPECTION_OF_EXISTING_CAPTURE_NOT_A_NEW_HARDWARE_RUN",
+      "historical_result": {
+        "passed": true,
+        "exit_code": 0,
+        "genuine_exception_sequence": [
+          [
+            14,
+            0,
+            0
+          ],
+          [
+            8,
+            0,
+            0
+          ]
+        ],
+        "elf_sha256": "79415990686f9ab0579c6f86f216e1fd7d372965eb7e7bf2f0e7e952ffecdd50",
+        "elapsed_post_trigger_seconds": 1.469,
+        "image_before_sha256": "fd1dbf58742df124344112f28c9818651a120fba88ed22931c1568040e753e03",
+        "image_after_sha256": "fd1dbf58742df124344112f28c9818651a120fba88ed22931c1568040e753e03",
+        "unsafe_ata_cmos_events": 0,
+        "reset_or_triple_fault": false,
+        "breakpoints_guest_memory_patched": false,
+        "observations_sha256": "3c087bd58631cbfd6d7730120b347f323397d2a558716aa2d8ff51ee696c67a5"
+      },
+      "entry_tr": "0x30",
+      "entry_eip": "0x1001d0",
+      "entry_esp": "0x163ffc",
+      "entry_eflags": "0x4002",
+      "hardware_error_word": 0,
+      "df_descriptor_access": "0x8b",
+      "backlink": 40,
+      "terminal_tr": "0x30",
+      "terminal_eip": "0x103172",
+      "terminal_esp": "0x163f80",
+      "terminal_hlt": 1,
+      "terminal_eflags": "0x4012",
+      "exceptions": [
+        [
+          14,
+          0,
+          0
+        ],
+        [
+          8,
+          0,
+          0
+        ]
+      ],
+      "pf_during_pf_marker": true,
+      "no_post_trigger_persistence_events": true,
+      "images_identical": true,
+      "image_sha256": "fd1dbf58742df124344112f28c9818651a120fba88ed22931c1568040e753e03"
+    },
+    "case2": {
+      "evidence_kind": "STATIC_REINSPECTION_OF_EXISTING_CAPTURE_NOT_A_NEW_HARDWARE_RUN",
+      "historical_result": {
+        "passed": true,
+        "exit_code": 0,
+        "genuine_exception_sequence": [
+          [
+            14,
+            0,
+            0
+          ],
+          [
+            8,
+            0,
+            0
+          ]
+        ],
+        "elf_sha256": "79415990686f9ab0579c6f86f216e1fd7d372965eb7e7bf2f0e7e952ffecdd50",
+        "elapsed_post_trigger_seconds": 1.437,
+        "image_before_sha256": "388bb6f5e05d21c9f0ababaa8a7becfc42be228192ba660c1be7afad3fe77940",
+        "image_after_sha256": "388bb6f5e05d21c9f0ababaa8a7becfc42be228192ba660c1be7afad3fe77940",
+        "unsafe_ata_cmos_events": 0,
+        "reset_or_triple_fault": false,
+        "breakpoints_guest_memory_patched": false,
+        "observations_sha256": "b3ababbe2aafd22f4db686ca4d1e66cdb33040f0097865d326d724ba9b6b376d"
+      },
+      "entry_tr": "0x30",
+      "entry_eip": "0x1001d0",
+      "entry_esp": "0x163ffc",
+      "entry_eflags": "0x4002",
+      "hardware_error_word": 0,
+      "df_descriptor_access": "0x8b",
+      "backlink": 40,
+      "terminal_tr": "0x30",
+      "terminal_eip": "0x103172",
+      "terminal_esp": "0x163f80",
+      "terminal_hlt": 1,
+      "terminal_eflags": "0x4012",
+      "exceptions": [
+        [
+          14,
+          0,
+          0
+        ],
+        [
+          8,
+          0,
+          0
+        ]
+      ],
+      "pf_during_pf_marker": true,
+      "no_post_trigger_persistence_events": true,
+      "images_identical": true,
+      "image_sha256": "388bb6f5e05d21c9f0ababaa8a7becfc42be228192ba660c1be7afad3fe77940"
+    }
+  },
+  "recorded_compatibility": {
+    "successful": true,
+    "exit_code": 0,
+    "selected": 66,
+    "passed": 66,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "filters": [
+      "test_emergency",
+      "test_memory",
+      "test_integrity_gate.R1Regression",
+      "test_joint_authority"
+    ],
+    "command": [
+      "${LOCAL_EVIDENCE}\\kmz-v262-stage2a-acceptance-dbf23ce\\source\\tests\\run_regression.py",
+      "--no-build",
+      "--baseline-elf",
+      "${LOCAL_EVIDENCE}\\kmz-v262-stage2a-acceptance-dbf23ce\\compatibility-baseline.elf",
+      "--run-dir",
+      "${LOCAL_EVIDENCE}\\kmz-v262-stage2a-acceptance-dbf23ce\\compatibility",
+      "-k",
+      "test_emergency",
+      "-k",
+      "test_memory",
+      "-k",
+      "test_integrity_gate.R1Regression",
+      "-k",
+      "test_joint_authority"
+    ],
+    "qemu_instances": 28,
+    "unarmed_observations": 56,
+    "summary_sha256": "70b064729276c610bfea9e11f1a3ebd08b0854cf86b1b648746be2ffa15c7fd5",
+    "elf_sha256": "79415990686f9ab0579c6f86f216e1fd7d372965eb7e7bf2f0e7e952ffecdd50",
+    "summary_tail": [
+      "Ran 66 tests in 143.319s",
+      "",
+      "OK"
+    ]
+  },
+  "original_failed_record": {
+    "passed": false,
+    "exit_code": 1,
+    "type": "AssertionError",
+    "error": "No intended DF terminal halt before deadline",
+    "activation_occurred": true,
+    "requires_review": true
+  },
+  "caution": "Corroborates preserved captures/results; does not reexecute tests or prove absence of all unlogged historical actions."
+}

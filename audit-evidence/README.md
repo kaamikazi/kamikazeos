@@ -36,3 +36,10 @@ The checksum file is tracked. Readable reports/provenance are under `8e75093/`;
 the full local inventory is `inventory-8e75093.json` (ignored with the ZIP).
 The earlier archive and both original temporary evidence directories are
 unchanged. New correction evidence is in `docs/TRUST_CORRECTIONS.md`.
+
+## Stage 2B Design And Review Publication
+
+[Stage 2B archive](stage2b/README.md) preserves sanitized copies of the design,
+original review, Revision 1, its re-review and Revision 2. The publication manifest
+records original and published checksums. This is a curated document backup,
+not a complete raw evidence archive or authorization to run blocked experiments.
