@@ -11,7 +11,11 @@
 #ifndef KMZ_PANIC_H
 #define KMZ_PANIC_H
 
+#include <stdint.h>
+
 /* Never returns. `code` is a stable ID like "TEST-PANIC-001". */
 void kpanic(const char *code, const char *msg, const char *hint);
+void kpanic_exception(uint32_t vector, uint32_t error_code,
+                      const char *name, uint32_t eip);
 
 #endif /* KMZ_PANIC_H */

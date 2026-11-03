@@ -1,17 +1,413 @@
 {
-  "version": "1.5.0",
+  "version": "2.5.0",
+  "ghostattach": {
+    "expected_self_test_failures": "1"
+  },
   "backend": "disk+CMOS",
+  "system_status": {
+    "kernel_version": "2.5",
+    "gdt_loaded": "yes",
+    "idt_loaded": "yes",
+    "irq_gates_installed": "yes",
+    "pic_remapped": "yes",
+    "timer_ticks": "3373",
+    "keyboard_mode": "irq",
+    "memory_map": "multiboot",
+    "free_pages": "16014",
+    "heap_available": "yes",
+    "heap_remaining": "65536",
+    "paging_prepared": "yes",
+    "paging_enabled": "yes",
+    "paging_mode": "identity_enabled",
+    "syscall_initialized": "yes",
+    "syscall_vector": "128",
+    "syscall_total_calls": "8",
+    "syscall_failed_calls": "0",
+    "syscall_gate_dpl": "3",
+    "privilege_foundation": "ready",
+    "ring3_execution_enabled": "no",
+    "task_count": "4",
+    "tinyfs_status": "formatted",
+    "tinyfs_files": "2",
+    "app_registry": "6",
+    "recovery_backend": "disk+CMOS",
+    "health_score": "60",
+    "expected_self_test_failures": "1",
+    "package_trust_mode": "host_ed25519_real_kernel_simulated",
+    "last_critical": "none"
+  },
+  "diagnostics": {
+    "devices": "total:7,attached:3,fallback:1,missing:2,isolated:1,expected_test:1",
+    "drivers": "verified_policy_active",
+    "memory": "map:multiboot,usable_kib:65023,free_pages:16014",
+    "heap": "available:yes,used:0,remaining:65536,free_supported:no",
+    "paging": "prepared:yes,enabled:yes,identity:yes,mode:identity_enabled",
+    "syscalls": "initialized:yes,registered:8,failed:0",
+    "tasks": "total:4,ready:3,crashed:0",
+    "tinyfs": "status:formatted,files:2,last_error:none",
+    "apps": "total:6,blocked_attempts:0",
+    "recovery": "backend:disk+CMOS,journal:97",
+    "packages": "manifests:1,pending_verify:no",
+    "health": "score:60",
+    "recommended_command": "approve ACT-001",
+    "auto_repair": "no"
+  },
+  "kernel_memory": {
+    "map_available": "yes",
+    "fallback_used": "no",
+    "region_count": "6",
+    "total_kib": "65472",
+    "usable_kib": "65023",
+    "reserved_kib": "449",
+    "kernel_start": "1048576",
+    "kernel_end": "1318912",
+    "heap_start": "1318912",
+    "heap_end": "1384448",
+    "allocation_mode": "physical_page_tracker_plus_fixed_bump_heap",
+    "virtual_memory": "no",
+    "heap_allocator": "bounded_bump"
+  },
+  "memory_map": [
+    {
+      "index": "0",
+      "base": "0",
+      "length": "654336",
+      "kib": "639",
+      "type": "usable"
+    },
+    {
+      "index": "1",
+      "base": "654336",
+      "length": "1024",
+      "kib": "1",
+      "type": "reserved"
+    },
+    {
+      "index": "2",
+      "base": "983040",
+      "length": "65536",
+      "kib": "64",
+      "type": "reserved"
+    },
+    {
+      "index": "3",
+      "base": "1048576",
+      "length": "65929216",
+      "kib": "64384",
+      "type": "usable"
+    },
+    {
+      "index": "4",
+      "base": "66977792",
+      "length": "131072",
+      "kib": "128",
+      "type": "reserved"
+    },
+    {
+      "index": "5",
+      "base": "4294705152",
+      "length": "262144",
+      "kib": "256",
+      "type": "reserved"
+    }
+  ],
+  "pages": {
+    "page_size": "4096",
+    "total_pages": "16368",
+    "free_pages": "16014",
+    "used_pages": "354",
+    "reserved_low_pages": "159",
+    "reserved_kernel_pages": "66",
+    "reserved_heap_pages": "16",
+    "tracked_limit_kib": "131072",
+    "virtual_memory": "no"
+  },
+  "kernel_heap": {
+    "available": "yes",
+    "heap_start": "1318912",
+    "heap_end": "1384448",
+    "total_bytes": "65536",
+    "used_bytes": "0",
+    "remaining_bytes": "65536",
+    "allocation_count": "0",
+    "failed_count": "0",
+    "high_water_mark": "0",
+    "free_supported": "no"
+  },
+  "paging": {
+    "prepared": "yes",
+    "enabled": "yes",
+    "mode": "identity_enabled",
+    "identity_map_valid": "yes",
+    "required_ranges_valid": "yes",
+    "prerequisites_valid": "yes",
+    "page_directory": "1261568",
+    "active_cr3": "1261568",
+    "mapped_start": "0",
+    "mapped_end": "16777216",
+    "page_fault_handler": "diagnostic_halt",
+    "validation_error": "none",
+    "last_fault_address": "none",
+    "last_fault_error": "0",
+    "last_fault_eip": "0",
+    "present": "no",
+    "fault_address": "none",
+    "error_code": "0",
+    "eip": "0",
+    "recovery_attempted": "no"
+  },
+  "page_fault": {
+    "present": "no",
+    "fault_address": "none",
+    "error_code": "0",
+    "eip": "0",
+    "recovery_attempted": "no"
+  },
+  "page_map": [
+    {
+      "type": "identity",
+      "virtual_start": "0",
+      "virtual_end": "16777216",
+      "physical_start": "0",
+      "physical_end": "16777216",
+      "flags": "present,writable,supervisor",
+      "validated": "yes"
+    },
+    {
+      "type": "required_identity",
+      "name": "low_memory_structures",
+      "virtual_start": "0",
+      "virtual_end": "1048576",
+      "physical_start": "0",
+      "physical_end": "1048576",
+      "flags": "present,writable,supervisor",
+      "validated": "yes"
+    },
+    {
+      "type": "required_identity",
+      "name": "vga_text",
+      "virtual_start": "753664",
+      "virtual_end": "757760",
+      "physical_start": "753664",
+      "physical_end": "757760",
+      "flags": "present,writable,supervisor",
+      "validated": "yes"
+    },
+    {
+      "type": "required_identity",
+      "name": "kernel_image_and_static_buffers",
+      "virtual_start": "1048576",
+      "virtual_end": "1318912",
+      "physical_start": "1048576",
+      "physical_end": "1318912",
+      "flags": "present,writable,supervisor",
+      "validated": "yes"
+    },
+    {
+      "type": "required_identity",
+      "name": "bootstrap_stack",
+      "virtual_start": "1220608",
+      "virtual_end": "1236992",
+      "physical_start": "1220608",
+      "physical_end": "1236992",
+      "flags": "present,writable,supervisor",
+      "validated": "yes"
+    },
+    {
+      "type": "required_identity",
+      "name": "privilege_transition_stack",
+      "virtual_start": "1298432",
+      "virtual_end": "1314816",
+      "physical_start": "1298432",
+      "physical_end": "1314816",
+      "flags": "present,writable,supervisor",
+      "validated": "yes"
+    },
+    {
+      "type": "required_identity",
+      "name": "kernel_heap",
+      "virtual_start": "1318912",
+      "virtual_end": "1384448",
+      "physical_start": "1318912",
+      "physical_end": "1384448",
+      "flags": "present,writable,supervisor",
+      "validated": "yes"
+    },
+    {
+      "type": "required_identity",
+      "name": "page_directory",
+      "virtual_start": "1261568",
+      "virtual_end": "1265664",
+      "physical_start": "1261568",
+      "physical_end": "1265664",
+      "flags": "present,writable,supervisor",
+      "validated": "yes"
+    },
+    {
+      "type": "required_identity",
+      "name": "page_tables",
+      "virtual_start": "1265664",
+      "virtual_end": "1282048",
+      "physical_start": "1265664",
+      "physical_end": "1282048",
+      "flags": "present,writable,supervisor",
+      "validated": "yes"
+    }
+  ],
+  "syscalls": {
+    "initialized": "yes",
+    "vector": "128",
+    "total_calls": "8",
+    "failed_calls": "0",
+    "registered_count": "8",
+    "last_id": "8",
+    "last_name": "system_info",
+    "last_result": "ok",
+    "last_value": "7",
+    "syscall_gate_dpl": "3",
+    "syscall_user_gate": "enabled",
+    "user_mode_available": "no",
+    "argument_model": "bounded_scalars_and_kernel_owned_buffers",
+    "pointer_arguments": "no"
+  },
+  "syscall_table": [
+    {
+      "id": "1",
+      "name": "write_console",
+      "argument_mode": "message_token",
+      "caller_mode": "kernel_only_current",
+      "gate_access": "dpl3",
+      "pointer_arguments": "no"
+    },
+    {
+      "id": "2",
+      "name": "get_ticks",
+      "argument_mode": "none",
+      "caller_mode": "kernel_only_current",
+      "gate_access": "dpl3",
+      "pointer_arguments": "no"
+    },
+    {
+      "id": "3",
+      "name": "get_health",
+      "argument_mode": "none",
+      "caller_mode": "kernel_only_current",
+      "gate_access": "dpl3",
+      "pointer_arguments": "no"
+    },
+    {
+      "id": "4",
+      "name": "list_files",
+      "argument_mode": "file_index",
+      "caller_mode": "kernel_only_current",
+      "gate_access": "dpl3",
+      "pointer_arguments": "no"
+    },
+    {
+      "id": "5",
+      "name": "read_file",
+      "argument_mode": "file_index",
+      "caller_mode": "kernel_only_current",
+      "gate_access": "dpl3",
+      "pointer_arguments": "no"
+    },
+    {
+      "id": "6",
+      "name": "app_info",
+      "argument_mode": "app_index",
+      "caller_mode": "kernel_only_current",
+      "gate_access": "dpl3",
+      "pointer_arguments": "no"
+    },
+    {
+      "id": "7",
+      "name": "yield",
+      "argument_mode": "none",
+      "caller_mode": "kernel_only_current",
+      "gate_access": "dpl3",
+      "pointer_arguments": "no"
+    },
+    {
+      "id": "8",
+      "name": "system_info",
+      "argument_mode": "none",
+      "caller_mode": "kernel_only_current",
+      "gate_access": "dpl3",
+      "pointer_arguments": "no"
+    }
+  ],
+  "privilege": {
+    "gdt_loaded": "yes",
+    "user_segments_valid": "yes",
+    "tss_loaded": "yes",
+    "kernel_stack_valid": "yes",
+    "paging_enabled": "yes",
+    "syscall_gate_installed": "yes",
+    "syscall_gate_dpl": "3",
+    "current_cpl": "0",
+    "bootstrap_stack_bottom": "1220608",
+    "bootstrap_stack_top": "1236992",
+    "transition_stack_bottom": "1298432",
+    "transition_stack_top": "1314816",
+    "esp0": "1314816",
+    "guard_policy": "bounds_checked_no_guard_page",
+    "readiness": "foundation_ready",
+    "execution_enabled": "no"
+  },
+  "gdt": {
+    "loaded": "yes",
+    "kernel_code_selector": "8",
+    "kernel_code_dpl": "0",
+    "kernel_data_selector": "16",
+    "kernel_data_dpl": "0",
+    "user_code_selector": "27",
+    "user_code_dpl": "3",
+    "user_data_selector": "35",
+    "user_data_dpl": "3",
+    "tss_selector": "40",
+    "user_segments_valid": "yes",
+    "tss_descriptor_valid": "yes"
+  },
+  "tss": {
+    "initialized": "yes",
+    "selector": "40",
+    "descriptor_valid": "yes",
+    "tss_loaded": "yes",
+    "ss0": "16",
+    "esp0": "1314816",
+    "stack_bottom": "1298432",
+    "stack_top": "1314816",
+    "stack_size": "16384",
+    "kernel_stack_valid": "yes",
+    "guard_policy": "bounds_checked_no_guard_page",
+    "hardware_task_switching": "no"
+  },
+  "ring3_readiness": {
+    "gdt_ready": "yes",
+    "user_segments_ready": "yes",
+    "tss_ready": "yes",
+    "esp0_ready": "yes",
+    "paging_ready": "yes",
+    "syscall_gate_dpl": "3",
+    "readiness": "foundation_ready",
+    "execution_enabled": "no",
+    "user_stack": "no",
+    "user_page_mappings": "no",
+    "elf_loader": "no",
+    "process_isolation": "no"
+  },
   "store": {
     "backend": "disk+CMOS",
     "disk_available": "1",
+    "disk_capacity_sectors": "2048",
     "state_valid": "1",
-    "journal_count": "2",
-    "durable_boot_count": "1",
+    "journal_count": "97",
+    "durable_boot_count": "29",
     "cmos_fallback_used": "0"
   },
   "memory": {
     "persistence_mode": "cmos_nvram_survives_reboot_not_qemu_restart",
-    "boot_count": "1",
+    "boot_count": "29",
     "safe_mode_next_boot": "0",
     "safe_mode_active": "0",
     "network_quarantined": "0",
@@ -21,17 +417,339 @@
     "last_action_id": "none"
   },
   "health": {
-    "score": "22",
+    "score": "60",
     "panic_penalty": "0",
     "missing_penalty": "20",
-    "isolated_penalty": "8",
-    "warning_penalty": "25",
-    "critical_penalty": "25",
-    "prev_score": "none",
-    "health_delta": "none"
+    "isolated_penalty": "0",
+    "warning_penalty": "20",
+    "critical_penalty": "0",
+    "prev_score": "27",
+    "health_delta": "33"
   },
-  "snapshots": [],
-  "timeline": [],
+  "snapshots": [
+    {
+      "boot": "14",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "attached": "3",
+      "fallback": "1",
+      "missing": "2",
+      "isolated": "1",
+      "warnings": "4",
+      "criticals": "1",
+      "applied": "1"
+    },
+    {
+      "boot": "15",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "attached": "3",
+      "fallback": "1",
+      "missing": "2",
+      "isolated": "1",
+      "warnings": "4",
+      "criticals": "1",
+      "applied": "1"
+    },
+    {
+      "boot": "16",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "attached": "3",
+      "fallback": "1",
+      "missing": "2",
+      "isolated": "1",
+      "warnings": "4",
+      "criticals": "1",
+      "applied": "1"
+    },
+    {
+      "boot": "17",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "attached": "3",
+      "fallback": "1",
+      "missing": "2",
+      "isolated": "1",
+      "warnings": "4",
+      "criticals": "1",
+      "applied": "1"
+    },
+    {
+      "boot": "18",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "attached": "3",
+      "fallback": "1",
+      "missing": "2",
+      "isolated": "1",
+      "warnings": "4",
+      "criticals": "1",
+      "applied": "1"
+    },
+    {
+      "boot": "19",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "attached": "3",
+      "fallback": "1",
+      "missing": "2",
+      "isolated": "1",
+      "warnings": "4",
+      "criticals": "1",
+      "applied": "1"
+    },
+    {
+      "boot": "20",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "attached": "3",
+      "fallback": "1",
+      "missing": "2",
+      "isolated": "1",
+      "warnings": "4",
+      "criticals": "1",
+      "applied": "1"
+    },
+    {
+      "boot": "21",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "attached": "3",
+      "fallback": "1",
+      "missing": "2",
+      "isolated": "1",
+      "warnings": "4",
+      "criticals": "1",
+      "applied": "1"
+    },
+    {
+      "boot": "22",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "attached": "3",
+      "fallback": "1",
+      "missing": "2",
+      "isolated": "1",
+      "warnings": "4",
+      "criticals": "1",
+      "applied": "1"
+    },
+    {
+      "boot": "23",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "attached": "3",
+      "fallback": "1",
+      "missing": "2",
+      "isolated": "1",
+      "warnings": "4",
+      "criticals": "1",
+      "applied": "1"
+    },
+    {
+      "boot": "24",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "attached": "3",
+      "fallback": "1",
+      "missing": "2",
+      "isolated": "1",
+      "warnings": "4",
+      "criticals": "1",
+      "applied": "1"
+    },
+    {
+      "boot": "25",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "attached": "3",
+      "fallback": "1",
+      "missing": "2",
+      "isolated": "1",
+      "warnings": "4",
+      "criticals": "1",
+      "applied": "1"
+    },
+    {
+      "boot": "26",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "attached": "3",
+      "fallback": "1",
+      "missing": "2",
+      "isolated": "1",
+      "warnings": "4",
+      "criticals": "1",
+      "applied": "1"
+    },
+    {
+      "boot": "27",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "attached": "3",
+      "fallback": "1",
+      "missing": "2",
+      "isolated": "1",
+      "warnings": "4",
+      "criticals": "1",
+      "applied": "1"
+    },
+    {
+      "boot": "28",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "attached": "3",
+      "fallback": "1",
+      "missing": "2",
+      "isolated": "1",
+      "warnings": "4",
+      "criticals": "1",
+      "applied": "1"
+    },
+    {
+      "boot": "29",
+      "health": "60",
+      "safe_mode": "0",
+      "panic": "0",
+      "attached": "3",
+      "fallback": "1",
+      "missing": "2",
+      "isolated": "0",
+      "warnings": "4",
+      "criticals": "0",
+      "applied": "1"
+    }
+  ],
+  "timeline": [
+    {
+      "boot": "14",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
+    },
+    {
+      "boot": "15",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
+    },
+    {
+      "boot": "16",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
+    },
+    {
+      "boot": "17",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
+    },
+    {
+      "boot": "18",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
+    },
+    {
+      "boot": "19",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
+    },
+    {
+      "boot": "20",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
+    },
+    {
+      "boot": "21",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
+    },
+    {
+      "boot": "22",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
+    },
+    {
+      "boot": "23",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
+    },
+    {
+      "boot": "24",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
+    },
+    {
+      "boot": "25",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
+    },
+    {
+      "boot": "26",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
+    },
+    {
+      "boot": "27",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
+    },
+    {
+      "boot": "28",
+      "health": "27",
+      "safe_mode": "0",
+      "panic": "0",
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
+    },
+    {
+      "boot": "29",
+      "health": "60",
+      "safe_mode": "0",
+      "panic": "0",
+      "events": "SUGGESTED ACT-001,SUGGESTED ACT-004"
+    }
+  ],
   "devices": [
     {
       "id": "1",
@@ -195,7 +913,7 @@
   ],
   "journal": [
     {
-      "boot": "1",
+      "boot": "26",
       "event": "SUGGESTED",
       "action": "ACT-001",
       "result": "ok",
@@ -204,13 +922,103 @@
       "code": "REC001"
     },
     {
-      "boot": "1",
+      "boot": "26",
       "event": "SUGGESTED",
       "action": "ACT-004",
       "result": "ok",
       "risk": "medium",
       "reversible": "yes",
       "code": "REC001"
+    },
+    {
+      "boot": "26",
+      "event": "CLEAN_BOOT",
+      "action": "none",
+      "result": "ok",
+      "risk": "low",
+      "reversible": "yes",
+      "code": "CLEANB"
+    },
+    {
+      "boot": "27",
+      "event": "SUGGESTED",
+      "action": "ACT-001",
+      "result": "ok",
+      "risk": "low",
+      "reversible": "yes",
+      "code": "REC001"
+    },
+    {
+      "boot": "27",
+      "event": "SUGGESTED",
+      "action": "ACT-004",
+      "result": "ok",
+      "risk": "medium",
+      "reversible": "yes",
+      "code": "REC001"
+    },
+    {
+      "boot": "27",
+      "event": "CLEAN_BOOT",
+      "action": "none",
+      "result": "ok",
+      "risk": "low",
+      "reversible": "yes",
+      "code": "CLEANB"
+    },
+    {
+      "boot": "28",
+      "event": "SUGGESTED",
+      "action": "ACT-001",
+      "result": "ok",
+      "risk": "low",
+      "reversible": "yes",
+      "code": "REC001"
+    },
+    {
+      "boot": "28",
+      "event": "SUGGESTED",
+      "action": "ACT-004",
+      "result": "ok",
+      "risk": "medium",
+      "reversible": "yes",
+      "code": "REC001"
+    },
+    {
+      "boot": "28",
+      "event": "CLEAN_BOOT",
+      "action": "none",
+      "result": "ok",
+      "risk": "low",
+      "reversible": "yes",
+      "code": "CLEANB"
+    },
+    {
+      "boot": "29",
+      "event": "SUGGESTED",
+      "action": "ACT-001",
+      "result": "ok",
+      "risk": "low",
+      "reversible": "yes",
+      "code": "REC001"
+    },
+    {
+      "boot": "29",
+      "event": "SUGGESTED",
+      "action": "ACT-004",
+      "result": "ok",
+      "risk": "medium",
+      "reversible": "yes",
+      "code": "REC001"
+    },
+    {
+      "boot": "29",
+      "event": "CLEAN_BOOT",
+      "action": "none",
+      "result": "ok",
+      "risk": "low",
+      "reversible": "yes",
+      "code": "CLEANB"
     }
   ],
   "events": [
@@ -236,39 +1044,25 @@
       "hint": "keep device disabled until verified driver exists"
     },
     {
-      "code": "GA-DRV-201",
-      "severity": "error",
-      "component": "GhostAttach",
-      "message": "Self-Test Device driver failed to attach - device isolated",
-      "hint": "device quarantined until a working driver exists"
-    },
-    {
       "code": "REC-BLOCK-999",
       "severity": "warning",
       "component": "RecoveryPolicy",
       "message": "Blocked high-risk action ACT-999 install_unknown_driver",
       "hint": "unknown driver installation is not allowed"
-    },
-    {
-      "code": "PKG-BLOCK-001",
-      "severity": "warning",
-      "component": "RecoveryPackage",
-      "message": "Blocked package PKG-003 install_unknown_network_driver",
-      "hint": "unsigned - no signature at all"
     }
   ],
   "modules": [
     {
       "module": "Kernel",
-      "version": "1.5",
-      "base": "1.5",
+      "version": "2.5",
+      "base": "2.5",
       "updated": "0"
     },
     {
       "module": "GhostAttach",
-      "version": "0.3",
+      "version": "0.4",
       "base": "0.3",
-      "updated": "0"
+      "updated": "1"
     },
     {
       "module": "RecoveryEngine",
@@ -306,175 +1100,78 @@
       "package_state": "persistent_on_disk"
     },
     {
-      "manifest_source": "builtin_seed"
+      "manifest_source": "disk"
     },
     {
-      "id": "PKG-001",
-      "name": "ghostattach_policy_update",
+      "id": "PKG-101",
+      "name": "ghostattach_policy_import",
       "target": "GhostAttach",
       "from": "0.3",
       "to": "0.4",
       "risk": "low",
       "reversible": "yes",
-      "signature": "signed_placeholder",
+      "signature": "trusted",
       "checksum": "ok",
-      "source": "built_in_seed",
+      "source": "disk_imported",
       "checksum_valid": "yes",
       "trust_valid": "yes",
       "signature_valid": "yes",
-      "signature_mode": "built_in_placeholder",
-      "signer_key": "none",
-      "signed_payload": "none",
+      "signature_mode": "simulated_kernel_check_host_ed25519",
+      "signer_key": "90aff55a4edb8ed5",
+      "signed_payload": "817dfecd04201b28",
       "policy_result": "allowed",
       "block_reason": "none",
-      "status": "suggested"
-    },
-    {
-      "id": "PKG-002",
-      "name": "recovery_analyzer_rules_update",
-      "target": "AI Recovery Core",
-      "from": "0.4",
-      "to": "0.5",
-      "risk": "low",
-      "reversible": "yes",
-      "signature": "signed_placeholder",
-      "checksum": "ok",
-      "source": "built_in_seed",
-      "checksum_valid": "yes",
-      "trust_valid": "yes",
-      "signature_valid": "yes",
-      "signature_mode": "built_in_placeholder",
-      "signer_key": "none",
-      "signed_payload": "none",
-      "policy_result": "allowed",
-      "block_reason": "none",
-      "status": "suggested"
-    },
-    {
-      "id": "PKG-003",
-      "name": "install_unknown_network_driver",
-      "target": "GhostAttach/network",
-      "from": "0.3",
-      "to": "?",
-      "risk": "high",
-      "reversible": "no",
-      "signature": "unsigned",
-      "checksum": "ok",
-      "source": "built_in_seed",
-      "checksum_valid": "yes",
-      "trust_valid": "no",
-      "signature_valid": "no",
-      "signature_mode": "missing",
-      "signer_key": "none",
-      "signed_payload": "none",
-      "policy_result": "blocked",
-      "block_reason": "unsigned - no signature at all",
-      "status": "blocked"
-    },
-    {
-      "id": "PKG-004",
-      "name": "safe_mode_policy_update",
-      "target": "RecoveryEngine",
-      "from": "0.5",
-      "to": "0.6",
-      "risk": "medium",
-      "reversible": "yes",
-      "signature": "signed_placeholder",
-      "checksum": "ok",
-      "source": "built_in_seed",
-      "checksum_valid": "yes",
-      "trust_valid": "yes",
-      "signature_valid": "yes",
-      "signature_mode": "built_in_placeholder",
-      "signer_key": "none",
-      "signed_payload": "none",
-      "policy_result": "allowed",
-      "block_reason": "none",
-      "status": "suggested"
+      "status": "verified"
     }
   ],
   "trust": {
     "anchor_id": "KMZ-ROOT-1",
-    "fingerprint": "SIM:4B5A:1000:C0DE:FACE:2026",
+    "fingerprint": "ED25519-SHA256:90aff55a4edb8ed5ded40271dfdd4c404862a68c91925c77db650b0bf776ee84",
     "signature_verification": "host_ed25519_real_kernel_simulated",
     "note": "host tools verify Ed25519 - kernel enforces metadata and policy gates"
   },
   "manifests": [
     {
-      "id": "PKG-001",
+      "id": "PKG-101",
       "payload": "module_slot_switch_simulated",
       "trust_anchor": "KMZ-ROOT-1",
-      "source": "built_in_seed",
+      "source": "disk_imported",
       "checksum_valid": "yes",
       "trust_valid": "yes",
       "signature_valid": "yes",
-      "signature_mode": "built_in_placeholder",
-      "signer_key": "none",
-      "signed_payload": "none",
-      "verifies": "yes",
-      "policy_result": "allowed",
-      "reason": "passes verification - requires human approval",
-      "block_reason": "none"
-    },
-    {
-      "id": "PKG-002",
-      "payload": "module_slot_switch_simulated",
-      "trust_anchor": "KMZ-ROOT-1",
-      "source": "built_in_seed",
-      "checksum_valid": "yes",
-      "trust_valid": "yes",
-      "signature_valid": "yes",
-      "signature_mode": "built_in_placeholder",
-      "signer_key": "none",
-      "signed_payload": "none",
-      "verifies": "yes",
-      "policy_result": "allowed",
-      "reason": "passes verification - requires human approval",
-      "block_reason": "none"
-    },
-    {
-      "id": "PKG-003",
-      "payload": "blocked_driver_install",
-      "trust_anchor": "unknown",
-      "source": "built_in_seed",
-      "checksum_valid": "yes",
-      "trust_valid": "no",
-      "signature_valid": "no",
-      "signature_mode": "missing",
-      "signer_key": "none",
-      "signed_payload": "none",
-      "verifies": "no",
-      "policy_result": "blocked",
-      "reason": "unsigned - no signature at all",
-      "block_reason": "unsigned - no signature at all"
-    },
-    {
-      "id": "PKG-004",
-      "payload": "module_slot_switch_simulated",
-      "trust_anchor": "KMZ-ROOT-1",
-      "source": "built_in_seed",
-      "checksum_valid": "yes",
-      "trust_valid": "yes",
-      "signature_valid": "yes",
-      "signature_mode": "built_in_placeholder",
-      "signer_key": "none",
-      "signed_payload": "none",
+      "signature_mode": "simulated_kernel_check_host_ed25519",
+      "signer_key": "90aff55a4edb8ed5",
+      "signed_payload": "817dfecd04201b28",
       "verifies": "yes",
       "policy_result": "allowed",
       "reason": "passes verification - requires human approval",
       "block_reason": "none"
     }
   ],
-  "package_states": [],
+  "package_states": [
+    {
+      "id": "PKG-101",
+      "approved": "1",
+      "applied": "1",
+      "verified": "1",
+      "failed": "0",
+      "rolled_back": "0",
+      "from": "0.3",
+      "to": "0.4",
+      "manifest_identity": "556012659",
+      "transaction_phase": "committed",
+      "binding_valid": "1"
+    }
+  ],
   "module_slots": [
     {
       "module": "GhostAttach",
-      "active": "A",
+      "active": "B",
       "slot_a": "0.3",
       "slot_a_verified": "1",
-      "slot_b": "-",
-      "slot_b_verified": "0",
-      "rollback": "none",
+      "slot_b": "0.4",
+      "slot_b_verified": "1",
+      "rollback": "A",
       "pending_verify": "0"
     },
     {
@@ -509,6 +1206,192 @@
     }
   ],
   "pending_verification": false,
+  "kernel_interrupts": {
+    "gdt_loaded": "yes",
+    "idt_loaded": "yes",
+    "irq_gates_installed": "yes",
+    "pic_remapped": "yes",
+    "timer_enabled": "yes",
+    "keyboard_mode": "irq",
+    "interrupts_enabled": "yes",
+    "interrupts_handled": "3646",
+    "last_vector": "32"
+  },
+  "kernel_timing": {
+    "tick_count": "3376",
+    "timer_irq": "enabled",
+    "frequency_hz": "100"
+  },
+  "kernel_exceptions": {
+    "last_exception": "none",
+    "last_vector": "none",
+    "last_error_code": "0",
+    "recovery_attempted": "no"
+  },
+  "kernel_tasks": {
+    "total_tasks": "4",
+    "running_task": "kernel_shell",
+    "ready_count": "3",
+    "sleeping_count": "0",
+    "blocked_count": "0",
+    "crashed_count": "0",
+    "scheduler_mode": "cooperative",
+    "preemptive_switching": "no"
+  },
+  "tasks": [
+    {
+      "task_id": "1",
+      "name": "kernel_shell",
+      "state": "running",
+      "priority": "3",
+      "ticks_run": "3376",
+      "created_at_tick": "0",
+      "last_run_tick": "3376",
+      "flags": "1"
+    },
+    {
+      "task_id": "2",
+      "name": "idle_task",
+      "state": "ready",
+      "priority": "0",
+      "ticks_run": "0",
+      "created_at_tick": "0",
+      "last_run_tick": "1550",
+      "flags": "3"
+    },
+    {
+      "task_id": "3",
+      "name": "health_monitor",
+      "state": "ready",
+      "priority": "2",
+      "ticks_run": "0",
+      "created_at_tick": "0",
+      "last_run_tick": "0",
+      "flags": "3"
+    },
+    {
+      "task_id": "4",
+      "name": "recovery_watch",
+      "state": "ready",
+      "priority": "2",
+      "ticks_run": "0",
+      "created_at_tick": "0",
+      "last_run_tick": "0",
+      "flags": "3"
+    }
+  ],
+  "tinyfs": {
+    "available": "yes",
+    "formatted": "yes",
+    "file_count": "2",
+    "max_files": "16",
+    "data_start_lba": "73",
+    "max_file_size": "2048",
+    "last_error": "none"
+  },
+  "tinyfs_files": [
+    {
+      "name": "note.txt",
+      "size": "14",
+      "start_lba": "73",
+      "sector_count": "1",
+      "checksum": "1021132145",
+      "flags": "0"
+    },
+    {
+      "name": "appdemo.txt",
+      "size": "14",
+      "start_lba": "75",
+      "sector_count": "1",
+      "checksum": "3158320032",
+      "flags": "0"
+    }
+  ],
+  "apps_status": {
+    "total_apps": "6",
+    "userland_mode": "kernel_managed_builtin_apps",
+    "last_app": "tinyfs-demo",
+    "last_result": "ok",
+    "blocked_attempts": "0"
+  },
+  "apps": [
+    {
+      "app_id": "1",
+      "name": "hello",
+      "description": "Print a friendly app-model greeting",
+      "version": "1.0",
+      "type": "demo",
+      "status": "available",
+      "run_count": "0",
+      "last_result": "never_run"
+    },
+    {
+      "app_id": "2",
+      "name": "sysinfo",
+      "description": "Show kernel timing and module version basics",
+      "version": "1.0",
+      "type": "diagnostic",
+      "status": "available",
+      "run_count": "0",
+      "last_result": "never_run"
+    },
+    {
+      "app_id": "3",
+      "name": "tinyfs-demo",
+      "description": "Create write and read appdemo.txt through TinyFS",
+      "version": "1.0",
+      "type": "tinyfs_tool",
+      "status": "completed",
+      "run_count": "1",
+      "last_result": "ok"
+    },
+    {
+      "app_id": "4",
+      "name": "recovery-summary",
+      "description": "Summarize durable recovery state",
+      "version": "1.0",
+      "type": "recovery_tool",
+      "status": "available",
+      "run_count": "0",
+      "last_result": "never_run"
+    },
+    {
+      "app_id": "5",
+      "name": "task-demo",
+      "description": "Run one cooperative task demo round",
+      "version": "1.0",
+      "type": "demo",
+      "status": "available",
+      "run_count": "0",
+      "last_result": "never_run"
+    },
+    {
+      "app_id": "6",
+      "name": "health-report",
+      "description": "Show current deterministic health score",
+      "version": "1.0",
+      "type": "diagnostic",
+      "status": "available",
+      "run_count": "0",
+      "last_result": "never_run"
+    }
+  ],
+  "app_log": [
+    {
+      "seq": "1",
+      "name": "tinyfs-demo",
+      "result": "started",
+      "status": "running",
+      "message": "registered app entered"
+    },
+    {
+      "seq": "2",
+      "name": "tinyfs-demo",
+      "result": "ok",
+      "status": "completed",
+      "message": "app completed"
+    }
+  ],
   "package_policy": [
     "rule=unsigned_blocked",
     "rule=invalid_signature_blocked",
@@ -520,45 +1403,75 @@
     "rule=fixed_registry_only_no_disk_loading",
     "rule=no_code_patching_apply_is_metadata_only"
   ],
-  "package_history": [],
-  "package_recommendations": [
+  "package_history": [
     {
-      "id": "PKG-001",
-      "name": "ghostattach_policy_update",
-      "risk": "low",
-      "reversible": "yes",
-      "reason": "update available 0.3 -> 0.4",
-      "commands": [
-        "approve-pkg PKG-001",
-        "apply-pkg PKG-001",
-        "verify-pkg PKG-001"
-      ]
+      "boot": "1",
+      "event": "PKG-BLOCKED",
+      "package": "PKG-003",
+      "result": "refused"
     },
     {
-      "id": "PKG-002",
-      "name": "recovery_analyzer_rules_update",
-      "risk": "low",
-      "reversible": "yes",
-      "reason": "update available 0.4 -> 0.5",
-      "commands": [
-        "approve-pkg PKG-002",
-        "apply-pkg PKG-002",
-        "verify-pkg PKG-002"
-      ]
+      "boot": "1",
+      "event": "PKG-APPROVED",
+      "package": "PKG-001",
+      "result": "ok"
     },
     {
-      "id": "PKG-004",
-      "name": "safe_mode_policy_update",
-      "risk": "medium",
-      "reversible": "yes",
-      "reason": "update available 0.5 -> 0.6",
-      "commands": [
-        "approve-pkg PKG-004",
-        "apply-pkg PKG-004",
-        "verify-pkg PKG-004"
-      ]
+      "boot": "1",
+      "event": "PKG-APPLIED",
+      "package": "PKG-001",
+      "result": "ok"
+    },
+    {
+      "boot": "1",
+      "event": "PKG-VERIFIED",
+      "package": "PKG-001",
+      "result": "ok"
+    },
+    {
+      "boot": "1",
+      "event": "PKG-APPROVED",
+      "package": "PKG-002",
+      "result": "ok"
+    },
+    {
+      "boot": "1",
+      "event": "PKG-APPLIED",
+      "package": "PKG-002",
+      "result": "ok"
+    },
+    {
+      "boot": "1",
+      "event": "PKG-VERIFIED",
+      "package": "PKG-002",
+      "result": "ok"
+    },
+    {
+      "boot": "1",
+      "event": "PKG-ROLLED_BACK",
+      "package": "PKG-002",
+      "result": "ok"
+    },
+    {
+      "boot": "4",
+      "event": "PKG-APPROVED",
+      "package": "PKG-101",
+      "result": "ok"
+    },
+    {
+      "boot": "4",
+      "event": "PKG-APPLIED",
+      "package": "PKG-101",
+      "result": "ok"
+    },
+    {
+      "boot": "4",
+      "event": "PKG-VERIFIED",
+      "package": "PKG-101",
+      "result": "ok"
     }
   ],
+  "package_recommendations": [],
   "rules": {
     "GA-SEC-001": {
       "cause": "GhostAttach found a fallback driver for this device, but the driver is not signed/verified. Policy rule 3 blocked it.",
@@ -571,6 +1484,10 @@
     "GA-DRV-201": {
       "cause": "A verified driver tried to attach but failed its probe. The device was quarantined (isolated) to prevent boot loops.",
       "action": "Check device/driver compatibility. The quarantine is correct behavior - lift it only after fixing the driver."
+    },
+    "GA-TEST-201": {
+      "cause": "The compiled-in virtual GhostAttach canary failed its attach probe as designed.",
+      "action": "No repair is required. This is expected self-test evidence, not a production device failure."
     },
     "KBD-001": {
       "cause": "The PS/2 keyboard controller did not respond to the boot probe. The interactive shell has no input.",
@@ -651,6 +1568,58 @@
     "BOOT-001": {
       "cause": "The kernel was started by something that is not a Multiboot-compliant loader; boot information is untrusted.",
       "action": "Boot via GRUB or QEMU's -kernel option."
+    },
+    "CPU-EXCEPTION": {
+      "cause": "The CPU raised a synchronous exception. KamikazeOS captured the vector, error code, and instruction pointer before halting.",
+      "action": "Do not attempt automatic recovery. Preserve the serial log, reboot, and investigate the recorded exception evidence."
+    },
+    "PAGE-FAULT": {
+      "cause": "The CPU raised a page fault. KamikazeOS captured the CR2 fault address, error code, and instruction pointer.",
+      "action": "Do not attempt automatic recovery. Preserve the serial log, reboot, and inspect the paging report and PAGE-FAULT evidence."
+    },
+    "PAGE-101": {
+      "cause": "Strict paging validation rejected at least one required identity-mapped runtime range or prerequisite.",
+      "action": "Keep paging disabled. Inspect `paging` and `page-map`; do not bypass the enable gate."
+    },
+    "PAGE-102": {
+      "cause": "The CPU paging enable state or active CR3 did not match the validated page directory.",
+      "action": "Stop paging tests and inspect CR0/CR3 handling manually."
+    },
+    "SYS-ERR-001": {
+      "cause": "The fixed syscall dispatcher rejected an unknown syscall ID.",
+      "action": "Use only IDs listed by `syscalls`. The rejection is the expected fail-closed behavior."
+    },
+    "SYS-ERR-002": {
+      "cause": "A syscall rejected an invalid bounded argument or an unavailable kernel service.",
+      "action": "Inspect `syscalls` and the target subsystem. Do not pass raw addresses; v2.5 exposes no pointer ABI."
+    },
+    "SYS-ERR-003": {
+      "cause": "The kernel could not install its dedicated syscall IDT gate.",
+      "action": "Keep syscall use disabled and inspect IDT initialization. Do not bypass the gate check."
+    },
+    "TSS-101": {
+      "cause": "The TSS descriptor or bounded SS0:ESP0 stack failed validation.",
+      "action": "Keep the syscall gate at DPL0. Inspect `gdt`, `tss`, and `ring3-readiness`; do not enable Ring 3 execution."
+    },
+    "TSS-102": {
+      "cause": "The CPU task register did not retain the expected TSS selector after ltr.",
+      "action": "Keep the user syscall gate disabled and inspect the TSS descriptor and selector manually."
+    },
+    "PRIV-101": {
+      "cause": "One or more privilege-boundary prerequisites failed, so the Ring 3 foundation is incomplete.",
+      "action": "Inspect GDT, TSS, ESP0, paging, and syscall DPL evidence. Do not bypass the readiness gate."
+    },
+    "APP-BLOCK-001": {
+      "cause": "The app policy gate refused a requested app name that is not in the fixed compile-time registry, or an app without a registered entry point.",
+      "action": "This is the correct safety behavior. Run only names listed by `apps`; TinyFS files and package payloads are never executed."
+    },
+    "HEAP-101": {
+      "cause": "A kernel heap allocation request was invalid because the heap was unavailable or the requested size was zero.",
+      "action": "No automatic repair. Check `heap` output and retry only with a nonzero bounded size."
+    },
+    "HEAP-102": {
+      "cause": "The fixed bump heap rejected an allocation that would exceed the bounded heap region.",
+      "action": "This is the correct safety behavior. Request less memory or reboot the demo to reset the bump heap."
     }
   },
   "recommendations": [
@@ -671,7 +1640,9 @@
       "command": "approve ACT-004"
     }
   ],
-  "insights": [],
+  "insights": [
+    "Missing drivers appear in every recorded boot - a permanent gap, not a transient failure."
+  ],
   "safety_notice": "Recovery Center is read-only. It does not apply repairs, write recovery.img, call OS APIs, download packages, or change OS state. Buttons only copy shell commands for a human to run inside KamikazeOS.",
   "dashboard_contract": {
     "mode": "read_only",

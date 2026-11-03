@@ -1,9 +1,9 @@
 # KamikazeOS Portfolio Writeup
 
-KamikazeOS is an experimental x86 toy operating system focused on safe recovery
-and update-system design. It boots in QEMU, provides a VGA/keyboard shell,
-records structured kernel events, persists recovery state to a raw disk image,
-and exports machine-readable reports for offline analysis.
+KamikazeOS is an experimental x86 operating system research prototype focused
+on safe recovery and update-system design. It boots in QEMU, provides a
+VGA/keyboard shell, records structured kernel events, persists recovery state
+to a raw disk image, and exports machine-readable reports for offline analysis.
 
 The interesting part of the project is the constraint model. Instead of giving
 an AI or update system broad power, KamikazeOS uses fixed catalogs, policy

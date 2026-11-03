@@ -7,10 +7,17 @@
  * the boot screen, and hand off to the shell.
  */
 #include <stdint.h>
+#include "app.h"
 #include "boot_snapshot.h"
 #include "errors.h"
+#include "gdt.h"
 #include "ghostattach.h"
+#include "idt.h"
+#include "interrupts.h"
+#include "kheap.h"
 #include "keyboard.h"
+#include "memory.h"
+#include "paging.h"
 #include "panic.h"
 #include "recovery_actions.h"
 #include "module_slots.h"
@@ -20,6 +27,13 @@
 #include "report.h"
 #include "serial.h"
 #include "shell.h"
+#include "pic.h"
+#include "privilege.h"
+#include "timer.h"
+#include "task.h"
+#include "syscall.h"
+#include "tinyfs.h"
+#include "tss.h"
 #include "vga.h"
 
 /* The value a Multiboot loader leaves in EAX to prove it booted us. */
@@ -36,7 +50,7 @@ static void boot_banner(void)
     vga_print(" |_|\\_\\__,_|_| |_| |_|_|_|\\_\\__,_/___\\___|  \\___/|____/ \n");
     vga_print("\n");
     vga_set_color(VGA_DARK_GREY, VGA_BLACK);
-    vga_print("  v1.5.0 \"Public Demo Release\"  --  stable demo build\n\n");
+    vga_print("  v2.5.0 \"Privilege Boundary\"  --  GDT user segments + TSS\n\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
 }
 
@@ -66,13 +80,10 @@ static void report_warn(const char *what)
 /*
  * kmain — called from boot.S with the two values the Multiboot loader
  * left for us (see boot.S for how they travel through the stack).
- * `mb_info` points at boot facts (memory map etc.); we start using it
- * when memory management arrives. Marked unused for now.
+ * `mb_info` points at boot facts (memory map etc.).
  */
 void kmain(uint32_t mb_magic, uint32_t mb_info)
 {
-    (void)mb_info;
-
     /* Display first: until vga_init runs we are blind. */
     vga_init();
     boot_banner();
@@ -83,7 +94,10 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
      */
     serial_init();
     errors_init();
-    serial_print("\n=== KamikazeOS v1.5.0 serial log ===\n");
+    gdt_init();
+    idt_init_exceptions();
+    tss_init();
+    serial_print("\n=== KamikazeOS v2.5.0 serial log ===\n");
 
     error_log(SEV_INFO, "BOOT-000", "kernel",
               "Kernel booted successfully", "no action needed");
@@ -91,6 +105,12 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
     report_ok(serial_present() ? "com1 serial (AI log export)"
                                : "com1 serial NOT detected");
     report_ok("structured error log");
+    report_ok(gdt_is_loaded() ? "kernel-owned GDT loaded"
+                              : "kernel GDT unavailable");
+    report_ok(tss_is_loaded() ? "32-bit TSS and privilege stack loaded"
+                              : "TSS unavailable; user gate must stay disabled");
+    report_ok(idt_is_loaded() ? "early CPU exception IDT loaded"
+                              : "early exception IDT unavailable");
 
     /*
      * RecoveryMemory: read what previous boots left in NVRAM, BEFORE any
@@ -143,13 +163,65 @@ void kmain(uint32_t mb_magic, uint32_t mb_info)
     }
     report_ok("multiboot handshake");
 
+    memory_init(mb_magic, mb_info);
+    report_ok(memory_map_available() ? "multiboot memory map parsed"
+                                     : "memory map fallback active");
+
+    kheap_init();
+    report_ok(kheap_available() ? "fixed kernel bump heap initialized"
+                                : "kernel heap unavailable");
+
+    paging_init_structures();
+    if (paging_enable())
+        report_ok("identity paging enabled after strict validation");
+    else
+        report_warn("paging prepared but not enabled (validation gate held)");
+
+    tinyfs_init();
+    if (tinyfs_status()->formatted)
+        report_ok("TinyFS metadata loaded from LBA 64-127");
+    else if (tinyfs_status()->available)
+        report_warn("TinyFS not formatted (run `fs-format confirm`)");
+    else
+        report_warn("TinyFS unavailable - kernel continues without files");
+
+    interrupts_init();
+    report_ok(idt_irq_gates_installed() ? "hardware IRQ gates installed"
+                                        : "hardware IRQ gates unavailable");
+    report_ok(pic_is_remapped() ? "8259 PIC remapped to IRQ vectors 32-47"
+                                : "8259 PIC remap failed");
+    report_ok(timer_is_enabled() ? "PIT timer IRQ0 configured at 100 Hz"
+                                 : "PIT timer unavailable");
+
+    task_init();
+    report_ok("fixed cooperative task table (no stack switching)");
+
+    apps_init();
+    report_ok("kernel-managed app registry (not Ring 3 userspace)");
+
+    syscall_init();
+    privilege_init();
+    struct syscall_stats syscall_boot_stats;
+    syscall_stats(&syscall_boot_stats);
+    report_ok(syscall_boot_stats.initialized
+              ? (syscall_boot_stats.gate_dpl == 3u
+                 ? "validated syscall gate (int 0x80 DPL3; Ring 3 disabled)"
+                 : "syscall gate fallback (int 0x80 DPL0)")
+              : "syscall gate unavailable");
+
     /* Keyboard: may legitimately fail; it logs its own error and we keep
        booting (a server without a keyboard is still a working server). */
     keyboard_init();
-    if (keyboard_present())
-        report_ok("ps/2 keyboard (polling)");
+    keyboard_enable_irq();
+    if (keyboard_irq_enabled())
+        report_ok("ps/2 keyboard (IRQ1)");
+    else if (keyboard_present())
+        report_warn("ps/2 keyboard (polling fallback)");
     else
         report_warn("ps/2 keyboard missing - shell will be unusable");
+
+    interrupts_enable();
+    report_ok("hardware interrupts enabled");
 
     /*
      * GhostAttach boot scan: walk the device registry, apply the attach

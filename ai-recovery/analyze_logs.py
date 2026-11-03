@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-KamikazeOS AI Recovery Core - host-side log analyzer (v1.5, offline/rule-based)
+KamikazeOS AI Recovery Core - host-side log analyzer (v2.5, offline/rule-based)
 
 This is the first working incarnation of the "maintenance brain". It runs on
 the HOST, outside the kernel, and its powers are deliberately limited:
@@ -8,7 +8,7 @@ the HOST, outside the kernel, and its powers are deliberately limited:
     READ logs  ->  EXPLAIN problems  ->  RANK risk  ->  SUGGEST next actions
 
 It never patches binaries, installs drivers, downloads code, or modifies the
-OS. Every suggestion is for a HUMAN to approve and perform. v1.5 is
+OS. Every suggestion is for a HUMAN to approve and perform. v2.5 is
 rule-based (no AI API yet) so the pipeline can be built and trusted first;
 see analyze_with_ai_later() at the bottom for where a real model plugs in.
 
@@ -47,6 +47,12 @@ RULES = {
                   "device was quarantined (isolated) to prevent boot loops.",
         "action": "Check device/driver compatibility. The quarantine is "
                   "correct behavior - lift it only after fixing the driver.",
+    },
+    "GA-TEST-201": {
+        "cause":  "The compiled-in virtual GhostAttach canary failed its "
+                  "attach probe as designed.",
+        "action": "No repair is required. This is expected self-test "
+                  "evidence, not a production device failure.",
     },
     "KBD-001": {
         "cause":  "The PS/2 keyboard controller did not respond to the boot "
@@ -163,6 +169,83 @@ RULES = {
                   "Multiboot-compliant loader; boot information is untrusted.",
         "action": "Boot via GRUB or QEMU's -kernel option.",
     },
+    "CPU-EXCEPTION": {
+        "cause":  "The CPU raised a synchronous exception. KamikazeOS captured "
+                  "the vector, error code, and instruction pointer before halting.",
+        "action": "Do not attempt automatic recovery. Preserve the serial log, "
+                  "reboot, and investigate the recorded exception evidence.",
+    },
+    "PAGE-FAULT": {
+        "cause":  "The CPU raised a page fault. KamikazeOS captured the CR2 "
+                  "fault address, error code, and instruction pointer.",
+        "action": "Do not attempt automatic recovery. Preserve the serial log, "
+                  "reboot, and inspect the paging report and PAGE-FAULT evidence.",
+    },
+    "PAGE-101": {
+        "cause":  "Strict paging validation rejected at least one required "
+                  "identity-mapped runtime range or prerequisite.",
+        "action": "Keep paging disabled. Inspect `paging` and `page-map`; do "
+                  "not bypass the enable gate.",
+    },
+    "PAGE-102": {
+        "cause":  "The CPU paging enable state or active CR3 did not match "
+                  "the validated page directory.",
+        "action": "Stop paging tests and inspect CR0/CR3 handling manually.",
+    },
+    "SYS-ERR-001": {
+        "cause":  "The fixed syscall dispatcher rejected an unknown syscall ID.",
+        "action": "Use only IDs listed by `syscalls`. The rejection is the "
+                  "expected fail-closed behavior.",
+    },
+    "SYS-ERR-002": {
+        "cause":  "A syscall rejected an invalid bounded argument or an "
+                  "unavailable kernel service.",
+        "action": "Inspect `syscalls` and the target subsystem. Do not pass "
+                  "raw addresses; v2.5 exposes no pointer ABI.",
+    },
+    "SYS-ERR-003": {
+        "cause":  "The kernel could not install its dedicated syscall IDT gate.",
+        "action": "Keep syscall use disabled and inspect IDT initialization. "
+                  "Do not bypass the gate check.",
+    },
+    "TSS-101": {
+        "cause":  "The TSS descriptor or bounded SS0:ESP0 stack failed "
+                  "validation.",
+        "action": "Keep the syscall gate at DPL0. Inspect `gdt`, `tss`, and "
+                  "`ring3-readiness`; do not enable Ring 3 execution.",
+    },
+    "TSS-102": {
+        "cause":  "The CPU task register did not retain the expected TSS "
+                  "selector after ltr.",
+        "action": "Keep the user syscall gate disabled and inspect the TSS "
+                  "descriptor and selector manually.",
+    },
+    "PRIV-101": {
+        "cause":  "One or more privilege-boundary prerequisites failed, so "
+                  "the Ring 3 foundation is incomplete.",
+        "action": "Inspect GDT, TSS, ESP0, paging, and syscall DPL evidence. "
+                  "Do not bypass the readiness gate.",
+    },
+    "APP-BLOCK-001": {
+        "cause":  "The app policy gate refused a requested app name that is not "
+                  "in the fixed compile-time registry, or an app without a "
+                  "registered entry point.",
+        "action": "This is the correct safety behavior. Run only names listed "
+                  "by `apps`; TinyFS files and package payloads are never "
+                  "executed.",
+    },
+    "HEAP-101": {
+        "cause":  "A kernel heap allocation request was invalid because the "
+                  "heap was unavailable or the requested size was zero.",
+        "action": "No automatic repair. Check `heap` output and retry only with "
+                  "a nonzero bounded size.",
+    },
+    "HEAP-102": {
+        "cause":  "The fixed bump heap rejected an allocation that would exceed "
+                  "the bounded heap region.",
+        "action": "This is the correct safety behavior. Request less memory or "
+                  "reboot the demo to reset the bump heap.",
+    },
 }
 
 # severity (kernel) -> classification (report)
@@ -207,6 +290,28 @@ def extract_last_boot_report(text: str):
     return report_lines, after_lines, True
 
 
+def parse_page_fault_evidence(text: str):
+    """Return the last PAGE_FAULT section, including panic evidence emitted
+    after a completed boot report."""
+    latest = {}
+    current = None
+    for raw in text.splitlines():
+        line = raw.strip()
+        if line == "[PAGE_FAULT]":
+            if current:
+                latest = current
+            current = {}
+        elif current is not None and line.startswith("["):
+            if current:
+                latest = current
+            current = None
+        elif current is not None and line:
+            current.update(parse_kv_line(line))
+    if current:
+        latest = current
+    return latest
+
+
 def parse_report(lines):
     """Split the report into its sections."""
     meta, devices, drivers, events = {}, [], [], []
@@ -215,6 +320,8 @@ def parse_report(lines):
     section = "meta"
     section_map = {
         "[DEVICES]": "devices",
+        "[SYSTEM_STATUS]": "system_status",
+        "[DIAGNOSTICS_SUMMARY]": "diagnostics",
         "[DRIVERS]": "drivers",
         "[RECOVERY_POLICY]": "policy",
         "[RECOVERY_ACTIONS]": "actions",
@@ -234,12 +341,42 @@ def parse_report(lines):
         "[PACKAGE_STATES]": "pkg_states",
         "[MODULE_SLOTS]": "slots",
         "[PENDING_VERIFICATION]": "pending",
+        "[MEMORY]": "kernel_memory",
+        "[MEMORY_MAP]": "memory_map",
+        "[PAGES]": "pages",
+        "[KERNEL_HEAP]": "kernel_heap",
+        "[PAGING]": "paging",
+        "[PAGE_MAP]": "page_map",
+        "[PAGE_FAULT]": "paging",
+        "[SYSCALLS]": "syscalls",
+        "[SYSCALL_TABLE]": "syscall_table",
+        "[PRIVILEGE]": "privilege",
+        "[GDT]": "gdt",
+        "[TSS]": "tss",
+        "[RING3_READINESS]": "ring3_readiness",
+        "[KERNEL_INTERRUPTS]": "kernel_interrupts",
+        "[KERNEL_TIMING]": "kernel_timing",
+        "[KERNEL_EXCEPTIONS]": "kernel_exceptions",
+        "[KERNEL_TASKS]": "kernel_tasks",
+        "[TINYFS]": "tinyfs",
+        "[TINYFS_FILES]": "tinyfs_files",
+        "[APPS]": "apps",
+        "[APP_LOG]": "app_log",
         "[ERROR_LOG]": "events",
     }
     store, journal = {}, []
     snapshots, health, timeline = [], {}, []
     modules, pkgs, pkg_policy, pkg_history = [], [], [], []
     trust, pkg_manifests, pkg_states, mod_slots, pending = {}, [], [], [], {}
+    kernel_interrupts, kernel_timing, kernel_exceptions = {}, {}, {}
+    kernel_memory, memory_map, pages, kernel_heap = {}, [], {}, {}
+    paging, page_map = {}, []
+    syscalls, syscall_rows = {}, []
+    privilege, gdt, tss, ring3_readiness = {}, {}, {}, {}
+    kernel_tasks, task_rows = {}, []
+    tinyfs, tinyfs_files = {}, []
+    apps, app_rows, app_log = {}, [], []
+    system_status, diagnostics = {}, {}
     for line in lines:
         if line in section_map:
             section = section_map[line]
@@ -247,6 +384,10 @@ def parse_report(lines):
             meta.update(parse_kv_line(line))
         elif section == "devices":
             devices.append(parse_kv_line(line))
+        elif section == "system_status":
+            system_status.update(parse_kv_line(line))
+        elif section == "diagnostics":
+            diagnostics.update(parse_kv_line(line))
         elif section == "drivers":
             drivers.append(parse_kv_line(line))
         elif section == "policy":
@@ -286,19 +427,78 @@ def parse_report(lines):
             mod_slots.append(parse_kv_line(line))
         elif section == "pending":
             pending.update(parse_kv_line(line))
+        elif section == "kernel_memory":
+            kernel_memory.update(parse_kv_line(line))
+        elif section == "memory_map":
+            memory_map.append(parse_kv_line(line))
+        elif section == "pages":
+            pages.update(parse_kv_line(line))
+        elif section == "kernel_heap":
+            kernel_heap.update(parse_kv_line(line))
+        elif section == "paging":
+            paging.update(parse_kv_line(line))
+        elif section == "page_map":
+            page_map.append(parse_kv_line(line))
+        elif section == "syscalls":
+            syscalls.update(parse_kv_line(line))
+        elif section == "syscall_table":
+            syscall_rows.append(parse_kv_line(line))
+        elif section == "privilege":
+            privilege.update(parse_kv_line(line))
+        elif section == "gdt":
+            gdt.update(parse_kv_line(line))
+        elif section == "tss":
+            tss.update(parse_kv_line(line))
+        elif section == "ring3_readiness":
+            ring3_readiness.update(parse_kv_line(line))
+        elif section == "kernel_interrupts":
+            kernel_interrupts.update(parse_kv_line(line))
+        elif section == "kernel_timing":
+            kernel_timing.update(parse_kv_line(line))
+        elif section == "kernel_exceptions":
+            kernel_exceptions.update(parse_kv_line(line))
+        elif section == "kernel_tasks":
+            values = parse_kv_line(line)
+            if "task_id" in values:
+                task_rows.append(values)
+            else:
+                kernel_tasks.update(values)
+        elif section == "tinyfs":
+            tinyfs.update(parse_kv_line(line))
+        elif section == "tinyfs_files":
+            tinyfs_files.append(parse_kv_line(line))
+        elif section == "apps":
+            values = parse_kv_line(line)
+            if "app_id" in values:
+                app_rows.append(values)
+            else:
+                apps.update(values)
+        elif section == "app_log":
+            app_log.append(parse_kv_line(line))
         elif section == "events":
             events.append(parse_kv_line(line))
     return (meta, devices, drivers, events, policy, actions, suggestions,
             memory, store, journal, snapshots, health, timeline,
             modules, pkgs, pkg_policy, pkg_history,
-            trust, pkg_manifests, pkg_states, mod_slots, pending)
+            trust, pkg_manifests, pkg_states, mod_slots, pending,
+            kernel_memory, memory_map, pages, kernel_heap,
+            paging, page_map, syscalls, syscall_rows,
+            privilege, gdt, tss, ring3_readiness,
+            kernel_interrupts, kernel_timing, kernel_exceptions,
+            kernel_tasks, task_rows, tinyfs, tinyfs_files,
+            apps, app_rows, app_log, system_status, diagnostics)
 
 
 def classify(events):
     """Bucket events into info / warning / critical."""
     buckets = {"info": [], "warning": [], "critical": []}
     for e in events:
-        cls = SEVERITY_CLASS.get(e.get("severity", ""), "warning")
+        expected_canary = e.get("code") == "GA-TEST-201" or (
+            e.get("code") == "GA-DRV-201" and
+            e.get("message", "").startswith("Self-Test Device ")
+        )
+        cls = "info" if expected_canary else \
+            SEVERITY_CLASS.get(e.get("severity", ""), "warning")
         buckets[cls].append(e)
     return buckets
 
@@ -330,7 +530,7 @@ def main():
     lines, after_lines, found = extract_last_boot_report(text)
 
     print("=" * 72)
-    print(" KamikazeOS AI RECOVERY CORE - recovery report (v1.5, rule-based)")
+    print(" KamikazeOS AI RECOVERY CORE - recovery report (v2.5, rule-based)")
     print("=" * 72)
 
     if not found:
@@ -344,16 +544,35 @@ def main():
         snapshots, health, timeline = [], {}, []
         modules, pkgs, pkg_policy, pkg_history = [], [], [], []
         trust, pkg_manifests, pkg_states, mod_slots, pending = {}, [], [], [], {}
+        kernel_memory, memory_map, pages, kernel_heap = {}, [], {}, {}
+        paging, page_map = {}, []
+        syscalls, syscall_rows = {}, []
+        privilege, gdt, tss, ring3_readiness = {}, {}, {}, {}
+        kernel_interrupts, kernel_timing, kernel_exceptions = {}, {}, {}
+        kernel_tasks, task_rows = {}, []
+        tinyfs, tinyfs_files = {}, []
+        apps, app_rows, app_log = {}, [], []
+        system_status, diagnostics = {}, {}
     else:
         (meta, devices, drivers, events, policy, actions, suggestions,
          memory, store, journal, snapshots, health, timeline,
          modules, pkgs, pkg_policy, pkg_history,
-         trust, pkg_manifests, pkg_states, mod_slots, pending) = parse_report(lines)
+         trust, pkg_manifests, pkg_states, mod_slots, pending,
+         kernel_memory, memory_map, pages, kernel_heap,
+         paging, page_map, syscalls, syscall_rows,
+         privilege, gdt, tss, ring3_readiness,
+         kernel_interrupts, kernel_timing, kernel_exceptions,
+         kernel_tasks, task_rows, tinyfs, tinyfs_files,
+         apps, app_rows, app_log, system_status, diagnostics) = parse_report(lines)
         if after_lines:
             # Events streamed after the report (e.g. a panic) — merge them in.
             print(f"\nNote: {len(after_lines)} event(s) occurred AFTER the boot "
                   "report was exported (merged below).")
             events.extend(parse_kv_line(l) for l in after_lines)
+
+    page_fault = parse_page_fault_evidence(text)
+    if page_fault:
+        paging.update(page_fault)
 
     if meta:
         print(f"\nKernel version : {meta.get('version', '?')}")
@@ -361,7 +580,252 @@ def main():
               f"{meta.get('scan_attached', '?')} attached, "
               f"{meta.get('scan_fallback', '?')} fallback, "
               f"{meta.get('scan_missing', '?')} missing, "
-              f"{meta.get('scan_isolated', '?')} isolated")
+              f"{meta.get('scan_isolated', '?')} isolated "
+              f"({meta.get('scan_expected_self_tests', '0')} expected test)")
+
+    if system_status:
+        print("\nv2.5 integrated system status:")
+        print(f"  * Kernel: {system_status.get('kernel_version', '?')}")
+        print(f"  * Interrupts: IDT={system_status.get('idt_loaded', '?')} "
+              f"PIC={system_status.get('pic_remapped', '?')} "
+              f"keyboard={system_status.get('keyboard_mode', '?')}")
+        print(f"  * Memory: map={system_status.get('memory_map', '?')} "
+              f"free_pages={system_status.get('free_pages', '?')}")
+        print(f"  * Heap: available={system_status.get('heap_available', '?')} "
+              f"remaining={system_status.get('heap_remaining', '?')} bytes")
+        print(f"  * Paging: prepared={system_status.get('paging_prepared', '?')} "
+              f"enabled={system_status.get('paging_enabled', '?')} "
+              f"mode={system_status.get('paging_mode', '?')}")
+        print(f"  * Storage: {system_status.get('recovery_backend', '?')} "
+              f"TinyFS={system_status.get('tinyfs_status', '?')} "
+              f"files={system_status.get('tinyfs_files', '?')}")
+        print(f"  * Apps: {system_status.get('app_registry', '?')} fixed built-ins")
+        print(f"  * Health: {system_status.get('health_score', '?')}/100")
+        print(f"  * Package trust: {system_status.get('package_trust_mode', '?')}")
+        print(f"  * Last critical: {system_status.get('last_critical', 'none')}")
+        if diagnostics.get("recommended_command"):
+            print(f"  * Recommended manual command: "
+                  f"{diagnostics.get('recommended_command')}")
+        print("  * Automatic repair: no")
+
+    if kernel_memory:
+        print("\nKernel memory foundation:")
+        print(f"  * Map available: {kernel_memory.get('map_available', '?')}")
+        print(f"  * Fallback used: {kernel_memory.get('fallback_used', '?')}")
+        print(f"  * Regions: {kernel_memory.get('region_count', '?')}")
+        print(f"  * Total: {kernel_memory.get('total_kib', '?')} KiB")
+        print(f"  * Usable: {kernel_memory.get('usable_kib', '?')} KiB")
+        print(f"  * Allocation mode: {kernel_memory.get('allocation_mode', '?')}")
+        print(f"  * Page tracker: {pages.get('free_pages', '?')} free / "
+              f"{pages.get('total_pages', '?')} tracked pages")
+        if kernel_memory.get("map_available") != "yes":
+            print("  !! WARNING: Multiboot memory map missing; kernel used fallback.")
+        try:
+            free_pages = int(pages.get("free_pages", "0") or 0)
+            if free_pages < 128:
+                print("  !! WARNING: free physical pages are very low.")
+        except ValueError:
+            pass
+
+    if paging:
+        print("\nPaging foundation:")
+        print(f"  * Prepared: {paging.get('prepared', '?')}")
+        print(f"  * Enabled: {paging.get('enabled', '?')}")
+        print(f"  * Mode: {paging.get('mode', '?')}")
+        print(f"  * Identity map valid: {paging.get('identity_map_valid', '?')}")
+        print(f"  * Required ranges valid: {paging.get('required_ranges_valid', '?')}")
+        print(f"  * Page directory: {paging.get('page_directory', '?')}")
+        print(f"  * Active CR3: {paging.get('active_cr3', '?')}")
+        print(f"  * Mapped range: {paging.get('mapped_start', '?')} - "
+              f"{paging.get('mapped_end', '?')}")
+        print(f"  * Page fault handler: {paging.get('page_fault_handler', '?')}")
+        if paging.get("enabled") == "yes":
+            print("  * CR0.PG is enabled with the validated identity map.")
+        else:
+            print("  * Enable gate held; kernel continued with paging disabled.")
+        if paging.get("identity_map_valid") != "yes":
+            print("  !! WARNING: identity map validation failed.")
+        if paging.get("present") == "yes":
+            print(f"  !! Page fault evidence: address "
+                  f"{paging.get('fault_address')} error "
+                  f"{paging.get('error_code', '?')} eip {paging.get('eip', '?')}")
+
+    if syscalls:
+        print("\nKernel syscall foundation:")
+        print(f"  * Initialized: {syscalls.get('initialized', '?')}")
+        print(f"  * IDT vector: {syscalls.get('vector', '?')} (0x80)")
+        print(f"  * Registered calls: {syscalls.get('registered_count', '?')}")
+        print(f"  * Calls at export: {syscalls.get('total_calls', '?')}")
+        print(f"  * Failed calls: {syscalls.get('failed_calls', '?')}")
+        print(f"  * Last call: {syscalls.get('last_id', '?')} "
+              f"{syscalls.get('last_name', '?')} "
+              f"({syscalls.get('last_result', '?')})")
+        print(f"  * Argument model: {syscalls.get('argument_model', '?')}")
+        print(f"  * User mode available: "
+              f"{syscalls.get('user_mode_available', 'no')}")
+        print(f"  * Gate DPL: {syscalls.get('syscall_gate_dpl', '?')}")
+        print(f"  * User-callable gate: {syscalls.get('syscall_user_gate', 'disabled')}")
+        print("  * Boundary: the gate may be DPL3, but no Ring 3 execution, "
+              "userspace pointers, or ABI stability exists.")
+        if syscalls.get("initialized") != "yes":
+            print("  !! WARNING: syscall gate is not initialized.")
+        try:
+            if int(syscalls.get("failed_calls", "0") or 0) > 0:
+                print("  !! WARNING: failed or unknown syscall attempts were recorded.")
+        except ValueError:
+            print("  !! WARNING: invalid syscall failure counter in report.")
+        for row in syscall_rows:
+            print(f"    - {row.get('id', '?'):>2} "
+                  f"{row.get('name', '?'):<16} "
+                  f"args={row.get('argument_mode', '?')} "
+                  f"caller={row.get('caller_mode', '?')}")
+
+    if privilege or tss or ring3_readiness:
+        print("\nPrivilege and TSS foundation:")
+        print(f"  * Current CPL: {privilege.get('current_cpl', '?')} "
+              "(kernel shell must remain 0)")
+        print(f"  * User segments valid: "
+              f"{privilege.get('user_segments_valid', '?')}")
+        print(f"  * TSS loaded: {tss.get('tss_loaded', '?')}")
+        print(f"  * TSS selector: {tss.get('selector', '?')}")
+        print(f"  * SS0:ESP0: {tss.get('ss0', '?')}:{tss.get('esp0', '?')}")
+        print(f"  * Transition stack: {tss.get('stack_bottom', '?')} - "
+              f"{tss.get('stack_top', '?')}")
+        print(f"  * Guard policy: {tss.get('guard_policy', '?')}")
+        print(f"  * Syscall gate DPL: "
+              f"{privilege.get('syscall_gate_dpl', '?')}")
+        print(f"  * Foundation readiness: "
+              f"{ring3_readiness.get('readiness', '?')}")
+        print(f"  * Ring 3 execution enabled: "
+              f"{ring3_readiness.get('execution_enabled', 'no')}")
+        print("  * Missing by design: user stack, user page mappings, ELF "
+              "loading, process isolation, and stable userspace ABI.")
+        if tss.get("tss_loaded") != "yes" or \
+                tss.get("kernel_stack_valid") != "yes":
+            print("  !! WARNING: TSS or ESP0 kernel stack is invalid.")
+        if privilege.get("current_cpl") not in (None, "0"):
+            print("  !! WARNING: exported kernel shell CPL is not Ring 0.")
+        if ring3_readiness.get("readiness") != "foundation_ready":
+            print("  !! WARNING: Ring 3 architectural foundation is incomplete.")
+
+    if kernel_heap:
+        print("\nKernel heap foundation:")
+        print(f"  * Available: {kernel_heap.get('available', '?')}")
+        print(f"  * Total: {kernel_heap.get('total_bytes', '?')} bytes")
+        print(f"  * Used: {kernel_heap.get('used_bytes', '?')} bytes")
+        print(f"  * Remaining: {kernel_heap.get('remaining_bytes', '?')} bytes")
+        print(f"  * Allocations: {kernel_heap.get('allocation_count', '?')}")
+        print(f"  * Failed allocations: {kernel_heap.get('failed_count', '?')}")
+        print(f"  * free(): {kernel_heap.get('free_supported', 'no')}")
+        print("  * Boundary: fixed kernel bump heap only; no userspace heap or VM.")
+        if kernel_heap.get("available") != "yes":
+            print("  !! WARNING: kernel heap unavailable.")
+        try:
+            remaining = int(kernel_heap.get("remaining_bytes", "0") or 0)
+            total = int(kernel_heap.get("total_bytes", "0") or 0)
+            if total and remaining * 10 < total:
+                print("  !! WARNING: remaining heap is below 10%.")
+        except ValueError:
+            pass
+
+    if kernel_interrupts:
+        print("\nKernel interrupt foundation:")
+        print(f"  * GDT loaded: {kernel_interrupts.get('gdt_loaded', '?')}")
+        print(f"  * IDT loaded: {kernel_interrupts.get('idt_loaded', '?')}")
+        print(f"  * IRQ gates installed: "
+              f"{kernel_interrupts.get('irq_gates_installed', '?')}")
+        print(f"  * PIC remapped: {kernel_interrupts.get('pic_remapped', '?')}")
+        print(f"  * Timer IRQ enabled: {kernel_interrupts.get('timer_enabled', '?')}")
+        print(f"  * Keyboard mode: {kernel_interrupts.get('keyboard_mode', '?')}")
+        print(f"  * Interrupts handled at export: "
+              f"{kernel_interrupts.get('interrupts_handled', '?')}")
+        for key, label in (("gdt_loaded", "GDT"), ("idt_loaded", "IDT"),
+                           ("irq_gates_installed", "IRQ gates"),
+                           ("pic_remapped", "PIC remap"),
+                           ("timer_enabled", "PIT timer IRQ")):
+            if kernel_interrupts.get(key) != "yes":
+                print(f"  !! WARNING: {label} is not operational.")
+        if kernel_interrupts.get("keyboard_mode") == "polling_fallback":
+            print("  * Keyboard IRQ was unavailable; polling fallback preserved input.")
+
+    if kernel_timing:
+        print(f"\nKernel timing: {kernel_timing.get('tick_count', '?')} ticks at "
+              f"{kernel_timing.get('frequency_hz', '?')} Hz "
+              f"({kernel_timing.get('timer_irq', '?')})")
+
+    if kernel_exceptions and kernel_exceptions.get("last_exception") != "none":
+        print("\nCPU exception evidence:")
+        print(f"  * Exception: {kernel_exceptions.get('last_exception', '?')}")
+        print(f"  * Vector: {kernel_exceptions.get('last_vector', '?')}")
+        print(f"  * Error code: {kernel_exceptions.get('last_error_code', '?')}")
+        print("  * Recovery attempted: no (intentional v2.0 safety policy)")
+
+    if kernel_tasks:
+        print("\nKernel task foundation:")
+        print(f"  * Scheduler mode: {kernel_tasks.get('scheduler_mode', '?')}")
+        print(f"  * Preemptive switching: "
+              f"{kernel_tasks.get('preemptive_switching', '?')}")
+        print(f"  * Current task: {kernel_tasks.get('running_task', '?')}")
+        print(f"  * Tasks: {kernel_tasks.get('total_tasks', '?')} total, "
+              f"{kernel_tasks.get('ready_count', '?')} ready, "
+              f"{kernel_tasks.get('sleeping_count', '?')} sleeping, "
+              f"{kernel_tasks.get('blocked_count', '?')} blocked, "
+              f"{kernel_tasks.get('crashed_count', '?')} crashed")
+        print("  * Timer IRQ accounts ticks only; task switches require an "
+              "explicit cooperative yield.")
+        blocked_count = int(kernel_tasks.get("blocked_count", "0") or 0)
+        crashed_count = int(kernel_tasks.get("crashed_count", "0") or 0)
+        if blocked_count:
+            print("  !! WARNING: blocked kernel task records require manual inspection.")
+        if crashed_count:
+            print("  !! WARNING: crashed kernel task records require manual inspection.")
+        if task_rows:
+            for task in task_rows:
+                print(f"    - {task.get('task_id', '?'):>2} "
+                      f"{task.get('name', '?'):<18} "
+                      f"{task.get('state', '?'):<9} "
+                      f"ticks={task.get('ticks_run', '?')}")
+
+    if tinyfs:
+        print("\nTinyFS status:")
+        print(f"  * Available: {tinyfs.get('available', '?')}")
+        print(f"  * Formatted: {tinyfs.get('formatted', '?')}")
+        print(f"  * Files: {tinyfs.get('file_count', '?')} / "
+              f"{tinyfs.get('max_files', '?')}")
+        print(f"  * Data starts at LBA {tinyfs.get('data_start_lba', '?')}")
+        print(f"  * Last error: {tinyfs.get('last_error', '?')}")
+        if tinyfs.get("available") != "yes":
+            print("  !! WARNING: TinyFS is unavailable because the ATA disk is missing.")
+        elif tinyfs.get("formatted") != "yes":
+            print("  !! WARNING: TinyFS is not formatted. Formatting requires the "
+                  "manual `fs-format confirm` command inside KamikazeOS.")
+        for file in tinyfs_files:
+            print(f"    - {file.get('name', '?'):<24} "
+                  f"{file.get('size', '?')} bytes")
+
+    if apps:
+        print("\nKernel-managed app model:")
+        print(f"  * Userland mode: {apps.get('userland_mode', '?')}")
+        print("  * Boundary: not real Ring 3 userspace, no ELF loader, no "
+              "process isolation, no arbitrary code execution.")
+        print(f"  * Apps: {apps.get('total_apps', '?')} fixed built-ins")
+        print(f"  * Last app: {apps.get('last_app', '?')} "
+              f"({apps.get('last_result', '?')})")
+        print(f"  * Blocked run attempts: {apps.get('blocked_attempts', '0')}")
+        for app in app_rows:
+            print(f"    - {app.get('name', '?'):<16} "
+                  f"{app.get('type', '?'):<13} "
+                  f"runs={app.get('run_count', '?')} "
+                  f"status={app.get('status', '?')} "
+                  f"last={app.get('last_result', '?')}")
+        failed = [a for a in app_rows if a.get("status") == "failed"]
+        blocked = [a for a in app_rows if a.get("status") == "blocked"]
+        blocked_events = [e for e in app_log if e.get("result") == "blocked"]
+        if failed:
+            print("  !! WARNING: one or more fixed apps failed during this boot.")
+        if blocked or blocked_events or apps.get("blocked_attempts", "0") not in ("0", ""):
+            print("  !! WARNING: app policy blocked at least one run attempt. "
+                  "This is correct for unknown or unregistered apps.")
 
     if devices:
         print("\nDevice summary:")
@@ -607,6 +1071,17 @@ def main():
             print("   Run `slots` inside KamikazeOS to find it, then verify-pkg.")
         print()
 
+    staged_states = [s for s in pkg_states
+                     if s.get("transaction_phase", "committed") not in
+                     ("committed", "legacy_unbound")]
+    if staged_states:
+        print("!! Package transaction evidence remains staged:")
+        for state in staged_states:
+            print(f"  * {state.get('id', '?')}: "
+                  f"{state.get('transaction_phase', '?')}")
+        print("   No automatic slot change is recommended. Reboot once to let the")
+        print("   kernel reconcile metadata, then inspect `packages` and `slots`.\n")
+
     # ----- RecoveryPackage analysis ------------------------------------
     if modules:
         print("Module versions:")
@@ -634,8 +1109,8 @@ def main():
                 blocked_pkgs.append(p)
             elif p.get("status") == "failed":
                 failed_pkgs.append(p)
-            elif p.get("policy_result", "allowed") == "allowed" and \
-                    p.get("signature_valid", "yes") == "yes" and \
+            elif p.get("policy_result") == "allowed" and \
+                    p.get("signature_valid") == "yes" and \
                     p.get("status") in ("available", "suggested"):
                 running = mod_ver.get(target_to_module.get(p.get("target"), ""))
                 if running == p.get("from"):
@@ -725,7 +1200,7 @@ def main():
 
 
 # --------------------------------------------------------------------------
-# FUTURE AI INTEGRATION POINT (deliberately not implemented in v1.5)
+# FUTURE AI INTEGRATION POINT (deliberately not implemented in v2.5)
 # --------------------------------------------------------------------------
 def analyze_with_ai_later(log_text: str):
     """
@@ -744,7 +1219,7 @@ def analyze_with_ai_later(log_text: str):
         as this rule-based analyzer - the policy engine, not the model,
         decides what may ever be applied automatically.
 
-    Keeping this stub un-implemented in v1.5 is intentional: the transport,
+    Keeping this stub un-implemented in v2.5 is intentional: the transport,
     format, and approval workflow get built and trusted first.
     """
     raise NotImplementedError("AI analysis arrives in a later phase - see docstring")

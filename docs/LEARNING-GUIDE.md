@@ -67,7 +67,7 @@ Before the code, the mental model.
   We skip writing a disk bootloader by using the **Multiboot** standard: we put
   a magic header in our kernel and QEMU's `-kernel` flag loads us directly. See
   [kernel/boot/boot.S](kernel/boot/boot.S).
-- **Real OS vs. "web OS" vs. Linux-based.** We chose a **real toy kernel from
+- **Real OS vs. "web OS" vs. Linux-based.** We chose a **focused research kernel from
   scratch** (you learn OS internals) plus a **host-side AI layer** (the product
   story). The reasoning — and why a browser "OS" isn't an OS — is in
   [docs/00-architecture.md §1](docs/00-architecture.md).
@@ -182,7 +182,7 @@ This is the single most important *design* decision in the project, introduced
 in Phase 2. Understand it deeply.
 
 **Concepts:**
-- **Structured vs. unstructured logs.** Normal toy kernels `print("error!")`.
+- **Structured vs. unstructured logs.** Minimal kernels often `print("error!")`.
   We log *structured events*: every entry has a stable **code**, a **severity**,
   a **component**, a **message**, and a **recovery hint**. See
   [errors.c](kernel/src/errors.c) / [errors.h](kernel/src/errors.h).

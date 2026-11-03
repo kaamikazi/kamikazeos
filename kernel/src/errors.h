@@ -2,7 +2,7 @@
  * errors.h — the kernel's structured error log.
  *
  * THIS IS THE MOST IMPORTANT "AI-NATIVE" DESIGN DECISION IN KAMIKAZEOS.
- * Normal toy kernels print loose text. KamikazeOS records *structured
+ * Minimal kernels often print loose text. KamikazeOS records *structured
  * events*: every entry has a stable error CODE, a severity, the COMPONENT
  * that raised it, a human-readable message, and — new in v0.2 — a
  * RECOVERY HINT describing what could be done about it.

@@ -33,7 +33,10 @@ CFLAGS  := --target=i686-pc-none-elf -m32 \
            -Wall -Wextra -O2 -g
 
 SRCS    := $(wildcard $(KERNEL)/src/*.c)
-OBJS    := $(BUILD)/boot.o $(patsubst $(KERNEL)/src/%.c,$(BUILD)/%.o,$(SRCS))
+ASM_SRCS:= $(wildcard $(KERNEL)/src/*.S)
+OBJS    := $(BUILD)/boot.o \
+           $(patsubst $(KERNEL)/src/%.S,$(BUILD)/%.o,$(ASM_SRCS)) \
+           $(patsubst $(KERNEL)/src/%.c,$(BUILD)/%.o,$(SRCS))
 
 .PHONY: all run run-serial clean reset-store analyze dashboard-json dashboard-open import-example-package export-manifests
 
@@ -55,6 +58,9 @@ $(BUILD)/boot.o: $(KERNEL)/boot/boot.S | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/%.o: $(KERNEL)/src/%.c | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/%.o: $(KERNEL)/src/%.S | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(ELF): $(OBJS) $(KERNEL)/linker.ld

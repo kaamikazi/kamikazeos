@@ -20,6 +20,8 @@
 #define ST_DRQ  0x08          /* data ready: CPU may use the data port    */
 #define ST_BSY  0x80          /* busy: ignore every other bit while set   */
 
+#define ST_DF   0x20
+
 /* Commands. */
 #define CMD_READ     0x20
 #define CMD_WRITE    0x30
@@ -31,6 +33,7 @@
 #define WAIT_BUDGET  100000
 
 static int present;
+static uint32_t capacity_sectors;
 
 /* ~400ns settle delay after selecting a drive: the spec says give the
    drive four status-register read cycles before trusting the bits. */
@@ -74,7 +77,7 @@ static int wait_drq(void)
 {
     for (int i = 0; i < WAIT_BUDGET; i++) {
         uint8_t st = inb(REG_STATUS);
-        if (st & ST_ERR)
+        if (st & (ST_ERR | ST_DF))
             return 0;
         if ((st & ST_BSY) == 0 && (st & ST_DRQ))
             return 1;
@@ -82,9 +85,24 @@ static int wait_drq(void)
     return 0;
 }
 
+static int completion_ok(void)
+{
+    if (!wait_not_busy())
+        return 0;
+    return (inb(REG_STATUS) & (ST_ERR | ST_DF)) == 0;
+}
+
+static int completion_ok_patient(void)
+{
+    if (!wait_not_busy_patient())
+        return 0;
+    return (inb(REG_STATUS) & (ST_ERR | ST_DF)) == 0;
+}
+
 void ata_init(void)
 {
     present = 0;
+    capacity_sectors = 0;
 
     /* A "floating bus" reads 0xFF: no controller at all. */
     if (inb(REG_STATUS) == 0xFF) {
@@ -117,10 +135,24 @@ void ata_init(void)
         return;
     }
 
-    /* Drain the 256-word IDENTIFY block. We only need "it exists" today;
-       capacity/model live in here when a later phase wants them. */
-    for (int i = 0; i < 256; i++)
-        (void)inw(REG_DATA);
+    uint16_t word49 = 0;
+    uint16_t word60 = 0;
+    uint16_t word61 = 0;
+    for (int i = 0; i < 256; i++) {
+        uint16_t word = inw(REG_DATA);
+        if (i == 49) word49 = word;
+        if (i == 60) word60 = word;
+        if (i == 61) word61 = word;
+    }
+
+    capacity_sectors = (uint32_t)word60 | ((uint32_t)word61 << 16);
+    if ((word49 & (1u << 9)) == 0 || capacity_sectors == 0) {
+        capacity_sectors = 0;
+        error_log(SEV_WARNING, "STORE-WARN-007", "ata",
+                  "ATA disk lacks a valid LBA28 capacity",
+                  "durable storage disabled rather than guessing bounds");
+        return;
+    }
 
     present = 1;
     error_log(SEV_INFO, "STORE-000", "ata",
@@ -130,6 +162,17 @@ void ata_init(void)
 int ata_available(void)
 {
     return present;
+}
+
+uint32_t ata_capacity_sectors(void)
+{
+    return present ? capacity_sectors : 0;
+}
+
+static int request_valid(uint32_t lba, const void *buffer)
+{
+    return present && buffer != 0 && lba < capacity_sectors &&
+           lba <= 0x0FFFFFFFu;
 }
 
 /* Program the address registers for a one-sector LBA28 command. */
@@ -159,7 +202,7 @@ static int read_sector_once(uint32_t lba, uint8_t *buffer)
         buffer[i * 2]     = (uint8_t)(w & 0xFF);
         buffer[i * 2 + 1] = (uint8_t)(w >> 8);
     }
-    return 1;
+    return completion_ok();
 }
 
 static int write_sector_once(uint32_t lba, const uint8_t *buffer)
@@ -180,10 +223,10 @@ static int write_sector_once(uint32_t lba, const uint8_t *buffer)
     /* Make it DURABLE: flush the drive's write cache, then wait. Recovery
        state that only reached a volatile cache would defeat the point.
        Flush = host fsync in QEMU: wait PATIENTLY (see above). */
-    if (!wait_not_busy_patient())
+    if (!completion_ok_patient())
         return 0;
     outb(REG_COMMAND, CMD_FLUSH);
-    return wait_not_busy_patient();
+    return completion_ok_patient();
 }
 
 /*
@@ -195,7 +238,7 @@ static int write_sector_once(uint32_t lba, const uint8_t *buffer)
  */
 int ata_read_sector(uint32_t lba, uint8_t *buffer)
 {
-    if (!present)
+    if (!request_valid(lba, buffer))
         return 0;
     if (read_sector_once(lba, buffer))
         return 1;
@@ -205,7 +248,7 @@ int ata_read_sector(uint32_t lba, uint8_t *buffer)
 
 int ata_write_sector(uint32_t lba, const uint8_t *buffer)
 {
-    if (!present)
+    if (!request_valid(lba, buffer))
         return 0;
     if (write_sector_once(lba, buffer))
         return 1;

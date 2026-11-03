@@ -48,10 +48,10 @@ static void sync_module_versions(void)
                            module_slot_active_version(&slots[i]));
 }
 
-void module_slots_save(void)
+int module_slots_save(void)
 {
     if (!ata_available())
-        return;
+        return 0;
 
     uint8_t sec[ATA_SECTOR_SIZE];
     kmemset(sec, 0, sizeof(sec));
@@ -81,7 +81,7 @@ void module_slots_save(void)
         sum = (uint8_t)(sum + sec[i]);
     sec[used] = (uint8_t)(0u - sum);
 
-    ata_write_sector(LBA_SLOTS, sec);
+    return ata_write_sector(LBA_SLOTS, sec);
 }
 
 void module_slots_init(void)
@@ -119,6 +119,10 @@ void module_slots_init(void)
                     slots[i].active_slot     = f[0] == SLOT_B ? SLOT_B : SLOT_A;
                     slots[i].slot_a_verified = f[1] ? 1 : 0;
                     slots[i].slot_b_verified = f[2] ? 1 : 0;
+                    if (f[3] != SLOT_NONE && f[3] != SLOT_A && f[3] != SLOT_B) {
+                        load_defaults();
+                        goto synced;
+                    }
                     slots[i].rollback_slot   = f[3];
                     slots[i].pending_verify  = f[4] ? 1 : 0;
                 }
@@ -133,11 +137,18 @@ synced:
     sync_module_versions();
 }
 
-void module_slots_clear(void)
+int module_slots_clear(void)
 {
+    struct module_slot previous[SLOT_MODULE_COUNT];
+    memcpy(previous, slots, sizeof(previous));
     load_defaults();
     sync_module_versions();
-    module_slots_save();
+    if (!module_slots_save()) {
+        memcpy(slots, previous, sizeof(previous));
+        sync_module_versions();
+        return 0;
+    }
+    return 1;
 }
 
 uint32_t module_slot_count(void) { return SLOT_MODULE_COUNT; }

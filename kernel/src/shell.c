@@ -3,19 +3,27 @@
  * In this phase the shell runs INSIDE the kernel (there's no userspace yet):
  * read a line from the keyboard, match it against a command table, run the
  * handler. Real OSes run shells as unprivileged processes — that separation
- * arrives when we have processes and syscalls.
+ * still requires a Ring 3 process boundary; v2.5 does not execute Ring 3.
  */
 #include "shell.h"
+#include "app.h"
+#include "ata.h"
 #include "boot_snapshot.h"
 #include "errors.h"
+#include "gdt.h"
 #include "module_slots.h"
 #include "module_versions.h"
 #include "package_manifest.h"
 #include "package_state.h"
+#include "paging.h"
 #include "recovery_package.h"
 #include "ghostattach.h"
+#include "idt.h"
+#include "interrupts.h"
 #include "io.h"
+#include "kheap.h"
 #include "keyboard.h"
+#include "memory.h"
 #include "panic.h"
 #include "recovery_actions.h"
 #include "recovery_memory.h"
@@ -24,6 +32,13 @@
 #include "report.h"
 #include "serial.h"
 #include "string.h"
+#include "syscall.h"
+#include "pic.h"
+#include "privilege.h"
+#include "timer.h"
+#include "task.h"
+#include "tinyfs.h"
+#include "tss.h"
 #include "vga.h"
 
 /*
@@ -109,6 +124,54 @@ static void print_entry(const struct kerror *e)
     vga_print("\n");
 }
 
+static int last_critical_issue(struct kerror *out)
+{
+    struct kerror e;
+    int found = 0;
+    for (uint32_t i = 0; error_get(i, &e); i++) {
+        if (e.severity >= SEV_ERROR) {
+            if (out)
+                *out = e;
+            found = 1;
+        }
+    }
+    return found;
+}
+
+static const char *first_manual_command(void)
+{
+    if (module_slots_pending_verify())
+        return "verify-pkg <id>";
+    for (uint32_t i = 0; i < recovery_action_count(); i++) {
+        const struct recovery_action *a = recovery_action(i);
+        if (a->status == ACTST_SUGGESTED) {
+            if (kstrcmp(a->action_id, "ACT-001") == 0)
+                return "approve ACT-001";
+            if (kstrcmp(a->action_id, "ACT-004") == 0)
+                return "approve ACT-004";
+            return "review suggestions";
+        }
+    }
+    return "none";
+}
+
+static int parse_u32_dec(const char *s, uint32_t *out)
+{
+    uint32_t value = 0;
+    if (!s || s[0] == '\0' || !out)
+        return 0;
+    for (uint32_t i = 0; s[i] != '\0'; i++) {
+        if (s[i] < '0' || s[i] > '9')
+            return 0;
+        uint32_t digit = (uint32_t)(s[i] - '0');
+        if (value > (0xFFFFFFFFu - digit) / 10u)
+            return 0;
+        value = value * 10u + digit;
+    }
+    *out = value;
+    return 1;
+}
+
 /* ------------------------------------------------------------------ */
 /* Commands                                                             */
 /* ------------------------------------------------------------------ */
@@ -119,6 +182,8 @@ static void cmd_help(void)
     vga_print("  help        show this list\n");
     vga_print("  clear       clear the screen\n");
     vga_print("  about       OS version, mission, CPU info\n");
+    vga_print("  system      integrated v2.5 system readiness summary\n");
+    vga_print("  diagnose    compact full-system diagnostic summary\n");
     vga_print("  devices     GhostAttach device status table\n");
     vga_print("  drivers     GhostAttach driver registry table\n");
     vga_print("  ghostattach explain the driver recovery layer + scan status\n");
@@ -126,6 +191,40 @@ static void cmd_help(void)
     vga_print("  log         show the full structured log\n");
     vga_print("  logs-ai     print logs in machine-readable AI format\n");
     vga_print("  export-logs send full boot report to serial for AI analysis\n");
+    vga_print("  interrupts  show IDT PIC IRQ and exception status\n");
+    vga_print("  ticks       show the live PIT timer tick count\n");
+    vga_print("  mem         show physical memory totals and kernel bounds\n");
+    vga_print("  memmap      show Multiboot memory regions or fallback map\n");
+    vga_print("  pages       show 4 KiB physical page tracker summary\n");
+    vga_print("  heap        show fixed kernel heap allocator stats\n");
+    vga_print("  heap-test   run safe small bump allocator checks\n");
+    vga_print("  heap-alloc <bytes> allocate bytes from the bounded kernel heap\n");
+    vga_print("  paging      show paging preparation and enable status\n");
+    vga_print("  page-map    show compact identity map summary\n");
+    vga_print("  pagefault-test confirm  trigger a page fault only if paging is enabled\n");
+    vga_print("  syscalls    show the fixed kernel-internal syscall registry\n");
+    vga_print("  syscall-test exercise safe syscalls with kernel-owned arguments\n");
+    vga_print("  syscall <id> invoke one syscall with controlled arguments\n");
+    vga_print("  privilege   show privilege-boundary status and current CPL\n");
+    vga_print("  gdt         show kernel, user, and TSS selectors\n");
+    vga_print("  tss         show TSS, esp0, and transition stack status\n");
+    vga_print("  ring3-readiness show foundation checklist; execution stays off\n");
+    vga_print("  tasks       show the fixed kernel task table\n");
+    vga_print("  task-current show the current logical kernel task\n");
+    vga_print("  task-yield  cooperatively run one ready task step\n");
+    vga_print("  task-demo   run one round of safe built-in task steps\n");
+    vga_print("  apps        show fixed kernel-managed app registry\n");
+    vga_print("  app <name>  show details for one registered app\n");
+    vga_print("  run <name>  run a fixed built-in app through policy\n");
+    vga_print("  app-log     show app run and block history\n");
+    vga_print("  fs          show TinyFS status and fixed LBA range\n");
+    vga_print("  fs-format confirm   format only TinyFS LBA 64-127\n");
+    vga_print("  ls          list TinyFS files\n");
+    vga_print("  touch <name> create an empty TinyFS file\n");
+    vga_print("  write <name> <text> store bounded text\n");
+    vga_print("  cat <name>  read and verify a TinyFS text file\n");
+    vga_print("  rm <name>   delete a TinyFS file\n");
+    vga_print("  exceptions-test <type> confirm  trigger a controlled CPU fault\n");
     vga_print("  recovery    show recovery system status\n");
     vga_print("  actions     show the fixed recovery action catalog\n");
     vga_print("  suggestions show currently suggested recovery actions\n");
@@ -163,16 +262,502 @@ static void cmd_about(void)
     cpu_vendor(vendor);
 
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
-    vga_print("KamikazeOS v1.5.0 \"Public Demo Release\"\n");
+    vga_print("KamikazeOS v2.5.0 \"Privilege Boundary\"\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
-    vga_print("An experimental AI-native, self-healing operating system.\n");
-    vga_print("v1.5: stable public demo package. Trust Forge signing and\n");
-    vga_print("Recovery Center Pro remain the headline demo flows.\n\n");
+    vga_print("Experimental OS research prototype for auditable recovery.\n");
+    vga_print("v2.5: DPL3 user segments, TSS, ESP0 stack, and gated int 0x80.\n");
+    vga_print("Ring 3 execution remains disabled; no user pages or user stack.\n\n");
     vga_print("  Architecture : x86 (i686), 32-bit protected mode\n");
     vga_print("  CPU vendor   : ");
     vga_print(vendor);
     vga_print("\n  Boot         : Multiboot v1 (QEMU -kernel)\n");
     vga_print("  AI core      : offline (logs are exported for later analysis)\n");
+}
+
+static void cmd_system(void)
+{
+    const struct tinyfs_status_info *fs = tinyfs_status();
+    struct health_breakdown hb;
+    struct kerror last;
+    boot_snapshot_health_now(&hb);
+
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    const struct memory_status *mem = memory_status();
+    struct page_status pages;
+    memory_pages(&pages);
+
+    struct kheap_stats hs;
+    kheap_stats(&hs);
+
+    const struct paging_status *pg = paging_status();
+
+    struct syscall_stats sys;
+    syscall_stats(&sys);
+
+    vga_print("KamikazeOS v2.5 System Status:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print("  Kernel version      : "); vga_print(module_version_of(MOD_KERNEL)); vga_print("\n");
+    vga_print("  Interrupts          : IDT "); vga_print(idt_is_loaded() ? "yes" : "no");
+    vga_print(", PIC "); vga_print(pic_is_remapped() ? "yes" : "no"); vga_print("\n");
+    vga_print("  Timer ticks         : "); vga_print_dec(timer_ticks()); vga_print("\n");
+    vga_print("  Keyboard mode       : "); vga_print(keyboard_mode_name()); vga_print("\n");
+    vga_print("  Task count          : "); vga_print_dec(task_count()); vga_print("\n");
+    vga_print("  Memory map          : "); vga_print(mem->map_available ? "multiboot" : "fallback");
+    vga_print(" usable="); vga_print_dec(mem->usable_kib); vga_print(" KiB\n");
+    vga_print("  Free pages          : "); vga_print_dec(pages.free_pages);
+    vga_print("/"); vga_print_dec(pages.total_pages); vga_print("\n");
+    vga_print("  Kernel heap         : ");
+    vga_print(hs.available ? "available" : "unavailable");
+    vga_print(" remaining="); vga_print_dec(hs.remaining_bytes); vga_print(" bytes\n");
+    vga_print("  Paging              : ");
+    vga_print(pg->mode);
+    vga_print(" identity=");
+    vga_print(pg->identity_map_valid ? "yes" : "no");
+    vga_print("\n");
+    vga_print("  Syscall gate        : "); vga_print(sys.initialized ? "ready" : "unavailable");
+    vga_print(" vector="); vga_print_hex(sys.vector);
+    vga_print(" calls="); vga_print_dec(sys.total_calls); vga_print("\n");
+    vga_print("  TinyFS              : ");
+    vga_print(fs->available ? (fs->formatted ? "formatted" : "not_formatted") : "unavailable");
+    vga_print(" files="); vga_print_dec(fs->file_count); vga_print("\n");
+    vga_print("  App registry        : "); vga_print_dec(app_count()); vga_print(" fixed built-ins\n");
+    vga_print("  RecoveryStore       : "); vga_print(recovery_memory_backend()); vga_print("\n");
+    vga_print("  Health score        : "); vga_print_dec((uint32_t)hb.score); vga_print("/100\n");
+    vga_print("  Package trust mode  : host Ed25519 real, kernel simulated\n");
+    vga_print("  Last critical issue : ");
+    if (last_critical_issue(&last)) {
+        vga_print(last.code); vga_print(" "); vga_print(last.component);
+    } else {
+        vga_print("none");
+    }
+    vga_print("\n");
+}
+
+static void cmd_diagnose(void)
+{
+    struct ghostattach_stats st;
+    struct health_breakdown hb;
+    const struct tinyfs_status_info *fs = tinyfs_status();
+    ghostattach_get_stats(&st);
+    boot_snapshot_health_now(&hb);
+
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("KamikazeOS v2.5 Diagnostic Summary:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print("  Devices : total="); vga_print_dec(st.total);
+    vga_print(" attached="); vga_print_dec(st.attached);
+    vga_print(" fallback="); vga_print_dec(st.fallback);
+    vga_print(" missing="); vga_print_dec(st.missing);
+    vga_print(" isolated="); vga_print_dec(st.isolated); vga_print("\n");
+    vga_print("  Drivers : verified policy active, blocked_unverified path tested\n");
+    const struct memory_status *mem = memory_status();
+    struct page_status pages;
+    memory_pages(&pages);
+    struct kheap_stats hs;
+    kheap_stats(&hs);
+    vga_print("  Memory  : map="); vga_print(mem->map_available ? "multiboot" : "fallback");
+    vga_print(" usable_kib="); vga_print_dec(mem->usable_kib);
+    vga_print(" free_pages="); vga_print_dec(pages.free_pages); vga_print("\n");
+    vga_print("  Heap    : available="); vga_print(hs.available ? "yes" : "no");
+    vga_print(" used="); vga_print_dec(hs.used_bytes);
+    vga_print(" remaining="); vga_print_dec(hs.remaining_bytes);
+    vga_print(" free_supported=no\n");
+    const struct paging_status *pg = paging_status();
+    vga_print("  Paging : prepared="); vga_print(pg->prepared ? "yes" : "no");
+    vga_print(" enabled="); vga_print(pg->enabled ? "yes" : "no");
+    vga_print(" identity="); vga_print(pg->identity_map_valid ? "yes" : "no");
+    vga_print("\n");
+    struct syscall_stats sys;
+    syscall_stats(&sys);
+    vga_print("  Syscalls: initialized="); vga_print(sys.initialized ? "yes" : "no");
+    vga_print(" registered="); vga_print_dec(sys.registered_count);
+    vga_print(" failed="); vga_print_dec(sys.failed_calls); vga_print("\n");
+    vga_print("  Tasks   : total="); vga_print_dec(task_count());
+    vga_print(" ready="); vga_print_dec(task_count_state(TASK_READY));
+    vga_print(" crashed="); vga_print_dec(task_count_state(TASK_CRASHED)); vga_print("\n");
+    vga_print("  TinyFS  : "); vga_print(fs->formatted ? "formatted" : "not_ready");
+    vga_print(" files="); vga_print_dec(fs->file_count); vga_print(" last=");
+    vga_print(fs->last_error); vga_print("\n");
+    vga_print("  Apps    : fixed="); vga_print_dec(app_count());
+    vga_print(" blocked_runs="); vga_print_dec(app_blocked_attempts()); vga_print("\n");
+    vga_print("  Recovery: backend="); vga_print(recovery_memory_backend());
+    vga_print(" journal="); vga_print_dec(recovery_journal_count()); vga_print("\n");
+    vga_print("  Packages: manifests="); vga_print_dec(manifest_count());
+    vga_print(" pending_verify="); vga_print(module_slots_pending_verify() ? "yes" : "no");
+    vga_print("\n  Health  : "); vga_print_dec((uint32_t)hb.score); vga_print("/100\n");
+    vga_print("  Next    : "); vga_print(first_manual_command()); vga_print("\n");
+    vga_print("No automatic repair was attempted.\n");
+}
+
+static void cmd_mem(void)
+{
+    const struct memory_status *m = memory_status();
+
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("Kernel Memory Status:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print("  memory map       : ");
+    vga_print(m->map_available ? "multiboot" : "fallback");
+    if (m->fallback_used)
+        vga_print(" (safe fallback)");
+    vga_print("\n  regions          : "); vga_print_dec(m->region_count);
+    vga_print("\n  total memory     : "); vga_print_dec(m->total_kib); vga_print(" KiB");
+    vga_print("\n  usable memory    : "); vga_print_dec(m->usable_kib); vga_print(" KiB");
+    vga_print("\n  reserved memory  : "); vga_print_dec(m->reserved_kib); vga_print(" KiB");
+    vga_print("\n  kernel start     : "); vga_print_hex(m->kernel_start);
+    vga_print("\n  kernel end       : "); vga_print_hex(m->kernel_end);
+    vga_print("\n  heap region      : "); vga_print_hex(m->heap_start);
+    vga_print(" - "); vga_print_hex(m->heap_end);
+    vga_print("\n  allocation mode  : "); vga_print(m->allocation_mode);
+    vga_print("\n");
+}
+
+static void cmd_memmap(void)
+{
+    const struct memory_status *m = memory_status();
+    struct memory_region r;
+
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("Physical Memory Map:\n");
+    vga_set_color(VGA_DARK_GREY, VGA_BLACK);
+    vga_print("Idx  Base        Length      KiB       Type\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+
+    if (!m->map_available)
+        vga_print("  note: Multiboot map unavailable; showing fallback map.\n");
+
+    for (uint32_t i = 0; memory_region_get(i, &r); i++) {
+        if (i < 10) vga_putc('0');
+        vga_print_dec(i);
+        vga_print("   ");
+        vga_print_hex(r.base);
+        vga_print("  ");
+        vga_print_hex(r.length);
+        vga_print("  ");
+        vga_print_dec(r.length / 1024u);
+        vga_print("  ");
+        vga_print(memory_region_type_name(r.type));
+        vga_print("\n");
+    }
+}
+
+static void cmd_pages(void)
+{
+    struct page_status p;
+    memory_pages(&p);
+
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("Physical Page Tracker:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print("  page size             : "); vga_print_dec(p.page_size); vga_print(" bytes\n");
+    vga_print("  tracked limit         : "); vga_print_dec(p.tracked_limit_kib); vga_print(" KiB\n");
+    vga_print("  total tracked pages   : "); vga_print_dec(p.total_pages); vga_print("\n");
+    vga_print("  free pages            : "); vga_print_dec(p.free_pages); vga_print("\n");
+    vga_print("  used/reserved pages   : "); vga_print_dec(p.used_pages); vga_print("\n");
+    vga_print("  low-memory reserved   : "); vga_print_dec(p.reserved_low_pages); vga_print("\n");
+    vga_print("  kernel reserved       : "); vga_print_dec(p.reserved_kernel_pages); vga_print("\n");
+    vga_print("  heap reserved         : "); vga_print_dec(p.reserved_heap_pages); vga_print("\n");
+    vga_print("No virtual memory or page allocation API is active yet.\n");
+}
+
+static void print_heap_stats(void)
+{
+    struct kheap_stats h;
+    kheap_stats(&h);
+    vga_print("  available         : "); vga_print(h.available ? "yes" : "no"); vga_print("\n");
+    vga_print("  heap start        : "); vga_print_hex(h.heap_start); vga_print("\n");
+    vga_print("  heap end          : "); vga_print_hex(h.heap_end); vga_print("\n");
+    vga_print("  total bytes       : "); vga_print_dec(h.total_bytes); vga_print("\n");
+    vga_print("  used bytes        : "); vga_print_dec(h.used_bytes); vga_print("\n");
+    vga_print("  remaining bytes   : "); vga_print_dec(h.remaining_bytes); vga_print("\n");
+    vga_print("  allocations       : "); vga_print_dec(h.allocation_count); vga_print("\n");
+    vga_print("  failed allocations: "); vga_print_dec(h.failed_count); vga_print("\n");
+    vga_print("  high water mark   : "); vga_print_dec(h.high_water_mark); vga_print("\n");
+    vga_print("  free_supported    : no\n");
+}
+
+static void cmd_heap(void)
+{
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("Kernel Heap Status:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    print_heap_stats();
+    vga_print("Design: fixed bounded bump allocator; no free(), no growth.\n");
+}
+
+static void cmd_heap_test(void)
+{
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("Kernel Heap Test:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    if (!kheap_available()) {
+        vga_print("  heap unavailable - cannot run allocation test\n");
+        return;
+    }
+
+    void *a = kheap_alloc(16);
+    void *b = kheap_alloc(33);
+    void *c = kheap_alloc(128);
+    vga_print("  alloc 16  -> "); vga_print(a ? "ok " : "fail ");
+    if (a) vga_print_hex((uint32_t)a); vga_print("\n");
+    vga_print("  alloc 33  -> "); vga_print(b ? "ok " : "fail ");
+    if (b) vga_print_hex((uint32_t)b); vga_print("\n");
+    vga_print("  alloc 128 -> "); vga_print(c ? "ok " : "fail ");
+    if (c) vga_print_hex((uint32_t)c); vga_print("\n");
+    print_heap_stats();
+}
+
+static void cmd_heap_alloc(const char *arg)
+{
+    uint32_t bytes = 0;
+    if (!parse_u32_dec(arg, &bytes)) {
+        vga_print("Usage: heap-alloc <decimal-bytes>\n");
+        return;
+    }
+    void *ptr = kheap_alloc(bytes);
+    if (!ptr) {
+        vga_set_color(VGA_LIGHT_RED, VGA_BLACK);
+        vga_print("Allocation refused.");
+        vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+        vga_print(" Size was zero, oversized, or outside heap bounds.\n");
+        print_heap_stats();
+        return;
+    }
+    vga_set_color(VGA_LIGHT_GREEN, VGA_BLACK);
+    vga_print("Allocated ");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print_dec(bytes);
+    vga_print(" bytes at ");
+    vga_print_hex((uint32_t)ptr);
+    vga_print(" (16-byte aligned bump allocation)\n");
+    print_heap_stats();
+}
+
+static void cmd_paging(void)
+{
+    const struct paging_status *pg = paging_status();
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("Paging Status:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print("  prepared              : "); vga_print(pg->prepared ? "yes" : "no"); vga_print("\n");
+    vga_print("  enabled               : "); vga_print(pg->enabled ? "yes" : "no"); vga_print("\n");
+    vga_print("  mode                  : "); vga_print(pg->mode); vga_print("\n");
+    vga_print("  identity map validated: "); vga_print(pg->identity_map_valid ? "yes" : "no"); vga_print("\n");
+    vga_print("  required ranges valid : "); vga_print(pg->required_ranges_valid ? "yes" : "no"); vga_print("\n");
+    vga_print("  GDT and exception IDT : "); vga_print(pg->prerequisites_valid ? "ready" : "missing"); vga_print("\n");
+    vga_print("  page directory        : "); vga_print_hex(pg->page_directory); vga_print("\n");
+    vga_print("  active CR3            : "); vga_print_hex(pg->active_cr3); vga_print("\n");
+    vga_print("  mapped start          : "); vga_print_hex(pg->mapped_start); vga_print("\n");
+    vga_print("  mapped end            : "); vga_print_hex(pg->mapped_end); vga_print("\n");
+    vga_print("  page fault handler    : "); vga_print(pg->page_fault_handler); vga_print("\n");
+    vga_print("  validation error      : "); vga_print(pg->validation_error); vga_print("\n");
+    vga_print("  last fault address    : ");
+    if (pg->last_fault_present) vga_print_hex(pg->last_fault_address);
+    else vga_print("none");
+    vga_print("\n");
+}
+
+static void cmd_page_map(void)
+{
+    const struct paging_status *pg = paging_status();
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("Page Map Summary:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print("  map type       : supervisor identity\n");
+    vga_print("  mode           : "); vga_print(pg->mode); vga_print("\n");
+    vga_print("  virtual start  : "); vga_print_hex(pg->mapped_start); vga_print("\n");
+    vga_print("  virtual end    : "); vga_print_hex(pg->mapped_end); vga_print("\n");
+    vga_print("  physical start : "); vga_print_hex(pg->mapped_start); vga_print("\n");
+    vga_print("  physical end   : "); vga_print_hex(pg->mapped_end); vga_print("\n");
+    vga_print("  flags          : present,writable,supervisor\n");
+    vga_print("  validated      : "); vga_print(pg->identity_map_valid ? "yes" : "no"); vga_print("\n");
+    vga_print("\nRequired runtime ranges:\n");
+    for (uint32_t i = 0; i < paging_range_count(); i++) {
+        struct paging_range range;
+        if (!paging_range_get(i, &range))
+            continue;
+        vga_print("  "); vga_print(range.name); vga_print("  ");
+        vga_print_hex(range.start); vga_print("-"); vga_print_hex(range.end);
+        vga_print("  "); vga_print(range.validated ? "mapped" : "INVALID");
+        vga_print("\n");
+    }
+    vga_print("Paging is enabled only after every required range validates.\n");
+}
+
+static void cmd_pagefault_test(const char *arg)
+{
+    if (kstrcmp(arg, "confirm") != 0) {
+        vga_print("This test intentionally triggers a page fault and halts.\n");
+        vga_print("It is disabled unless you type exactly: pagefault-test confirm\n");
+        return;
+    }
+    if (!paging_is_enabled()) {
+        vga_print("Page fault test refused: paging is not enabled.\n");
+        vga_print("Inspect paging validation status before testing faults.\n");
+        return;
+    }
+    vga_print("Triggering an intentional unmapped access; the kernel will halt.\n");
+    paging_trigger_pagefault_test();
+}
+
+static void print_syscall_result(uint32_t id, int32_t result, uint32_t value)
+{
+    vga_print("  ");
+    vga_print_dec(id);
+    vga_print(" ");
+    print_col(syscall_name(id), 16);
+    vga_print(syscall_result_name(result));
+    vga_print(" value=");
+    vga_print_dec(value);
+    if (syscall_last_text()[0] != '\0') {
+        vga_print(" text=");
+        vga_print(syscall_last_text());
+    }
+    vga_print("\n");
+}
+
+static int32_t invoke_controlled_syscall(uint32_t id, uint32_t *value)
+{
+    uint32_t arg0 = 0;
+    if (id == SYS_WRITE_CONSOLE)
+        arg0 = 1;
+    return syscall_invoke_test(id, arg0, 0, 0, value);
+}
+
+static void cmd_syscalls(void)
+{
+    struct syscall_stats stats;
+    syscall_stats(&stats);
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("Kernel Syscall Gate:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print("  initialized        : "); vga_print(stats.initialized ? "yes" : "no"); vga_print("\n");
+    vga_print("  vector             : "); vga_print_hex(stats.vector); vga_print("\n");
+    vga_print("  registered count   : "); vga_print_dec(stats.registered_count); vga_print("\n");
+    vga_print("  total calls        : "); vga_print_dec(stats.total_calls); vga_print("\n");
+    vga_print("  failed calls       : "); vga_print_dec(stats.failed_calls); vga_print("\n");
+    vga_print("  last syscall       : ");
+    if (stats.last_id == 0xFFFFFFFFu) vga_print("none");
+    else { vga_print_dec(stats.last_id); vga_print(" "); vga_print(syscall_name(stats.last_id)); }
+    vga_print("\n");
+    vga_print("  last result        : ");
+    vga_print(stats.last_id == 0xFFFFFFFFu ? "none" : syscall_result_name(stats.last_result));
+    vga_print("\n");
+    vga_print("  user mode available: no\n");
+    vga_print("  gate DPL           : "); vga_print_dec(stats.gate_dpl); vga_print("\n");
+    vga_print("  syscall user gate  : "); vga_print(stats.syscall_user_gate ? "enabled" : "disabled"); vga_print("\n");
+    vga_print("  pointer arguments  : no\n\n");
+    vga_print("ID  Name             Arguments\n");
+    for (uint32_t i = 0; i < syscall_table_count(); i++) {
+        const struct syscall_descriptor *entry = syscall_table_get(i);
+        vga_print("  "); vga_print_dec(entry->id); vga_print(" ");
+        print_col(entry->name, 16);
+        vga_print(entry->argument_mode); vga_print("\n");
+    }
+}
+
+static void cmd_gdt(void)
+{
+    struct gdt_status status;
+    gdt_status(&status);
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("Global Descriptor Table:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print("  loaded              : "); vga_print(status.loaded ? "yes" : "no"); vga_print("\n");
+    vga_print("  kernel code selector: "); vga_print_hex(status.kernel_code_selector); vga_print(" DPL 0\n");
+    vga_print("  kernel data selector: "); vga_print_hex(status.kernel_data_selector); vga_print(" DPL 0\n");
+    vga_print("  user code selector  : "); vga_print_hex(status.user_code_selector); vga_print(" DPL 3\n");
+    vga_print("  user data selector  : "); vga_print_hex(status.user_data_selector); vga_print(" DPL 3\n");
+    vga_print("  TSS selector        : "); vga_print_hex(status.tss_selector); vga_print("\n");
+    vga_print("  user segments valid : "); vga_print(status.user_segments_valid ? "yes" : "no"); vga_print("\n");
+    vga_print("  TSS descriptor valid: "); vga_print(status.tss_descriptor_valid ? "yes" : "no"); vga_print("\n");
+}
+
+static void cmd_tss(void)
+{
+    struct tss_status status;
+    tss_status(&status);
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("32-bit Task State Segment:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print("  initialized       : "); vga_print(status.initialized ? "yes" : "no"); vga_print("\n");
+    vga_print("  descriptor valid  : "); vga_print(status.descriptor_valid ? "yes" : "no"); vga_print("\n");
+    vga_print("  task register     : "); vga_print(status.loaded ? "loaded" : "not_loaded"); vga_print("\n");
+    vga_print("  selector          : "); vga_print_hex(status.selector); vga_print("\n");
+    vga_print("  SS0               : "); vga_print_hex(status.ss0); vga_print("\n");
+    vga_print("  ESP0              : "); vga_print_hex(status.esp0); vga_print("\n");
+    vga_print("  transition stack  : "); vga_print_hex(status.stack_bottom); vga_print("-"); vga_print_hex(status.stack_top); vga_print("\n");
+    vga_print("  stack bytes       : "); vga_print_dec(status.stack_size); vga_print("\n");
+    vga_print("  stack valid       : "); vga_print(status.kernel_stack_valid ? "yes" : "no"); vga_print("\n");
+    vga_print("  guard policy      : "); vga_print(status.guard_policy); vga_print("\n");
+    vga_print("  hardware switching: no\n");
+}
+
+static void print_privilege_check(const char *name, int ready)
+{
+    vga_print("  "); print_col(name, 25); vga_print(ready ? "ready" : "MISSING"); vga_print("\n");
+}
+
+static void cmd_privilege(void)
+{
+    struct privilege_status status;
+    privilege_status(&status);
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("Privilege Boundary:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print("  current CPL        : "); vga_print_dec(status.current_cpl); vga_print(" (kernel shell remains Ring 0)\n");
+    vga_print("  syscall gate DPL   : "); vga_print_dec(status.syscall_gate_dpl); vga_print("\n");
+    vga_print("  syscall user gate  : "); vga_print(status.syscall_gate_dpl == 3u ? "enabled" : "disabled"); vga_print("\n");
+    vga_print("  foundation ready   : "); vga_print(status.foundation_ready ? "yes" : "no"); vga_print("\n");
+    vga_print("  execution enabled  : no\n");
+    vga_print("  bootstrap stack    : "); vga_print_hex(status.bootstrap_stack_bottom); vga_print("-"); vga_print_hex(status.bootstrap_stack_top); vga_print("\n");
+    vga_print("  transition stack   : "); vga_print_hex(status.transition_stack_bottom); vga_print("-"); vga_print_hex(status.transition_stack_top); vga_print("\n");
+    vga_print("  ESP0               : "); vga_print_hex(status.esp0); vga_print("\n");
+    vga_print("  guard policy       : "); vga_print(status.guard_policy); vga_print("\n");
+}
+
+static void cmd_ring3_readiness(void)
+{
+    struct privilege_status status;
+    privilege_status(&status);
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("Ring 3 Foundation Readiness:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    print_privilege_check("kernel GDT", status.gdt_loaded);
+    print_privilege_check("user DPL3 segments", status.user_segments_valid);
+    print_privilege_check("TSS loaded", status.tss_loaded);
+    print_privilege_check("SS0:ESP0 kernel stack", status.kernel_stack_valid);
+    print_privilege_check("paging enabled", status.paging_enabled);
+    print_privilege_check("syscall gate DPL3", status.syscall_gate_installed && status.syscall_gate_dpl == 3u);
+    vga_print("  readiness               : "); vga_print(status.foundation_ready ? "foundation_ready" : "not_ready"); vga_print("\n");
+    vga_print("  ring3_execution_enabled : no\n");
+    vga_print("Missing by design: user stack, user pages, ELF loader, isolation.\n");
+}
+
+static void cmd_syscall_test(void)
+{
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("Controlled Syscall Test:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    for (uint32_t i = 0; i < syscall_table_count(); i++) {
+        const struct syscall_descriptor *entry = syscall_table_get(i);
+        uint32_t value = 0;
+        int32_t result = invoke_controlled_syscall(entry->id, &value);
+        print_syscall_result(entry->id, result, value);
+    }
+    vga_print("Raw pointers are not part of the v2.5 syscall ABI.\n");
+}
+
+static void cmd_syscall(const char *arg)
+{
+    uint32_t id = 0;
+    if (!parse_u32_dec(arg, &id)) {
+        vga_print("Usage: syscall <decimal-id>\n");
+        return;
+    }
+    uint32_t value = 0;
+    int32_t result = invoke_controlled_syscall(id, &value);
+    print_syscall_result(id, result, value);
 }
 
 /*
@@ -219,6 +804,7 @@ static void cmd_devices(void)
     vga_print("   fallback: ");    vga_print_dec(st.fallback);
     vga_print("   missing: ");     vga_print_dec(st.missing);
     vga_print("   isolated: ");    vga_print_dec(st.isolated);
+    vga_print("   expected tests: "); vga_print_dec(st.expected_test_failures);
     vga_print("\n");
 }
 
@@ -286,6 +872,9 @@ static void cmd_ghostattach(void)
     vga_print_dec(st.fallback);  vga_print(" fallback, ");
     vga_print_dec(st.missing);   vga_print(" missing, ");
     vga_print_dec(st.isolated);  vga_print(" isolated\n\n");
+    vga_print("Expected self-test canary failures: ");
+    vga_print_dec(st.expected_test_failures);
+    vga_print(" (not production health faults)\n\n");
 
     vga_set_color(VGA_DARK_GREY, VGA_BLACK);
     vga_print("v0.3 honesty: devices 4-7 are simulated registry entries; the PS/2\n");
@@ -430,6 +1019,306 @@ static void cmd_panic_test(void)
     kpanic("TEST-PANIC-001",
            "Deliberate test panic requested via panic-test",
            "test only - reboot the VM, no data affected");
+}
+
+static void cmd_interrupts(void)
+{
+    uint32_t vector = interrupts_last_vector();
+    uint32_t exception = interrupts_last_exception();
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("Kernel Interrupt Status:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print("  GDT loaded          : "); vga_print(gdt_is_loaded() ? "yes\n" : "no\n");
+    vga_print("  IDT loaded          : "); vga_print(idt_is_loaded() ? "yes\n" : "no\n");
+    vga_print("  IRQ gates installed : "); vga_print(idt_irq_gates_installed() ? "yes\n" : "no\n");
+    vga_print("  PIC remapped        : "); vga_print(pic_is_remapped() ? "yes\n" : "no\n");
+    vga_print("  Timer IRQ enabled   : "); vga_print(timer_is_enabled() ? "yes\n" : "no\n");
+    vga_print("  Keyboard mode       : "); vga_print(keyboard_mode_name()); vga_print("\n");
+    vga_print("  Interrupts enabled  : "); vga_print(interrupts_are_enabled() ? "yes\n" : "no\n");
+    vga_print("  Interrupts handled  : "); vga_print_dec(interrupts_handled()); vga_print("\n");
+    vga_print("  Last vector         : ");
+    if (vector == 0xFFFFFFFFu) vga_print("none\n");
+    else { vga_print_dec(vector); vga_print("\n"); }
+    vga_print("  Last exception      : ");
+    if (exception == 0xFFFFFFFFu) vga_print("none\n");
+    else { vga_print(interrupt_exception_name(exception)); vga_print("\n"); }
+}
+
+static void cmd_ticks(void)
+{
+    vga_print("PIT tick count: ");
+    vga_print_dec(timer_ticks());
+    vga_print(" (100 Hz, timer IRQ ");
+    vga_print(timer_is_enabled() ? "enabled" : "disabled");
+    vga_print(")\n");
+}
+
+static void cmd_tasks(void)
+{
+    const struct task *list[TASK_MAX];
+    uint32_t count = task_list(list, TASK_MAX);
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("Kernel Tasks (cooperative steps - no context switching):\n");
+    vga_set_color(VGA_DARK_GREY, VGA_BLACK);
+    print_col("ID", 5);
+    print_col("Name", 19);
+    print_col("State", 11);
+    print_col("Prio", 7);
+    print_col("TicksRun", 12);
+    vga_print("LastRun\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    for (uint32_t i = 0; i < count; i++) {
+        vga_print_dec(list[i]->task_id); vga_print("    ");
+        print_col(list[i]->name, 19);
+        print_col(task_state_name(list[i]->state), 11);
+        vga_print_dec(list[i]->priority); vga_print("      ");
+        vga_print_dec(list[i]->ticks_run); vga_print("           ");
+        vga_print_dec(list[i]->last_run_tick); vga_print("\n");
+    }
+}
+
+static void cmd_task_current(void)
+{
+    const struct task *t = task_current();
+    if (!t) {
+        vga_print("No current task.\n");
+        return;
+    }
+    vga_print("Current task: "); vga_print_dec(t->task_id);
+    vga_print(" "); vga_print(t->name);
+    vga_print(" state="); vga_print(task_state_name(t->state));
+    vga_print(" ticks_run="); vga_print_dec(t->ticks_run);
+    vga_print("\n");
+}
+
+static void cmd_task_yield(void)
+{
+    task_yield();
+    vga_print("Cooperative yield completed one ready task step.\n");
+    vga_print("No stack switch or preemptive context switch occurred.\n");
+}
+
+static void cmd_task_demo(void)
+{
+    uint32_t ran = task_demo_round();
+    vga_print("Task demo round completed "); vga_print_dec(ran);
+    vga_print(" safe steps.\n  idle="); vga_print_dec(task_idle_steps());
+    vga_print(" health_monitor="); vga_print_dec(task_health_steps());
+    vga_print(" recovery_watch="); vga_print_dec(task_recovery_steps());
+    vga_print("\n");
+}
+
+static void cmd_apps(void)
+{
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("Kernel-Managed Apps (fixed registry, not Ring 3 userspace):\n");
+    vga_set_color(VGA_DARK_GREY, VGA_BLACK);
+    print_col("Name", 18);
+    print_col("Type", 15);
+    print_col("Version", 9);
+    print_col("Status", 12);
+    vga_print("Runs\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+
+    for (uint32_t i = 0; i < app_count(); i++) {
+        const struct app *a = app_get(i);
+        print_col(a->name, 18);
+        print_col(app_type_name(a->type), 15);
+        print_col(a->version, 9);
+        print_col(app_status_name(a->status), 12);
+        vga_print_dec(a->run_count);
+        vga_print("\n");
+    }
+    vga_print("\nPolicy: only compile-time built-in apps can run.\n");
+    vga_print("No TinyFS code loading, package payload execution, or Ring 3 isolation.\n");
+}
+
+static void cmd_app_detail(const char *arg)
+{
+    if (!arg[0]) {
+        vga_print("Usage: app <name>\n");
+        return;
+    }
+    const struct app *a = app_find(arg);
+    if (!a) {
+        vga_print("Unknown app. Run `apps` for the fixed registry.\n");
+        return;
+    }
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print(a->name);
+    vga_print("\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print("  id          : "); vga_print_dec(a->app_id); vga_print("\n");
+    vga_print("  description : "); vga_print(a->description); vga_print("\n");
+    vga_print("  version     : "); vga_print(a->version); vga_print("\n");
+    vga_print("  type        : "); vga_print(app_type_name(a->type)); vga_print("\n");
+    vga_print("  status      : "); vga_print(app_status_name(a->status)); vga_print("\n");
+    vga_print("  run_count   : "); vga_print_dec(a->run_count); vga_print("\n");
+    vga_print("  last_result : "); vga_print(a->last_result); vga_print("\n");
+    vga_print("  isolation   : none yet - kernel-managed builtin function\n");
+}
+
+static void cmd_run_app(const char *arg)
+{
+    if (!arg[0]) {
+        vga_print("Usage: run <name>\n");
+        return;
+    }
+    int result = app_run(arg);
+    if (result > 0) {
+        vga_set_color(VGA_LIGHT_GREEN, VGA_BLACK);
+        vga_print("App completed.\n");
+        vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    } else if (result == 0) {
+        vga_set_color(VGA_YELLOW, VGA_BLACK);
+        vga_print("App failed.\n");
+        vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    } else {
+        vga_set_color(VGA_LIGHT_RED, VGA_BLACK);
+        vga_print("App blocked by policy.\n");
+        vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+        vga_print("Only fixed built-in apps can run; no arbitrary code loading exists.\n");
+    }
+}
+
+static void cmd_app_log(void)
+{
+    const struct app_log_entry *rows[APP_LOG_MAX];
+    uint32_t count = app_log_list(rows, APP_LOG_MAX);
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("App Run Log:\n");
+    vga_set_color(VGA_DARK_GREY, VGA_BLACK);
+    print_col("Seq", 6);
+    print_col("Name", 18);
+    print_col("Result", 12);
+    vga_print("Message\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    if (!count) {
+        vga_print("  (no app runs yet)\n");
+    }
+    for (uint32_t i = 0; i < count; i++) {
+        vga_print_dec(rows[i]->seq);
+        vga_print("     ");
+        print_col(rows[i]->name, 18);
+        print_col(rows[i]->result, 12);
+        vga_print(rows[i]->message);
+        vga_print("\n");
+    }
+    vga_print("Blocked attempts: ");
+    vga_print_dec(app_blocked_attempts());
+    vga_print("\n");
+}
+
+static void cmd_fs(void)
+{
+    const struct tinyfs_status_info *s = tinyfs_status();
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("TinyFS Status:\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_print("  Available      : "); vga_print(s->available ? "yes\n" : "no\n");
+    vga_print("  Formatted      : "); vga_print(s->formatted ? "yes\n" : "no\n");
+    vga_print("  Files          : "); vga_print_dec(s->file_count); vga_print(" / ");
+    vga_print_dec(s->max_files); vga_print("\n");
+    vga_print("  Max file size  : "); vga_print_dec(s->max_file_size); vga_print(" bytes\n");
+    vga_print("  Metadata       : LBA 64-72\n");
+    vga_print("  Data           : LBA 73-127\n");
+    vga_print("  Last error     : "); vga_print(s->last_error); vga_print("\n");
+}
+
+static void cmd_fs_format(const char *arg)
+{
+    if (kstrcmp(arg, "confirm") != 0) {
+        vga_print("Usage: fs-format confirm\n");
+        vga_print("This wipes only TinyFS sectors LBA 64-127.\n");
+        return;
+    }
+    vga_print("Formatting TinyFS LBA 64-127...\n");
+    vga_print(tinyfs_format() ? "TinyFS format complete.\n"
+                              : "TinyFS format failed; run fs for details.\n");
+}
+
+static void cmd_ls(void)
+{
+    const struct tinyfs_status_info *s = tinyfs_status();
+    if (!s->formatted) {
+        vga_print("TinyFS is not formatted or unavailable. Run fs for details.\n");
+        return;
+    }
+    const struct tinyfs_file *list[TINYFS_MAX_FILES];
+    uint32_t count = tinyfs_list(list, TINYFS_MAX_FILES);
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_print("TinyFS Files:\n");
+    vga_set_color(VGA_DARK_GREY, VGA_BLACK);
+    print_col("Name", 28); print_col("Size", 12); vga_print("LBA\n");
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    if (count == 0) {
+        vga_print("  (empty)\n");
+        return;
+    }
+    for (uint32_t i = 0; i < count; i++) {
+        print_col(list[i]->name, 28);
+        vga_print_dec(list[i]->size); vga_print("           ");
+        if (list[i]->sector_count) vga_print_dec(list[i]->start_lba);
+        else vga_print("-");
+        vga_print("\n");
+    }
+}
+
+static void cmd_touch(const char *arg)
+{
+    if (!arg[0]) { vga_print("Usage: touch <name>\n"); return; }
+    vga_print(tinyfs_create(arg) ? "File created.\n"
+                                 : "Create failed; run fs for details.\n");
+}
+
+static void cmd_write(const char *arg)
+{
+    if (!arg[0]) { vga_print("Usage: write <name> <text>\n"); return; }
+    char *text = (char *)arg;
+    while (*text && *text != ' ')
+        text++;
+    if (!*text) { vga_print("Usage: write <name> <text>\n"); return; }
+    *text++ = '\0';
+    while (*text == ' ')
+        text++;
+    if (!*text) { vga_print("Write text must not be empty.\n"); return; }
+    vga_print(tinyfs_write_text(arg, text) ? "File written.\n"
+                                           : "Write failed; run fs for details.\n");
+}
+
+static void cmd_cat(const char *arg)
+{
+    static char text[TINYFS_MAX_FILE_SIZE + 1];
+    uint32_t size;
+    if (!arg[0]) { vga_print("Usage: cat <name>\n"); return; }
+    if (!tinyfs_read_text(arg, text, sizeof(text), &size)) {
+        vga_print("Read failed; run fs for details.\n");
+        return;
+    }
+    vga_print(text);
+    vga_print("\n");
+}
+
+static void cmd_rm(const char *arg)
+{
+    if (!arg[0]) { vga_print("Usage: rm <name>\n"); return; }
+    vga_print(tinyfs_delete(arg) ? "File deleted.\n"
+                                 : "Delete failed; run fs for details.\n");
+}
+
+static void cmd_exceptions_test(const char *arg)
+{
+    if (kstrcmp(arg, "divide confirm") == 0) {
+        vga_print("Triggering controlled divide-by-zero exception. The VM will halt.\n");
+        interrupts_trigger_divide_test();
+    } else if (kstrcmp(arg, "invalid-opcode confirm") == 0) {
+        vga_print("Triggering controlled invalid-opcode exception. The VM will halt.\n");
+        interrupts_trigger_invalid_opcode_test();
+    } else {
+        vga_print("This command deliberately halts the kernel after exporting evidence.\n");
+        vga_print("Usage: exceptions-test divide confirm\n");
+        vga_print("   or: exceptions-test invalid-opcode confirm\n");
+    }
 }
 
 /* ------------------------------------------------------------------ */
@@ -672,6 +1561,9 @@ static void cmd_store(void)
     vga_print("  disk available        : ");
     vga_print(recovery_store_available() ? "yes (ATA primary master, PIO)\n"
                                          : "NO - CMOS fallback only\n");
+    vga_print("  disk sectors          : ");
+    vga_print_dec(ata_capacity_sectors());
+    vga_print("\n");
     vga_print("  backend mode          : ");
     vga_print(recovery_memory_backend());
     vga_print("\n  state block valid     : ");
@@ -1209,8 +2101,15 @@ static void cmd_reset_packages(const char *arg)
         vga_print("To proceed, type exactly:  reset-packages confirm\n");
         return;
     }
-    package_state_clear();
-    module_slots_clear();
+    int states_cleared = package_state_clear();
+    int slots_cleared = module_slots_clear();
+    if (!states_cleared || !slots_cleared) {
+        error_log(SEV_ERROR, "PST-RESET-ERR", "PackageState",
+                  "Package reset was only partially persisted",
+                  "do not apply packages until store errors are resolved");
+        vga_print("Package reset persistence failed; inspect `errors` and reboot.\n");
+        return;
+    }
     error_log(SEV_INFO, "PST-100", "PackageState",
               "Package states and module slots reset by user",
               "journal history preserved");
@@ -1243,6 +2142,13 @@ static void report_pkg_result(int r, const char *ok_msg)
     case -3:
         vga_print("Version mismatch: the running module is not this package's\n");
         vga_print("from_version. Nothing was changed.\n");
+        break;
+    case -4:
+        vga_set_color(VGA_LIGHT_RED, VGA_BLACK);
+        vga_print("Persistence failure.");
+        vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+        vga_print(" The transaction was not reported as committed.\n");
+        vga_print("Inspect `errors`; a staged transition is reconciled on reboot.\n");
         break;
     }
 }
@@ -1296,6 +2202,8 @@ static const struct command commands[] = {
     { "help",       cmd_help       },
     { "clear",      vga_clear      },
     { "about",      cmd_about      },
+    { "system",     cmd_system     },
+    { "diagnose",   cmd_diagnose   },
     { "devices",    cmd_devices    },
     { "drivers",    cmd_drivers    },
     { "ghostattach",cmd_ghostattach},
@@ -1303,6 +2211,29 @@ static const struct command commands[] = {
     { "log",        cmd_log        },
     { "logs-ai",    cmd_logs_ai    },
     { "export-logs",cmd_export_logs},
+    { "interrupts", cmd_interrupts },
+    { "ticks",      cmd_ticks      },
+    { "mem",        cmd_mem        },
+    { "memmap",     cmd_memmap     },
+    { "pages",      cmd_pages      },
+    { "heap",       cmd_heap       },
+    { "heap-test",  cmd_heap_test  },
+    { "paging",     cmd_paging     },
+    { "page-map",   cmd_page_map   },
+    { "syscalls",   cmd_syscalls   },
+    { "syscall-test", cmd_syscall_test },
+    { "privilege",   cmd_privilege   },
+    { "gdt",         cmd_gdt         },
+    { "tss",         cmd_tss         },
+    { "ring3-readiness", cmd_ring3_readiness },
+    { "tasks",      cmd_tasks      },
+    { "task-current", cmd_task_current },
+    { "task-yield", cmd_task_yield },
+    { "task-demo",  cmd_task_demo  },
+    { "apps",       cmd_apps       },
+    { "app-log",    cmd_app_log    },
+    { "fs",         cmd_fs         },
+    { "ls",         cmd_ls         },
     { "recovery",   cmd_recovery   },
     { "actions",    cmd_actions    },
     { "suggestions",cmd_suggestions},
@@ -1398,6 +2329,17 @@ void shell_run(void)
         if (kstrcmp(line, "rollback-pkg") == 0) { cmd_rollback_pkg(arg); continue; }
         if (kstrcmp(line, "seed-manifests") == 0) { cmd_seed_manifests(arg); continue; }
         if (kstrcmp(line, "reset-packages") == 0) { cmd_reset_packages(arg); continue; }
+        if (kstrcmp(line, "exceptions-test") == 0) { cmd_exceptions_test(arg); continue; }
+        if (kstrcmp(line, "app") == 0) { cmd_app_detail(arg); continue; }
+        if (kstrcmp(line, "run") == 0) { cmd_run_app(arg); continue; }
+        if (kstrcmp(line, "fs-format") == 0) { cmd_fs_format(arg); continue; }
+        if (kstrcmp(line, "touch") == 0) { cmd_touch(arg); continue; }
+        if (kstrcmp(line, "write") == 0) { cmd_write(arg); continue; }
+        if (kstrcmp(line, "cat") == 0) { cmd_cat(arg); continue; }
+        if (kstrcmp(line, "rm") == 0) { cmd_rm(arg); continue; }
+        if (kstrcmp(line, "heap-alloc") == 0) { cmd_heap_alloc(arg); continue; }
+        if (kstrcmp(line, "pagefault-test") == 0) { cmd_pagefault_test(arg); continue; }
+        if (kstrcmp(line, "syscall") == 0) { cmd_syscall(arg); continue; }
 
         int found = 0;
         for (unsigned i = 0; i < sizeof(commands) / sizeof(commands[0]); i++) {

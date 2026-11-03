@@ -31,6 +31,14 @@
   </section>
 
   <main id="dashboard" class="dashboard">
+    <section class="card wide">
+      <div class="card-head">
+        <h2>v2.5 Privilege Boundary Overview</h2>
+        <span id="v20-status" class="badge neutral">unknown</span>
+      </div>
+      <div id="v20-overview" class="metric-list"></div>
+    </section>
+
     <section class="status-grid">
       <article class="card score-card">
         <div class="card-head">
@@ -64,6 +72,174 @@
         </div>
         <div id="trust-panel" class="metric-list"></div>
       </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h2>Kernel Interrupts</h2>
+          <span id="interrupt-status" class="badge neutral">unknown</span>
+        </div>
+        <div id="interrupt-panel" class="metric-list"></div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h2>Kernel Memory</h2>
+          <span id="memory-status" class="badge neutral">unknown</span>
+        </div>
+        <div id="memory-panel" class="metric-list"></div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h2>Kernel Heap</h2>
+          <span id="heap-status" class="badge neutral">unknown</span>
+        </div>
+        <div id="heap-panel" class="metric-list"></div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h2>Paging</h2>
+          <span id="paging-status" class="badge neutral">unknown</span>
+        </div>
+        <div id="paging-panel" class="metric-list"></div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h2>Page Fault Evidence</h2>
+          <span id="page-fault-status" class="badge neutral">none recorded</span>
+        </div>
+        <div id="page-fault-panel" class="metric-list"></div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h2>Kernel Syscalls</h2>
+          <span id="syscall-status" class="badge neutral">unknown</span>
+        </div>
+        <div id="syscall-panel" class="metric-list"></div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h2>GDT Segments</h2>
+          <span id="gdt-status" class="badge neutral">unknown</span>
+        </div>
+        <div id="gdt-panel" class="metric-list"></div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h2>Task State Segment</h2>
+          <span id="tss-status" class="badge neutral">unknown</span>
+        </div>
+        <div id="tss-panel" class="metric-list"></div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h2>Privilege Readiness</h2>
+          <span id="privilege-status" class="badge neutral">unknown</span>
+        </div>
+        <div id="privilege-panel" class="metric-list"></div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h2>PIT Timer</h2>
+          <span id="timer-status" class="badge neutral">unknown</span>
+        </div>
+        <div id="timing-panel" class="metric-list"></div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h2>Kernel Tasks</h2>
+          <span id="task-status" class="badge neutral">unknown</span>
+        </div>
+        <div id="task-panel" class="metric-list"></div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h2>TinyFS</h2>
+          <span id="tinyfs-status" class="badge neutral">unknown</span>
+        </div>
+        <div id="tinyfs-panel" class="metric-list"></div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h2>Userland Spark</h2>
+          <span id="apps-status" class="badge neutral">unknown</span>
+        </div>
+        <div id="apps-panel" class="metric-list"></div>
+      </article>
+    </section>
+
+    <section class="card wide">
+      <div class="card-head">
+        <h2>Physical Memory Map</h2>
+        <span class="hint">read-only Multiboot regions or fallback map</span>
+      </div>
+      <div class="table-wrap"><table id="memory-map"></table></div>
+    </section>
+
+    <section class="card wide">
+      <div class="card-head">
+        <h2>Page Map</h2>
+        <span class="hint">read-only identity mapping summary</span>
+      </div>
+      <div class="table-wrap"><table id="page-map"></table></div>
+    </section>
+
+    <section class="card wide">
+      <div class="card-head">
+        <h2>Syscall Registry</h2>
+        <span class="hint">fixed kernel-only ABI, read-only report data</span>
+      </div>
+      <div class="table-wrap"><table id="syscall-table"></table></div>
+    </section>
+
+    <section class="card wide">
+      <div class="card-head">
+        <h2>CPU Exception Evidence</h2>
+        <span id="exception-status" class="badge neutral">none recorded</span>
+      </div>
+      <div id="exception-panel" class="metric-list"></div>
+    </section>
+
+    <section class="card wide">
+      <div class="card-head">
+        <h2>Kernel Task Table</h2>
+        <span class="hint">fixed records, cooperative steps only</span>
+      </div>
+      <div class="table-wrap"><table id="tasks"></table></div>
+    </section>
+
+    <section class="card wide">
+      <div class="card-head">
+        <h2>TinyFS Files</h2>
+        <span class="hint">read-only exported metadata</span>
+      </div>
+      <div class="table-wrap"><table id="tinyfs-files"></table></div>
+    </section>
+
+    <section class="card wide">
+      <div class="card-head">
+        <h2>Kernel-Managed Apps</h2>
+        <span class="hint">fixed built-ins, no Ring 3 isolation</span>
+      </div>
+      <div class="table-wrap"><table id="apps"></table></div>
+    </section>
+
+    <section class="card wide">
+      <div class="card-head">
+        <h2>App Run History</h2>
+        <span class="hint">read-only app log</span>
+      </div>
+      <div class="table-wrap"><table id="app-log"></table></div>
     </section>
 
     <section class="card wide">

@@ -72,6 +72,18 @@ static struct driver *find_driver(const char *name)
     return 0;
 }
 
+static int is_expected_self_test(const struct device *dev,
+                                 const struct driver *drv)
+{
+    return dev && drv && dev->device_id == 7 && drv->driver_id == 6 &&
+           dev->bus_type == BUS_VIRTUAL;
+}
+
+static int is_expected_self_test_device(const struct device *dev)
+{
+    return dev && dev->device_id == 7 && dev->bus_type == BUS_VIRTUAL;
+}
+
 /*
  * Compose "DeviceName + action" log messages without a printf. Messages
  * must never contain ';' or '=' (they would corrupt the AI log format).
@@ -135,9 +147,15 @@ static int try_attach_driver(struct device *dev, struct driver *drv,
            attach can't be retried into a boot loop. */
         drv->status = DRVST_FAILED;
         dev->status = DEVST_ISOLATED;
-        log_ga(SEV_ERROR, "GA-DRV-201", dev->name,
-               "driver failed to attach - device isolated",
-               "device quarantined until a working driver exists");
+        if (is_expected_self_test(dev, drv)) {
+            log_ga(SEV_INFO, "GA-TEST-201", dev->name,
+                   "expected canary attach failure - test device isolated",
+                   "self-test evidence only - no production fault");
+        } else {
+            log_ga(SEV_ERROR, "GA-DRV-201", dev->name,
+                   "driver failed to attach - device isolated",
+                   "device quarantined until a working driver exists");
+        }
         return 0;
     }
 
@@ -225,7 +243,11 @@ void ghostattach_scan(int safe_mode)
         case DEVST_FALLBACK:       stats.fallback++; break;
         case DEVST_MISSING_DRIVER: stats.missing++;  break;
         case DEVST_ISOLATED:
-        case DEVST_FAILED:         stats.isolated++; break;
+        case DEVST_FAILED:
+            stats.isolated++;
+            if (!safe_mode && is_expected_self_test_device(&devices[i]))
+                stats.expected_test_failures++;
+            break;
         default:                                     break;
         }
     }
@@ -287,7 +309,11 @@ void ghostattach_set_status_by_type(enum device_type type,
     case DEVST_FALLBACK:       stats.fallback--; break;
     case DEVST_MISSING_DRIVER: stats.missing--;  break;
     case DEVST_ISOLATED:
-    case DEVST_FAILED:         stats.isolated--; break;
+    case DEVST_FAILED:
+        stats.isolated--;
+        if (is_expected_self_test_device(d) && stats.expected_test_failures)
+            stats.expected_test_failures--;
+        break;
     default:                                     break;
     }
     d->status = status;
@@ -296,7 +322,11 @@ void ghostattach_set_status_by_type(enum device_type type,
     case DEVST_FALLBACK:       stats.fallback++; break;
     case DEVST_MISSING_DRIVER: stats.missing++;  break;
     case DEVST_ISOLATED:
-    case DEVST_FAILED:         stats.isolated++; break;
+    case DEVST_FAILED:
+        stats.isolated++;
+        if (is_expected_self_test_device(d))
+            stats.expected_test_failures++;
+        break;
     default:                                     break;
     }
 }

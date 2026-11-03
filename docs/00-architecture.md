@@ -9,7 +9,7 @@
 
 There are four candidate paths. Honest trade-offs:
 
-### Option A — Real toy OS from scratch (bootloader + kernel in C/asm)
+### Option A - Focused research OS prototype from scratch (bootloader + kernel in C/asm)
 - **Pros:** You actually learn operating systems — memory, interrupts, drivers,
   the things the entire KamikazeOS vision depends on. Maximum portfolio
   credibility ("I wrote a kernel" is rare). Total control over the log format,
@@ -32,7 +32,7 @@ There are four candidate paths. Honest trade-offs:
   core, but its *ideas* survive as the Phase 6 dashboard.
 
 ### Option D — Hybrid (chosen) ✅
-**A real toy kernel from scratch (Option A) + the AI Recovery Core running
+**A real research kernel from scratch (Option A) + the AI Recovery Core running
 outside the kernel on the host (initially), + an explicit future pivot point
 where the proven concepts can be re-implemented on Linux (Option B) if this
 ever needs to become a shippable product.**
@@ -128,13 +128,13 @@ Runs **outside the kernel** — first on the host machine reading exported logs
 ## 3. Honest capability ledger
 
 ### Possible NOW (Phases 1–4)
-- Real bootable toy kernel in QEMU with shell, structured logging, panic handler.
+- Real bootable research kernel in QEMU with shell, structured logging, panic handler.
 - Deterministic device detection + registry matching + fallback policy (GhostAttach v0.1).
 - Exporting logs and having an LLM (e.g. Claude) genuinely explain failures and
   propose fixes for a human to approve. This works today and is the demo-able core.
 
 ### Possible LATER (Phases 5–6+, with serious work)
-- Signed update packages, version tracking, A/B-style rollback inside the toy OS.
+- Signed update packages, version tracking, A/B-style rollback inside the research OS prototype.
 - Policy engine auto-applying low-risk repairs in the emulator.
 - The same AI recovery architecture rebased onto Linux for real hardware.
 - An in-OS (userspace, sandboxed) recovery agent instead of a host-side one.
